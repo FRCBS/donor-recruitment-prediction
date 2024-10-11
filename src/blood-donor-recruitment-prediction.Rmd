@@ -4,21 +4,21 @@ author: "Timo Asikainen"
 date: "`r Sys.time()`"
 output:
   html_document:
-    df_print: paged
+    toc: true
+    theme: united
 ---
+
+# Parameters
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(here)
-library(ggrepel)
-library(patchwork)
 library(openxlsx)
 library(ggplot2) # # heatmaps etc
-library(reshape2)
+#library(reshape2)
 ```
 
-git: blood_donation_summer/src/resilence/blood-donor-recruitment-prediction.Rmd
+GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd
 
 
 ```{r parameters} 
@@ -39,8 +39,13 @@ param$annual.first.time.donors=22080
 
 param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata"
 
-# NB! The results directory must be created manually
-param$result.file = './results/data.xlsx'
+# Create directory if it does not already exist
+dir.create(file.path("../results"),showWarnings = FALSE)
+# NB. this command might behave differently depending
+#on if you running from console or Rmd.
+param$result.file = '../results/data.xlsx'
+
+
 
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
@@ -54,6 +59,9 @@ param$useOfficeMobile = TRUE
 # is below the limit, no size data will be exported and the rows will be omitted from the distribution matrix (distm).
 # The data will still be included in the age distribution (dista): this data is aggregated in groups of five years.
 param$min.group.year.size=30
+
+
+
 ```
 
 ```{r group-definitions}
@@ -79,6 +87,7 @@ table.text=gsub(" ","¤",table.text)
 nd = read.table(header=TRUE,text = table.text)
 nd$Name=gsub("¤"," ",nd$Name)
 
+# This is only for Finnish special case and is not used by default
 table.text="
 age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
 0	25	-Garrison	Male	-O-	1	70	Male <25
@@ -105,6 +114,8 @@ table.text="age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	Maxi
 0	100	*	Female	*	1	70	Female"
 gt.sex = read.table(header=TRUE,text = table.text)
 ```
+
+# Functions
 
 ```{r}
 # Group table (gt) is the structure defined in Excel that contains the information on how the
@@ -377,6 +388,8 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
   p
 }
 ```
+
+# Processing
 
 ```{r load-and-preprocess-data}
 # Load the data and process it for the purposes of both the 1st time donor analysis 
@@ -752,6 +765,9 @@ if (FALSE) {
 }
 ```
 
+
+# Results
+
 ```{r compute-distributions-groups}
 # 2024-08-07 trying the data for existing donors now
 #res.ed.old=res.ed
@@ -814,6 +830,9 @@ activity.stats = spair2 %>%
 activity.stats$ord = activity.stats$ord-1
 activity.stats = activity.stats[activity.stats$ord>0,]
 ```
+
+
+# Export
 
 ```{r}
 if (FALSE) {
