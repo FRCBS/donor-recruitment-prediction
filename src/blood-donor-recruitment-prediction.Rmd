@@ -411,13 +411,17 @@ if (!is.null(load.ready) && load.ready != 1) {
   
   donationdata$donation$numid=id.map[donationdata$donation$releaseID,'numid']
   donationdata$donor$numid=id.map[donationdata$donor$releaseID,'numid']
-  donationdata$deferral$numid=id.map[donationdata$deferral$releaseID,'numid']
-  donationdata$contact$numid=id.map[donationdata$contact$releaseID,'numid']
+
+  # Remove references to referral and contact data to enable analysis without the
+  # related donationdata list memebers.
+  # These data are not currently used anyway in the actual analysis.
+  # donationdata$deferral$numid=id.map[donationdata$deferral$releaseID,'numid']
+  # donationdata$contact$numid=id.map[donationdata$contact$releaseID,'numid']
   
   donationdata$donation$rowid=1e7+as.integer(rownames(donationdata$donation))
   donationdata$donor$rowid=2e5+as.integer(rownames(donationdata$donor))
-  donationdata$deferral$rowid=3e7+as.integer(rownames(donationdata$deferral))
-  donationdata$contact$rowid=4e8+as.integer(rownames(donationdata$contact))
+  # donationdata$deferral$rowid=3e7+as.integer(rownames(donationdata$deferral))
+  # donationdata$contact$rowid=4e8+as.integer(rownames(donationdata$contact))
   
   # levels(donationdata$donation$BloodDonationTypeKey)
   # [1] "First Time Donor Sample (Z)"     "Kokoveri/Tetanus (R)"           
