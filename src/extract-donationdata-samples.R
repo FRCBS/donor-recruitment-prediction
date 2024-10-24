@@ -1,12 +1,13 @@
 # extracts random samples from each data set in donation data
 # Each column is sampled independently of each other to break the data
 
+
+library(xfun) # md5
+
 file <- param$data.file # defined in the Rmd file that should be done first
 load(file = file) # replaces the modified donationdata with the original one
 
 n = 100 # sample size
-
-library(xfun)
 
 for (m in names(donationdata)) {
   data = donationdata[[m]]
@@ -28,4 +29,3 @@ for (m in names(donationdata)) {
   write.table(output,file = paste(m,'.txt',sep=''),sep='\t',col.names = FALSE,row.names = FALSE,quote = FALSE)
 }
 
-?md5
