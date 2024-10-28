@@ -1,9 +1,6 @@
 # extracts random samples from each data set in donation data
 # Each column is sampled independently of each other to break the data
 
-
-library(xfun) # md5
-
 file <- param$data.file # defined in the Rmd file that should be done first
 load(file = file) # replaces the modified donationdata with the original one
 
@@ -14,10 +11,10 @@ for (m in names(donationdata)) {
   output = NULL
   for (c in colnames(data)) {
     smpl = sample(data[[c]],n)
+    
     if (c == 'releaseID') {
       # Replace the releaseID's with essential random text data (both a-z and 0-9 included)
-      salt = rnorm(1)
-      smpl = substr(as.vector(sapply(paste(smpl,as.character(salt)),md5)),1,14)
+      smpl = paste0('SP_ALPHABETA',1000+(1:n))
     }
     
     if (is.null(output))
