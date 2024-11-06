@@ -40,10 +40,10 @@ param$annual.first.time.donors=22080
 param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata"
 
 # Create directory if it does not already exist
-dir.create(file.path("../results"),showWarnings = FALSE)
+dir.create(file.path("./results"),showWarnings = FALSE)
 # NB. this command might behave differently depending
 #on if you running from console or Rmd.
-param$result.file = '../results/data.xlsx'
+param$result.file = './results/data.xlsx'
 
 
 
