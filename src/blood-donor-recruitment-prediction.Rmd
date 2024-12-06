@@ -8,8 +8,6 @@ output:
     theme: united
 ---
 
-# Parameters
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -20,6 +18,8 @@ library(ggplot2) # # heatmaps etc
 
 GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd
 
+
+# Parameters
 
 ```{r parameters} 
 # Notes from meeting with Mart and Amber (2 Oct 2024)
