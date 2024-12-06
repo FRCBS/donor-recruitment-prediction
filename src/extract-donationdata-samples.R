@@ -26,3 +26,4 @@ for (m in names(donationdata)) {
   write.table(output,file = paste(m,'.txt',sep=''),sep='\t',col.names = FALSE,row.names = FALSE,quote = FALSE)
 }
 
+# test
