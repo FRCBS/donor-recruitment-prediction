@@ -1,0 +1,110 @@
+---
+  title: "Blood donor recruitment prediction"
+author: "Timo Asikainen"
+date: "`r Sys.time()`"
+output:
+  html_document:
+  toc: true
+theme: united
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(openxlsx)
+library(ggplot2) # # heatmaps etc
+#library(reshape2)
+```
+
+GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd
+
+
+# Parameters
+
+```{r parameters} 
+param=list()
+param$data.directory = '.\\data'
+```
+
+```{r}
+file.names = dir(path=param$data.directory,pattern="*.xlsx")
+file.paths = paste(param$data.directory,'\\',file.names,sep='')
+
+countries = list()
+gt = NULL
+for (file in file.paths) {
+  identifier = gsub('.*\\\\(..).*\\.xlsx$','\\1',file)
+  
+  curr = list()
+  res = list()
+  
+  sheet.names = getSheetNames(file)
+  for (sn in sheet.names) {
+    data = read.xlsx(file,colNames=TRUE,rowNames=TRUE,sheet = sn)
+    if (grepl('definition$',sn)) {
+      if (is.null(gt)) {
+        gt = data
+      } else
+        gt = rbind(gt,data)
+    } else if (sn == 'parameters') {
+      curr$parameters = data
+    } else if (grepl('sizes',sn)) {
+        grp = list()
+        grp$sizes = data
+    } else if (grepl('distm|dista',sn)) {
+      kind = sub('.+(distm|dista)','\\1',sn)
+      if (kind == 'distm') 
+        grp[[kind]] = as.matrix(data)
+      if (kind == 'dista')
+        grp[[kind]] = data
+        res[[length(res)+1]] = grp
+    } else {
+      print(paste('not processed',sn))
+    }
+  }
+  
+  curr$gt = gt
+  curr$res = res
+  countries[[identifier]] = curr
+}  
+
+# str(countries)
+
+```
+```{r}
+# nb! 1:14 is due to the nl data being shorter and a glitch in the data export (data gets repeated from the left again)
+for (i in 1:length(countries$nl$res)) {
+  plotDistibutionMatrix(countries$nl$res[[i]]$distm[,1:14],diff=FALSE,skip.years=1,main='')
+}
+```
+```{r}
+# nb! 1:14 is due to the nl data being shorter and a glitch in the data export (data gets repeated from the left again)
+for (i in 1:length(countries$nl$res)) {
+  # estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='')
+  estimate.predict(countries$nl$res[[i]]$distm[,1:14],ref.year="2012",last.data.year=2023,years.ahead=55,main='plot')
+}
+```
+
+
+```{r}
+for (i in 1:length(countries$nl$res)) {
+  local.gt = NULL
+  local.res = list()
+  for (m in names(countries)) {
+    if (is.null(local.gt)) {
+      local.gt = countries[[m]]$gt[i,]
+    } else {
+      local.gt = rbind(local.gt,countries[[m]]$gt[i,])
+    }
+    local.res[[m]] = countries[[m]]$res[[i]]
+    local.res[[m]]$distm = local.res[[m]]$distm[,1:14]
+  }
+  group.name = local.gt[1,'Name']
+  local.gt$Name = names(countries)
+  plot.estimated(local.res,local.gt,bundle=TRUE)
+}
+```
+
+```{r}
+knitr::knit_exit()
+```
