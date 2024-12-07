@@ -263,6 +263,7 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
   }
   
   data.sum = 0
+  # 
   for (k in 1:length(resl)) {
     data.sum = data.sum + table(year(resl[[k]]$data$date))[as.character(first.predicted.year-1)]
   }
@@ -336,6 +337,8 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
         if (!is.null(total.donations) && total.donations > 0) 
           vmult = as.numeric(total.donations) / as.numeric(data.sum)
       
+        # donation amounts: rows ~ groups, columns ~ years.ahead
+        # Here the loop (i) is over the age distribution
         donation.amounts[i,] = vmult * annual.donation.densities *
           as.integer(table(year(group$data$date))[as.character(first.predicted.year-1)]) * dista[i]
       }
@@ -385,7 +388,7 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
       ylab('year of first donation') + 
       labs(title=main) + 
       scale_y_reverse()
-  p
+  print(p)
 }
 ```
 

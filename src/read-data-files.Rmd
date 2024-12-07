@@ -1,5 +1,5 @@
 ---
-  title: "Blood donor recruitment prediction"
+title: "Blood donor recruitment prediction: data load and analysis"
 author: "Timo Asikainen"
 date: "`r Sys.time()`"
 output:
@@ -8,12 +8,12 @@ output:
 theme: united
 ---
   
-  ```{r setup, include=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(openxlsx)
 library(ggplot2) # # heatmaps etc
-#library(reshape2)
+library(reshape2) # melt (needed in heatmaps)
 ```
 
 GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd
@@ -23,17 +23,24 @@ GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/bloo
 
 ```{r parameters} 
 param=list()
-param$data.directory = '.\\data'
+param$data.directory = 'C:/git_repot/donor-recruitment-prediction/data' # '/data'
 ```
 
 ```{r}
+dump(list = lsf.str(), file = "functions.R")
+source('functions.R')
+```
+
+
+```{r}
 file.names = dir(path=param$data.directory,pattern="*.xlsx")
-file.paths = paste(param$data.directory,'\\',file.names,sep='')
+file.names = file.names[!grepl('~',file.names)]
+file.paths = paste(param$data.directory,'/',file.names,sep='')
 
 countries = list()
 gt = NULL
 for (file in file.paths) {
-  identifier = gsub('.*\\\\(..).*\\.xlsx$','\\1',file)
+  identifier = sub('.+[/\\]([a-z]+)[^/\\]+$','\\1',file) # gsub('.*\\\\(..).*\\.xlsx$','\\1',file)
   
   curr = list()
   res = list()
@@ -53,8 +60,11 @@ for (file in file.paths) {
         grp$sizes = data
     } else if (grepl('distm|dista',sn)) {
       kind = sub('.+(distm|dista)','\\1',sn)
-      if (kind == 'distm') 
-        grp[[kind]] = as.matrix(data)
+      if (kind == 'distm') {
+        # There is an error in data generation: the columns start repeating
+        ncols = which.max(colSums(is.na(data))) # countries$nl$res[[1]]$distm
+        grp[[kind]] = as.matrix(data[,1:(ncols-0)])
+      }
       if (kind == 'dista')
         grp[[kind]] = data
         res[[length(res)+1]] = grp
@@ -72,37 +82,107 @@ for (file in file.paths) {
 
 ```
 ```{r}
-# nb! 1:14 is due to the nl data being shorter and a glitch in the data export (data gets repeated from the left again)
+# These values are experimental in the data, so quick-fix them here
+countries$fi$parameters$reference.year = 2003
+countries$fi$parameters$lasta.data.year = 2023
+```
+
+```{r}
 for (i in 1:length(countries$nl$res)) {
-  plotDistibutionMatrix(countries$nl$res[[i]]$distm[,1:14],diff=FALSE,skip.years=1,main='')
+  plotDistibutionMatrix(countries$nl$res[[i]]$distm,diff=FALSE,skip.years=1,main=countries$nl$gt$Name)
 }
 ```
 ```{r}
-# nb! 1:14 is due to the nl data being shorter and a glitch in the data export (data gets repeated from the left again)
-for (i in 1:length(countries$nl$res)) {
-  # estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='')
-  estimate.predict(countries$nl$res[[i]]$distm[,1:14],ref.year="2012",last.data.year=2023,years.ahead=55,main='plot')
+# Here, the data is augmented with models estimated based on distm
+for (i in 1:length(countries[[1]]$res)) {
+  for (m in names(countries)) {
+    params = countries[[m]]$parameters
+    last.data.year = params$last.data.year
+    ref.year = as.character(params$reference.year)
+    m0 = estimate.predict(countries[[m]]$res[[i]]$distm,ref.year=ref.year,last.data.year=last.data.year,years.ahead=55,main='')
+    countries[[m]]$res[[i]]$m = m0
+  }
+}
+```
+
+```{r}
+# This is a slighty modified version of plot.estimted in blood-donor-recruitment-prediction.R
+plot.estimated.countries = function(nres,gt,bundle=FALSE,years.ahead=55,main='') {
+  # Here, gt contains reference year and last.data year values (per country)
+  
+  models=list()
+  for (i in 1:length(nres)) {
+    group = nres[[i]]
+    models[[i]]=estimate.predict(group$distm,
+                    ref.year=gt[i,'reference.year'],last.data.year=gt[i,'last.data.year'],
+                     main = if (bundle) '' else gt$Name[i],
+                     sub=paste('n=',dim(group$data)[1],sep=''))
+  }
+  
+  mean.y = NULL
+  
+  # Create a plot with all the model estimates if requested
+  if (bundle) {
+    # nb! should set a reasonable value for the maximum
+    plot(x=NULL,type='n',xlim=c(0,55),ylim=c(0,20),main=main,ylab='cumulative number of donations',xlab='years since first donation')
+    for (i in 1:length(models)) {
+      new=data.frame(x=0:years.ahead,sqrt.x=(0:years.ahead)^0.5)
+      pred.w.plim <- predict(models[[i]], new, interval = "prediction")
+      # pred.w.clim <- predict(models[[i]], new, interval = "confidence")
+      lines(new$x, pred.w.plim[,1],lwd=3,col=i+1)
+      lines(new$x, pred.w.plim[,2],lwd=1,col=i+1,lty='dashed')
+      lines(new$x, pred.w.plim[,3],lwd=1,col=i+1,lty='dashed')
+      points(models[[i]]$model$x,models[[i]]$model$y,col=i+1)
+      legend('topleft',legend=gt$Name,fill=1+(1:length(models)))
+    }
+    
+    if (length(models)==2) {
+      # Plot the proportion as well to enable comparisons
+      # Primarily intended to estimate the excess donations by Oneg donors
+      min.len = min(length(models[[1]]$model$y),length(models[[2]]$model$y))
+      lines(models[[1]]$model$x[1:min.len], models[[1]]$model$y[1:min.len]/models[[2]]$model$y[1:min.len],lwd=5,lty='dotted')
+      mean.y=mean(models[[1]]$model$y[1:min.len]/models[[2]]$model$y[1:min.len])
+      text(x=30,y=mean.y,labels=paste('ratio =',round(mean.y,3)))
+    }
+  }
+  
+  return(mean.y)
 }
 ```
 
 
 ```{r}
+# Plot the countrywise comparisons for each group
+# nb!/todo Could also make comparisons based on the estimated parameters: integrate over a given range
 for (i in 1:length(countries$nl$res)) {
   local.gt = NULL
   local.res = list()
   for (m in names(countries)) {
     if (is.null(local.gt)) {
       local.gt = countries[[m]]$gt[i,]
+      ncol.gt = ncol(countries[[m]]$gt)
+      rownames(local.gt) = m
     } else {
-      local.gt = rbind(local.gt,countries[[m]]$gt[i,])
+      local.gt[m,1:ncol.gt] = countries[[m]]$gt[i,]
     }
     local.res[[m]] = countries[[m]]$res[[i]]
-    local.res[[m]]$distm = local.res[[m]]$distm[,1:14]
+    if (m == 'nl')
+      local.res[[m]]$distm = local.res[[m]]$distm[,1:14]
+    
+    local.gt[nrow(local.gt),'reference.year'] = countries[[m]]$parameters$reference.year
+    local.gt[nrow(local.gt),'last.data.year'] = countries[[m]]$parameters$last.data.year
   }
-  group.name = local.gt[1,'Name']
+  
+  # nb! hard-coded constant; the name is missing for some reason on the first line
+  group.name = local.gt[2,'Name']
   local.gt$Name = names(countries)
-  plot.estimated(local.res,local.gt,bundle=TRUE)
+  plot.estimated.countries(local.res,local.gt,bundle=TRUE,main=group.name)
 }
+```
+```{r}
+resl=countries[[2]]$res
+gtl=countries[[2]]$gt
+fi.nd = sumDonationAmounts(nres,gt,FALSE,total.donations=param$annual.first.time.donors)
 ```
 
 ```{r}
