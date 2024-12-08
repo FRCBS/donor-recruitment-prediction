@@ -237,7 +237,15 @@ processGroupTable = function(data.param,gt) {
     m = estimate.predict(distm,ref.year=param$reference.year,last.data.year=param$last.data.year)
     dista = getAgeDistributionMatrix(ldata[[i]])
     
-    res[[i]] = list(data=ldata[[i]],distm=distm,m=m,dista=dista)
+    sizes = ldata[[i]] %>%
+      mutate(year=year(date)) %>%
+      group_by(year) %>%
+      summarise(n=n())
+    rownames(sizes) = sizes$year
+    
+    # nb! Should check that this doesn't interfere with the export.
+    # Also could use this data when exporting
+    res[[i]] = list(data=ldata[[i]],distm=distm,m=m,dista=dista,sizes=sizes)
   }
 
   return(res)
@@ -249,6 +257,7 @@ cumulativeToDensity = function(dist) {
 ```
 
 ```{r}
+# nb! Should the first predicted year actually be 2024? If there is full data for 2024
 computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2023,is.existing=FALSE,by.age=FALSE,total.donations=0) {
   if (is.existing) {
     cdata=cbind(gr=1,resl[[1]]$data[,c('numid','date')])
@@ -263,9 +272,11 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
   }
   
   data.sum = 0
-  # 
   for (k in 1:length(resl)) {
-    data.sum = data.sum + table(year(resl[[k]]$data$date))[as.character(first.predicted.year-1)]
+    # cf. countries$nl$res[[1]]$sizes
+    # data.sum = data.sum + table(year(resl[[k]]$data$date))[as.character(first.predicted.year-1)]
+    # 2024-12-08 New version using presaved sizes
+    data.sum = data.sum + resl[[k]]$sizes[as.character(first.predicted.year-1),'n']
   }
   
   for (k in 1:length(resl)) {
@@ -340,7 +351,8 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
         # donation amounts: rows ~ groups, columns ~ years.ahead
         # Here the loop (i) is over the age distribution
         donation.amounts[i,] = vmult * annual.donation.densities *
-          as.integer(table(year(group$data$date))[as.character(first.predicted.year-1)]) * dista[i]
+          # as.integer(table(year(group$data$date))[as.character(first.predicted.year-1)]) * dista[i]
+          group$sizes[as.character(first.predicted.year-1),'n'] * dista[i]
       }
     } # for (i in 1:length(rownames(group$dista))) # groups
     
@@ -756,10 +768,12 @@ plotDonationAmounts = function(dona,gt) {
     group_by(grp) %>%
     mutate(year = as.integer(year))
     
-  data.frame(pdata) %>%
+  p = data.frame(pdata) %>%
     ggplot(aes(x = year, y = donations, fill = grp)) +
     geom_area() +     
     theme(legend.position="bottom")
+  
+  print(p)
 }
 
 # Run this to check actual donation amounts, check here

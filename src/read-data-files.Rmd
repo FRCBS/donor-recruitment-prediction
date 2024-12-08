@@ -47,6 +47,7 @@ for (file in file.paths) {
   
   sheet.names = getSheetNames(file)
   for (sn in sheet.names) {
+    print(sn)
     data = read.xlsx(file,colNames=TRUE,rowNames=TRUE,sheet = sn)
     if (grepl('definition$',sn)) {
       if (is.null(gt)) {
@@ -58,29 +59,34 @@ for (file in file.paths) {
     } else if (grepl('sizes',sn)) {
         grp = list()
         grp$sizes = data
+        rownames(grp$sizes) = grp$sizes$year
     } else if (grepl('distm|dista',sn)) {
       kind = sub('.+(distm|dista)','\\1',sn)
+      # print(paste('kind',kind))
       if (kind == 'distm') {
         # There is an error in data generation: the columns start repeating
-        ncols = which.max(colSums(is.na(data))) # countries$nl$res[[1]]$distm
+        # Remove the extra columns here
+        ncols = which.max(colSums(is.na(data)))
         grp[[kind]] = as.matrix(data[,1:(ncols-0)])
       }
-      if (kind == 'dista')
+      if (kind == 'dista') {
+        # print(paste('jamppaus',is.null(data)))
         grp[[kind]] = data
         res[[length(res)+1]] = grp
+        print(paste(length(res),dim(gt)[1],names(res[[length(res)]])))
+      }
     } else {
       print(paste('not processed',sn))
     }
   }
   
   curr$gt = gt
+  gt = NULL
   curr$res = res
   countries[[identifier]] = curr
-}  
-
-# str(countries)
-
+}
 ```
+
 ```{r}
 # These values are experimental in the data, so quick-fix them here
 countries$fi$parameters$reference.year = 2003
@@ -92,7 +98,8 @@ for (i in 1:length(countries$nl$res)) {
   plotDistibutionMatrix(countries$nl$res[[i]]$distm,diff=FALSE,skip.years=1,main=countries$nl$gt$Name)
 }
 ```
-```{r}
+
+```{r estimate-models}
 # Here, the data is augmented with models estimated based on distm
 for (i in 1:length(countries[[1]]$res)) {
   for (m in names(countries)) {
@@ -180,10 +187,17 @@ for (i in 1:length(countries$nl$res)) {
 }
 ```
 ```{r}
-resl=countries[[2]]$res
-gtl=countries[[2]]$gt
-fi.nd = sumDonationAmounts(nres,gt,FALSE,total.donations=param$annual.first.time.donors)
+dona=list()
+for (m in names(countries)) {
+  dona[[m]] = sumDonationAmounts(countries[[m]]$res,countries[[m]]$gt,FALSE,total.donations=NULL) 
+}
 ```
+```{r plot-donation-amounts}
+for (m in names(countries)) {
+  plotDonationAmounts(dona[[m]],countries[[m]]$gt)
+}
+```
+
 
 ```{r}
 knitr::knit_exit()
