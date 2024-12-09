@@ -45,7 +45,6 @@ dir.create(file.path("./results"),showWarnings = FALSE)
 param$result.file = './results/data 2024-12-08.xlsx'
 
 
-
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
 # These parameters do not affect the exported distribution matrix (distm).
@@ -64,7 +63,27 @@ param$min.group.year.size=30
 ```
 
 ```{r group-definitions}
-source('group-definitions.r')
+table.text="
+age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
+0	25	Office	Male	-O-	1	70	Male Office 0-25
+25	40	Office	Male	-O-	1	70	Male Office 25-40
+40	100	Office	Male	-O-	1	70	Male Office 40-100
+0	25	Office	Female	-O-	1	70	Female Office 0-25
+25	40	Office	Female	-O-	1	70	Female Office 25-40
+40	100	Office	Female	-O-	1	70	Female Office 40-100
+0	25	Mobile	Male	-O-	1	70	Male Mobile 0-25
+25	40	Mobile	Male	-O-	1	70	Male Mobile 25-40
+40	100	Mobile	Male	-O-	1	70	Male Mobile 40-100
+0	25	Mobile	Female	-O-	1	70	Female Mobile 0-25
+25	40	Mobile	Female	-O-	1	70	Female Mobile 25-40
+40	100	Mobile	Female	-O-	1	70	Female Mobile 40-100
+0	100	Office	Male	O-	1	70	Male Office 0-100
+0	100	Office	Female	O-	1	70	Female Office 0-100
+0	100	Mobile	Male	O-	1	70	Male O- Mobile 0-100
+0	100	Mobile	Female	O-	1	70	Female O- Mobile 0-100"
+table.text=gsub(" ","¤",table.text)
+nd = read.table(header=TRUE,text = table.text)
+nd$Name=gsub("¤"," ",nd$Name)
 ```
 
 # Functions
@@ -142,6 +161,9 @@ processGroupTable = function(data.param,gt) {
       cvalue = gt[r,'Donations']
       data=data[check.column(data$grFreq,cvalue),]
     }
+    
+    # 2024-12-09 nb! Should also reorder the things so that data is exported before
+    # the analysis. This is to ensure that the most important things is achieved first.
     
     # nb! This block has been copied, although it could be a function
     # But would data be actually copied to the function?
@@ -572,8 +594,10 @@ plotAgeDistributionMatrix = function(data,years=17:65,main='') {
 ```{r}
 # nb: ref.year is the row that is used for prediction; if data begins 2000, this will be year 2003
 # distm should be the cumulative distribution matrix
-estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='') {
+estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='',try.nls=FALSE) {
   # dist = res.nd[[1]]$distm
+  print(ref.year)
+  print(last.data.year)
   ref.year=as.character(ref.year)
   ref.year.numeric = as.integer(ref.year)
   years.to.use = 1 + (as.integer(last.data.year) - ref.year.numeric)
@@ -583,7 +607,21 @@ estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead
   data$sqrt.x=data$x^0.5
   m=lm(y~x+sqrt.x,data=data)
   
-assign("sample",data,.GlobalEnv)
+# assign("sample",data,.GlobalEnv)
+  
+  if (try.nls) {
+    m.nls = NULL
+    sample2=data
+    sample2$x=data$x-1
+    try(m.nls <- nls(y~y1*exp(-lambda*x)+y0,data=sample2,
+                  start=list(y1=-(max(sample2$y)-min(sample2$y)),lambda=0.2,y0=max(sample2$y))))
+  
+    if (is.null(m.nls)) {
+      print('m.nls failed')
+    } else {
+      print(summary(m.nls))
+    }
+  }
   
   # Values are predicted here only if the main parameter is given. Otherwise years.ahead remains unused as well
   new=data.frame(x=1:years.ahead,sqrt.x=(1:years.ahead)^0.5)
@@ -593,6 +631,18 @@ assign("sample",data,.GlobalEnv)
     matplot(new$x, cbind(pred.w.clim, pred.w.plim[,-1]),
       lty = c(1,2,2,3,3), type = "l", ylab = "predicted y",main=main,sub=sub)
     points(data$x,data$y)
+    
+    if (!is.null(m.nls)) {
+      new = data.frame(x=0:(years.ahead-1))
+      new$y = predict(m.nls,new=new)
+      new$x = new$x + 1
+      # plot(y~x,data=sample2)
+      lines(new$x,new$y,col='purple',lwd=2,lty='dashed')
+    }
+  }
+  
+  if (try.nls) {
+    return(list(m=m,m.nls=m.nls))
   }
   
   return(m)
@@ -604,11 +654,15 @@ plot.estimated = function(nres,gt,bundle=FALSE,years.ahead=55) {
   # bundle=TRUE
   
   models=list()
+  models.nls = list()
   for (i in 1:length(nres)) {
     group = nres[[i]]
-    models[[i]]=estimate.predict(group$distm,
+    ms = estimate.predict(group$distm,
                      main = if (bundle) '' else gt$Name[i],
-                     sub=paste('n=',dim(group$data)[1],sep=''))
+                     ref.year=param$reference.year,last.data.year=param$last.data.year,
+                     sub=paste('n=',dim(group$data)[1],sep=''),try.nls=TRUE)
+    models[[i]] = ms$m
+    models.nls[[i]] = ms$m.nls
   }
   
   mean.y = NULL
@@ -648,6 +702,9 @@ distributionMatrix2 = function(data.group,data.full,density=FALSE,max.dt=as.Date
   # nb! should implement the remaining parameters
   # The last year should include a full year of donations
   
+# assign('data.group',data.group,.GlobalEnv)
+# assign('data.full',data.full,.GlobalEnv)
+  
   # stats will contain the time in years from each donor's first donation to each subsequent donation
   # in years. Example tibble [220,092 × 3]
   stats = data.group %>%
@@ -674,6 +731,10 @@ distributionMatrix2 = function(data.group,data.full,density=FALSE,max.dt=as.Date
   mat=mat[,2:dim(mat)[2]]
 
   dmat = getDensity(mat)
+  
+  # nb! These override the parameters that were never actually set but the defaults were used
+  year.end=max(resgrid$year)
+  year.start=min(resgrid$year)
 
   # Fill in possible gaps in the matrix with zeros
   years.ahead=max((year.end-year.start)+1,dim(mat)[2])
@@ -862,6 +923,8 @@ plot(activity.stats$ord,activity.stats$delay,xlab='number of previous donations'
 
 plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),main='probability of next donation',type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)')
 ```
+
+# nb! Pitää katsoa vielä oneg asia kuntoon, eli että ajo pyörii maaliin asti.
 
 ```{r export-summary-data}
 exportSummary(nd,res.nd,param$result.file)

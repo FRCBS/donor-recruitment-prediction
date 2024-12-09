@@ -26,13 +26,8 @@ param=list()
 param$data.directory = 'C:/git_repot/donor-recruitment-prediction/data' # '/data'
 ```
 
-```{r}
-dump(list = lsf.str(), file = "functions.R")
-source('functions.R')
-```
 
-
-```{r}
+```{r read-files}
 file.names = dir(path=param$data.directory,pattern="*.xlsx")
 file.names = file.names[!grepl('~',file.names)]
 file.paths = paste(param$data.directory,'/',file.names,sep='')
@@ -47,9 +42,9 @@ for (file in file.paths) {
   
   sheet.names = getSheetNames(file)
   for (sn in sheet.names) {
-    print(sn)
+    # print(sn)
     data = read.xlsx(file,colNames=TRUE,rowNames=TRUE,sheet = sn)
-    if (grepl('definition$',sn)) {
+    if (grepl(' def(inition)?$',sn)) {
       if (is.null(gt)) {
         gt = data
       } else
@@ -62,7 +57,6 @@ for (file in file.paths) {
         rownames(grp$sizes) = grp$sizes$year
     } else if (grepl('distm|dista',sn)) {
       kind = sub('.+(distm|dista)','\\1',sn)
-      # print(paste('kind',kind))
       if (kind == 'distm') {
         # There is an error in data generation: the columns start repeating
         # Remove the extra columns here
@@ -70,12 +64,13 @@ for (file in file.paths) {
         grp[[kind]] = as.matrix(data[,1:(ncols-0)])
       }
       if (kind == 'dista') {
-        # print(paste('jamppaus',is.null(data)))
         grp[[kind]] = data
         res[[length(res)+1]] = grp
-        print(paste(length(res),dim(gt)[1],names(res[[length(res)]])))
       }
-    } else {
+    } else if (sn == 'activity-stats') {
+      curr$activity.stats = data
+    }
+    else {
       print(paste('not processed',sn))
     }
   }
@@ -90,7 +85,7 @@ for (file in file.paths) {
 ```{r}
 # These values are experimental in the data, so quick-fix them here
 countries$fi$parameters$reference.year = 2003
-countries$fi$parameters$lasta.data.year = 2023
+countries$fi$parameters$last.data.year = 2023
 ```
 
 ```{r}
@@ -101,8 +96,8 @@ for (i in 1:length(countries$nl$res)) {
 
 ```{r estimate-models}
 # Here, the data is augmented with models estimated based on distm
-for (i in 1:length(countries[[1]]$res)) {
-  for (m in names(countries)) {
+for (m in names(countries)) {
+  for (i in 1:length(countries[[m]]$res)) {
     params = countries[[m]]$parameters
     last.data.year = params$last.data.year
     ref.year = as.character(params$reference.year)
@@ -120,10 +115,12 @@ plot.estimated.countries = function(nres,gt,bundle=FALSE,years.ahead=55,main='')
   models=list()
   for (i in 1:length(nres)) {
     group = nres[[i]]
-    models[[i]]=estimate.predict(group$distm,
+    ms = estimate.predict(group$distm,
                     ref.year=gt[i,'reference.year'],last.data.year=gt[i,'last.data.year'],
                      main = if (bundle) '' else gt$Name[i],
-                     sub=paste('n=',dim(group$data)[1],sep=''))
+                     sub=paste('n=',dim(group$data)[1],sep=''),try.nls=TRUE)
+    
+    models[[i]] = ms$m
   }
   
   mean.y = NULL
@@ -185,17 +182,57 @@ for (i in 1:length(countries$nl$res)) {
   local.gt$Name = names(countries)
   plot.estimated.countries(local.res,local.gt,bundle=TRUE,main=group.name)
 }
+# Change in hemoglobin accross countries
+# Confidence intervals for predictions
+# Countrwise comparisons
+# Model could be estimated using splines
+# Trends over time: some mixed model to see the trends over time
+# Not yet hemoglobin
+# 7th Jan
+# Oneg thing to be included, highlight this; plots for this as well
+# Split by
+# - Oneg/others
+# - Sex
+# - (Age)
+# - (Type of place)
 ```
-```{r}
+```{r compute-donation-amounts}
 dona=list()
 for (m in names(countries)) {
   dona[[m]] = sumDonationAmounts(countries[[m]]$res,countries[[m]]$gt,FALSE,total.donations=NULL) 
 }
 ```
+
 ```{r plot-donation-amounts}
 for (m in names(countries)) {
   plotDonationAmounts(dona[[m]],countries[[m]]$gt)
 }
+```
+
+```{r}
+plot(x=NULL,type='n',xlim=c(0,200),ylim=c(0,100),xlab='number of previous donations',ylab='probability of next donation (%)')
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats
+  lines(stats$ord,100*stats$prop,lwd=3,col=i+1)
+}
+legend('bottomright',legend=names(countries),fill=1+(1:length(countries)))
+
+plot(x=NULL,type='n',xlim=c(0,200),ylim=c(0,600),xlab='number of previous donations',ylab='time till next donation')
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats
+  lines(stats$ord,as.numeric(stats$delay),lwd=3,col=i+1)
+}
+legend('bottomright',legend=names(countries),fill=1+(1:length(countries)))
+
+# Divide both by sex
+# Confidence intervals
+```
+
+```{r}
+local.gt = countries$fi$gt
+local.gt$reference.year = countries$fi$parameters$reference.year
+local.gt$last.data.year = countries$fi$parameters$last.data.year
+plot.estimated.countries(countries$fi$res,local.gt,bundle=FALSE)
 ```
 
 
