@@ -13,11 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(openxlsx)
 library(ggplot2) # # heatmaps etc
-#library(reshape2)
+library(reshape2)
 ```
 
 GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd
-
 
 # Parameters
 
@@ -43,7 +42,7 @@ param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata"
 dir.create(file.path("./results"),showWarnings = FALSE)
 # NB. this command might behave differently depending
 #on if you running from console or Rmd.
-param$result.file = './results/data.xlsx'
+param$result.file = './results/data 2024-12-08.xlsx'
 
 
 
@@ -65,54 +64,7 @@ param$min.group.year.size=30
 ```
 
 ```{r group-definitions}
-table.text="
-age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
-0	25	Office	Male	-O-	1	70	Male Office 0-25
-25	40	Office	Male	-O-	1	70	Male Office 25-40
-40	100	Office	Male	-O-	1	70	Male Office 40-100
-0	25	Office	Female	-O-	1	70	Female Office 0-25
-25	40	Office	Female	-O-	1	70	Female Office 25-40
-40	100	Office	Female	-O-	1	70	Female Office 40-100
-0	25	Mobile	Male	-O-	1	70	Male Mobile 0-25
-25	40	Mobile	Male	-O-	1	70	Male Mobile 25-40
-40	100	Mobile	Male	-O-	1	70	Male Mobile 40-100
-0	25	Mobile	Female	-O-	1	70	Female Mobile 0-25
-25	40	Mobile	Female	-O-	1	70	Female Mobile 25-40
-40	100	Mobile	Female	-O-	1	70	Female Mobile 40-100
-0	100	Office	Male	O-	1	70	Male Office 0-100
-0	100	Office	Female	O-	1	70	Female Office 0-100
-0	100	Mobile	Male	O-	1	70	Male O- Mobile 0-100
-0	100	Mobile	Female	O-	1	70	Female O- Mobile 0-100"
-table.text=gsub(" ","¤",table.text)
-nd = read.table(header=TRUE,text = table.text)
-nd$Name=gsub("¤"," ",nd$Name)
-
-# This is only for Finnish special case and is not used by default
-table.text="
-age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
-0	25	-Garrison	Male	-O-	1	70	Male <25
-25	40	-Garrison	Male	-O-	1	70	Male 25-40
-40	100	-Garrison	Male	-O-	1	70	Male 40+
-0	30	Garrison	Male	-O-	1	70	Garrison <30
-30	100	Garrison	Male	-O-	1	70	Garrion 30+
-0	100	*	Male	O-	1	70	Male O-
-0	100	*	Female	O-	1	70	Female O-
-0	25	*	Female	-O-	0.8	70	Female <25
-25	40	*	Female	-O-	1	70	Female 25-40
-40	100	*	Female	-O-	1	70	Female 40+"
-table.text=gsub(" ","¤",table.text)
-nd.garrison = read.table(header=TRUE,text = table.text)
-nd.garrison$Name=gsub("¤"," ",nd.garrison$Name)
-
-table.text="age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
-0	100	*	*	O-	1	70	O-
-0	100	*	*	-O-	1	70	Other"
-gt.oneg = read.table(header=TRUE,text = table.text)
-
-table.text="age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
-0	100	*	Male	*	1	70	Male
-0	100	*	Female	*	1	70	Female"
-gt.sex = read.table(header=TRUE,text = table.text)
+source('group-definitions.r')
 ```
 
 # Functions
@@ -316,8 +268,6 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
         group_by(year,year0,age) %>%
         summarise(n=n(),.groups='drop')
         # -> year, age, n (number of donors)
-
-        # rownames(estimates)=apply(t(matrix(dlast[1:2,])),1,FUN=function(x) {return(paste(x,collapse='*'))})
     }
     
     sumn=0
@@ -336,7 +286,7 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
       # in case of old donors, must start from a later position in pred.donations.pp
       # but still place the first values in the beginning, eg. project them for 2024 etc.
       # Need to compute the dlast table here
-      annual.donation.densities = pred.donations.pp # 
+      annual.donation.densities = pred.donations.pp
       annual.donation.densities[(years.active+1):years.ahead]=0
       
       # nb! hard coded data again: use the number of donors from year 2003
@@ -351,8 +301,8 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
         # donation amounts: rows ~ groups, columns ~ years.ahead
         # Here the loop (i) is over the age distribution
         donation.amounts[i,] = vmult * annual.donation.densities *
+          as.integer(group$sizes[as.character(first.predicted.year-1),'n']) * dista[i]
           # as.integer(table(year(group$data$date))[as.character(first.predicted.year-1)]) * dista[i]
-          group$sizes[as.character(first.predicted.year-1),'n'] * dista[i]
       }
     } # for (i in 1:length(rownames(group$dista))) # groups
     
@@ -382,7 +332,6 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
     abs.extreme = max(abs(distm),na.rm=TRUE) + 0.1
     cut.lower = -abs.extreme
     cut.higher = abs.extreme
-    # print(paste(cut.lower,cut.higher))
   }
   
   # fill.cut=cut(value,seq(min(distm,na.rm=TRUE)-0.1,max(distm,na.rm=TRUE)+0.1,length.out=50))
@@ -634,6 +583,8 @@ estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead
   data$sqrt.x=data$x^0.5
   m=lm(y~x+sqrt.x,data=data)
   
+assign("sample",data,.GlobalEnv)
+  
   # Values are predicted here only if the main parameter is given. Otherwise years.ahead remains unused as well
   new=data.frame(x=1:years.ahead,sqrt.x=(1:years.ahead)^0.5)
   pred.w.plim <- predict(m, new, interval = "prediction")
@@ -873,11 +824,11 @@ exportSummary = function(gt, res, filename) {
   sheet.name = paste('parameters')
   sheets[[sheet.name]] = data.frame(param)
   
-  for (i in 1:length(gt)) {
+  for (i in 1:dim(gt)[1]) {
     grp = res[[i]]
     grp.info = gt[i,]
     
-    sheet.name = paste(grp.info$Name,'definition')
+    sheet.name = paste(grp.info$Name,'def')
     sheets[[sheet.name]] = grp.info
     
     sheet.name = paste(grp.info$Name,'sizes')
