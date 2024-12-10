@@ -18,38 +18,25 @@ library(reshape2)
 
 GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd
 
-# Parameters
+# Parameters: 
 
 ```{r parameters} 
-# Notes from meeting with Mart and Amber (2 Oct 2024)
-# DonationPlaceType: Mobile vs Office/other
-# 2000 -> 2008: first year of data
-# country-specific parameter (?)
-
-
-# group definitions ie. group tables for new donors
 param=list()
-param$donation.types = c('Whole Blood (K)','Trombapheresis (T)')
-
-# 2024-08-12 Restrict to whole blood donations to see if there is an effect
 param$donation.types = c('Whole Blood (K)')
 
-param$annual.first.time.donors=22080
+# param$annual.first.time.donors=22080
+
+# nb! This might behave differently depending on the environment where it is run (console vs. Rmd)
+dir.create(file.path("../results"),showWarnings = FALSE)
+param$result.file = '../results/data.xlsx'
 
 param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata"
-
-# Create directory if it does not already exist
-dir.create(file.path("./results"),showWarnings = FALSE)
-# NB. this command might behave differently depending
-#on if you running from console or Rmd.
-param$result.file = './results/data 2024-12-08.xlsx'
-
 
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
 # These parameters do not affect the exported distribution matrix (distm).
-param$reference.year=2011
-param$last.data.year=2020
+param$reference.year=2003
+param$last.data.year=2023
 
 param$useOfficeMobile = TRUE
 
@@ -57,9 +44,6 @@ param$useOfficeMobile = TRUE
 # is below the limit, no size data will be exported and the rows will be omitted from the distribution matrix (distm).
 # The data will still be included in the age distribution (dista): this data is aggregated in groups of five years.
 param$min.group.year.size=30
-
-
-
 ```
 
 ```{r group-definitions}
@@ -204,7 +188,7 @@ processGroupTable = function(data.param,gt) {
       n0 = dim(ldata[[i]])[1]
       ldata[[i]] = ldata[[i]][ldata[[i]]$numid %in% last.group$numid[last.group$gr==i],]
       n1 = dim(ldata[[i]])[1]
-      print(paste(i,':',n0,'->',n1))
+      # print(paste(i,':',n0,'->',n1))
     }
     
     distm = distributionMatrix2(ldata[[i]],data.param)
@@ -595,9 +579,6 @@ plotAgeDistributionMatrix = function(data,years=17:65,main='') {
 # nb: ref.year is the row that is used for prediction; if data begins 2000, this will be year 2003
 # distm should be the cumulative distribution matrix
 estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='',try.nls=FALSE) {
-  # dist = res.nd[[1]]$distm
-  print(ref.year)
-  print(last.data.year)
   ref.year=as.character(ref.year)
   ref.year.numeric = as.integer(ref.year)
   years.to.use = 1 + (as.integer(last.data.year) - ref.year.numeric)
@@ -806,8 +787,8 @@ if (FALSE) {
 #res.ed.old=res.ed
 # res.ed=processGroupTable(spair,ed)
 res.nd=processGroupTable(simple,nd)
-res.oneg=processGroupTable(simple,gt.oneg)
-res.sex=processGroupTable(simple,gt.sex)
+# res.oneg=processGroupTable(simple,gt.oneg)
+# res.sex=processGroupTable(simple,gt.sex)
 ```
 
 ```{r plot-groups}
@@ -815,12 +796,12 @@ res.sex=processGroupTable(simple,gt.sex)
 plot.estimated(res.nd,nd,bundle=FALSE)
 # plot.estimated(res.ed,ed,bundle=FALSE)
 
-oneg.ratio=plot.estimated(res.oneg,gt.oneg,bundle=TRUE)
-plot.estimated(res.sex,gt.sex,bundle=TRUE)
+# oneg.ratio=plot.estimated(res.oneg,gt.oneg,bundle=TRUE)
+# plot.estimated(res.sex,gt.sex,bundle=TRUE)
 ```
 
 ```{r dompute donation amounts}
-dona.nd = sumDonationAmounts(res.nd,nd,FALSE,total.donations=param$annual.first.time.donors)
+dona.nd = sumDonationAmounts(res.nd,nd,FALSE)
 
 # 22080 is the assumed number of new donors
 nd.annual = 22080
@@ -862,25 +843,30 @@ activity.stats = spair2 %>%
 
 activity.stats$ord = activity.stats$ord-1
 activity.stats = activity.stats[activity.stats$ord>0,]
+
+# jaottelu sukupuolen mukaan
+activity.stats.sex = spair2 %>%
+	group_by(ord,Sex) %>%
+	summarise(n=n(),prop=mean(hasNext,na.rm=TRUE),delay=mean(diff,na.rm=TRUE),.groups='drop') %>%
+  filter(n >= param$min.group.year.size)
+
+activity.stats.sex$ord = activity.stats.sex$ord-1
+activity.stats.sex = activity.stats.sex[activity.stats.sex$ord>0,]
 ```
 
 
 # Export
 
 ```{r}
-if (FALSE) {
-  gt = nd
-  res = res.nd
-  filename = param$result.file
-}
-
 # Function to export the data
-# 
 exportSummary = function(gt, res, filename) {
   sheets = list()
   
   sheet.name = 'activity-stats'
   sheets[[sheet.name]] = activity.stats
+  
+  sheet.name = 'activity-stats-sex'
+  sheets[[sheet.name]] = activity.stats.sex
   
   sheet.name = paste('parameters')
   sheets[[sheet.name]] = data.frame(param)
@@ -919,12 +905,30 @@ exportSummary = function(gt, res, filename) {
 ```
 
 ```{r}
-plot(activity.stats$ord,activity.stats$delay,xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3,main='Delay till next donation after x previous donations')
+plot(activity.stats$ord,activity.stats$delay,xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3)
 
-plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),main='probability of next donation',type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)')
+plot(NULL,xlab='number of previous donations',ylab='delay until next donation',type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$delay)))
+sexes = levels(activity.stats.sex$Sex)
+for (i in 1:length(sexes)) {
+  sx = sexes[i]
+  data = activity.stats.sex[activity.stats.sex$Sex==sx,]
+  lines(data$ord,data$delay,col=i+1,lwd=2)
+}
+legend('bottomright',legend=sexes,fill=1+1:length(sexes))
 ```
 
-# nb! Pitää katsoa vielä oneg asia kuntoon, eli että ajo pyörii maaliin asti.
+```{r}
+plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),ylim=c(0,100*max(activity.stats$prop)),type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)')
+
+plot(NULL,xlab='number of previous donations',ylab='probability of next donation (%)',type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$prop)))
+sexes = levels(activity.stats.sex$Sex)
+for (i in 1:length(sexes)) {
+  sx = sexes[i]
+  data = activity.stats.sex[activity.stats.sex$Sex==sx,]
+  lines(data$ord,data$prop,col=i+1,lwd=2)
+}
+legend('bottomright',legend=sexes,fill=1+1:length(sexes))
+```
 
 ```{r export-summary-data}
 exportSummary(nd,res.nd,param$result.file)

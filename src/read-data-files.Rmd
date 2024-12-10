@@ -30,6 +30,7 @@ param$data.directory = 'C:/git_repot/donor-recruitment-prediction/data' # '/data
 ```{r read-files}
 file.names = dir(path=param$data.directory,pattern="*.xlsx")
 file.names = file.names[!grepl('~',file.names)]
+file.names = file.names[grepl('.xlsx$',file.names)]
 file.paths = paste(param$data.directory,'/',file.names,sep='')
 
 countries = list()
@@ -42,7 +43,6 @@ for (file in file.paths) {
   
   sheet.names = getSheetNames(file)
   for (sn in sheet.names) {
-    # print(sn)
     data = read.xlsx(file,colNames=TRUE,rowNames=TRUE,sheet = sn)
     if (grepl(' def(inition)?$',sn)) {
       if (is.null(gt)) {
@@ -67,8 +67,8 @@ for (file in file.paths) {
         grp[[kind]] = data
         res[[length(res)+1]] = grp
       }
-    } else if (sn == 'activity-stats') {
-      curr$activity.stats = data
+    } else if (grepl('^activity-stats',sn)) {
+      curr[[sn]] = data
     }
     else {
       print(paste('not processed',sn))
