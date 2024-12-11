@@ -905,29 +905,47 @@ exportSummary = function(gt, res, filename) {
 ```
 
 ```{r}
-plot(activity.stats$ord,activity.stats$delay,xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3)
-
-plot(NULL,xlab='number of previous donations',ylab='delay until next donation',type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$delay)))
-sexes = levels(activity.stats.sex$Sex)
-for (i in 1:length(sexes)) {
-  sx = sexes[i]
-  data = activity.stats.sex[activity.stats.sex$Sex==sx,]
-  lines(data$ord,data$delay,col=i+1,lwd=2)
+plotDelayBySex = function(activity.stats.sex,country) {
+  # plot(activity.stats$ord,activity.stats$delay,
+  #      xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3,main=country)
+  
+  plot(NULL,xlab='number of previous donations',ylab='delay until next donation',
+       type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$delay)),main=country)
+  if (is.factor(activity.stats.sex$Sex)) {
+      sexes = levels(activity.stats.sex$Sex)
+  } else
+      sexes = unique(activity.stats.sex$Sex)
+  for (i in 1:length(sexes)) {
+    sx = sexes[i]
+    data = activity.stats.sex[activity.stats.sex$Sex==sx,]
+    lines(data$ord,data$delay,col=i+1,lwd=2)
+  }
+  legend('bottomright',legend=sexes,fill=1+1:length(sexes))
 }
-legend('bottomright',legend=sexes,fill=1+1:length(sexes))
+
+plotPropBySex = function(activity.stats.sex,country) {
+  # plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),ylim=c(0,100*max(activity.stats$prop)),
+  # type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)',main=country)
+
+  plot(NULL,xlab='number of previous donations',ylab='probability of next donation (%)',
+       type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$prop)),main=country)
+  
+  if (is.factor(activity.stats.sex$Sex)) {
+      sexes = levels(activity.stats.sex$Sex)
+  } else
+      sexes = unique(activity.stats.sex$Sex)
+  for (i in 1:length(sexes)) {
+    sx = sexes[i]
+    data = activity.stats.sex[activity.stats.sex$Sex==sx,]
+    lines(data$ord,data$prop,col=i+1,lwd=2)
+  }
+  legend('bottomright',legend=sexes,fill=1+1:length(sexes))
+}
 ```
 
-```{r}
-plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),ylim=c(0,100*max(activity.stats$prop)),type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)')
 
-plot(NULL,xlab='number of previous donations',ylab='probability of next donation (%)',type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$prop)))
-sexes = levels(activity.stats.sex$Sex)
-for (i in 1:length(sexes)) {
-  sx = sexes[i]
-  data = activity.stats.sex[activity.stats.sex$Sex==sx,]
-  lines(data$ord,data$prop,col=i+1,lwd=2)
-}
-legend('bottomright',legend=sexes,fill=1+1:length(sexes))
+```{r}
+plotBySex(activity.stats.sex,'fi')
 ```
 
 ```{r export-summary-data}

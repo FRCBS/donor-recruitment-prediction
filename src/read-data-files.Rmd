@@ -68,12 +68,20 @@ for (file in file.paths) {
         res[[length(res)+1]] = grp
       }
     } else if (grepl('^activity-stats',sn)) {
-      curr[[sn]] = data
-    }
-    else {
+      # print('hit')
+      # print(sn)
+      # print(str(data))
+      data$delay = as.numeric(data$delay)
+      data$prop = as.numeric(data$prop) 
+      if (grepl('sex',sn))
+        data = data[data$Sex!="",]
+      curr[[gsub('-','.',sn)]] = data
+    } else {
       print(paste('not processed',sn))
     }
   }
+  
+  
   
   curr$gt = gt
   gt = NULL
@@ -86,6 +94,9 @@ for (file in file.paths) {
 # These values are experimental in the data, so quick-fix them here
 countries$fi$parameters$reference.year = 2003
 countries$fi$parameters$last.data.year = 2023
+
+countries$nl$parameters$reference.year = 2011
+countries$nl$parameters$last.data.year = 2023
 ```
 
 ```{r}
@@ -220,9 +231,19 @@ legend('bottomright',legend=names(countries),fill=1+(1:length(countries)))
 plot(x=NULL,type='n',xlim=c(0,200),ylim=c(0,600),xlab='number of previous donations',ylab='time till next donation')
 for (i in 1:length(names(countries))) {
   stats = countries[[i]]$activity.stats
-  lines(stats$ord,as.numeric(stats$delay),lwd=3,col=i+1)
+  lines(stats$ord,stats$delay,lwd=3,col=i+1)
 }
 legend('bottomright',legend=names(countries),fill=1+(1:length(countries)))
+
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats.sex
+  plotPropBySex(stats,names(countries)[i])
+}
+
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats.sex
+  plotDelayBySex(stats,names(countries)[i])
+}
 
 # Divide both by sex
 # Confidence intervals
