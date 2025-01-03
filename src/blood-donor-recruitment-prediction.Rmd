@@ -20,15 +20,31 @@ GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/bloo
 
 # Parameters: 
 
-```{r parameters} 
+```{r param-working-directory-and-file-paths}
 param=list()
+param$wd = getwd()
+
+# getwd() might behave differently depending on the environment where it is run (console vs. Rmd),
+# therefore checking if working directory is set to the src folder and moving up if yes.
+if (grepl('[/\\]src[/\\]?',param$wd)) {
+   param$wd = sub('[/\\]src([/\\]?)$','\\1',param$wd)
+}
+
+dir.create(file.path(param$wd,"results"),showWarnings = FALSE)
+dir.create(file.path(param$wd,"log"),showWarnings = FALSE)
+param$result.file = file.path(param$wd,"results","data.xlsx")
+
+# nb! check that the result and log files point to the right locations
+```
+
+
+```{r parameters-other} 
 param$donation.types = c('Whole Blood (K)')
 
-# param$annual.first.time.donors=22080
-
-# nb! This might behave differently depending on the environment where it is run (console vs. Rmd)
-dir.create(file.path("../results"),showWarnings = FALSE)
-param$result.file = '../results/data.xlsx'
+param$wd = getwd()
+if (grepl('[/\\]src[/\\]?',param$wd)) {
+   setwd('..')
+}
 
 param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata"
 
@@ -617,7 +633,7 @@ estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead
       new = data.frame(x=0:(years.ahead-1))
       new$y = predict(m.nls,new=new)
       new$x = new$x + 1
-      # plot(y~x,data=sample2)
+      
       lines(new$x,new$y,col='purple',lwd=2,lty='dashed')
     }
   }
@@ -945,7 +961,12 @@ plotPropBySex = function(activity.stats.sex,country) {
 
 
 ```{r}
-plotBySex(activity.stats.sex,'fi')
+plotDelayBySex(activity.stats.sex,'nl')
+```
+
+
+```{r}
+plotPropBySex(activity.stats.sex,'fi')
 ```
 
 ```{r export-summary-data}
