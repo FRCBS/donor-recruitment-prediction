@@ -20,7 +20,7 @@ GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/bloo
 
 # Parameters: 
 
-```{r param-working-directory-and-file-paths}
+```{r working-directory-and-file-paths}
 param=list()
 param$wd = getwd()
 
@@ -35,10 +35,12 @@ dir.create(file.path(param$wd,"log"),showWarnings = FALSE)
 param$result.file = file.path(param$wd,"results","data.xlsx")
 
 # nb! check that the result and log files point to the right locations
+# No log is currently written in this script
 ```
 
 
-```{r parameters-other} 
+```{r parameters} 
+# nb! This should not be altered
 param$donation.types = c('Whole Blood (K)')
 
 param$wd = getwd()
@@ -46,14 +48,16 @@ if (grepl('[/\\]src[/\\]?',param$wd)) {
    setwd('..')
 }
 
-param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata"
+param$data.file = file.path(param$wd,'donationdata.Rdata') # "c:/git_repot/DATA/donationdata.fortimo.rdata"
 
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
-# These parameters do not affect the exported distribution matrix (distm).
+# These parameters do not affect the exported distribution matrix (distm) but
+# are exported as part of the xlsx file for information
 param$reference.year=2003
 param$last.data.year=2023
 
+# This should not be modified: the intent is to use the classification Office/Mobile for donation place types
 param$useOfficeMobile = TRUE
 
 # This limit is applied to each group and year combination: if the number of (first-time) donors
