@@ -45,10 +45,11 @@ param$donation.types = c('Whole Blood (K)')
 
 param$wd = getwd()
 if (grepl('[/\\]src[/\\]?',param$wd)) {
-   setwd('..')
+   param$wd = sub('[/\\]src(data)?([/\\]?)$','\\2',param$wd)
 }
 
-param$data.file = file.path(param$wd,'donationdata.Rdata') # "c:/git_repot/DATA/donationdata.fortimo.rdata"
+param$data.file = file.path(param$wd,'donationdata.Rdata')
+# param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata" # fi
 
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
