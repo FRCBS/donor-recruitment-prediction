@@ -38,13 +38,14 @@ datafile = file.path(param$wd,'donationdata.Rdata')
 
 ####
 # Reading source data files
-# nb! adjust the header (here included) and sep (here tab, '\t') parameters as necessary
-t.donation=read.csv('donation.csv',header=TRUE,colClasses=c(NA,NA,'Date',NA,NA),sep='\t')
-t.deferral=read.csv('deferral.csv',header=TRUE,colClasses=c(NA,'POSIXct','POSIXct',NA),sep='\t')
-t.donor=read.csv('donor.csv',header=TRUE,colClasses=c(NA,NA,NA,NA,'Date',NA),sep='\t')
-t.contact=read.csv('contact.csv',header=TRUE,colClasses=c(NA,NA,NA,'POSIXct',NA),sep='\t')
+# nb! adjust the header (here excluded) and sep (here tab, '\t') parameters as necessary
+t.donation=read.csv('donation.csv',header=FALSE,colClasses=c(NA,NA,'Date',NA,NA),sep='\t')
+t.deferral=read.csv('deferral.csv',header=FALSE,colClasses=c(NA,'POSIXct','POSIXct',NA),sep='\t')
+t.donor=read.csv('donor.csv',header=FALSE,colClasses=c(NA,NA,NA,NA,'Date',NA),sep='\t')
+t.contact=read.csv('contact.csv',header=FALSE,colClasses=c(NA,NA,NA,'POSIXct',NA),sep='\t')
 
-# nb! These lines are necessary to run only if the source data files did not include column names
+# nb! These lines should be run only if the source data files does  not include column names
+# nb! Make sure the column names match the content of the columns in case they are in different order
 colnames(t.donation)=c("releaseID","BloodDonationTypeKey","DonationDate","DonationPlaceType","DonationPlaceCode")
 colnames(t.deferral)=c("releaseID","DeferralStartDate","DeferralEndDate","DonorAdverseReactionType")
 colnames(t.donor)=c("releaseID","Sex","PostalCode","PermissionToInvite","DateOfBirth","BloodGroup")
@@ -93,7 +94,7 @@ others = c('donation','deferral','contact')
 duplicated.donors = which(duplicated(donationdata$donor$releaseID))
 len = length(duplicated.donors)
 if (len > 0) {
-  print(paste(len,"releaseID's found in",o,"but not in the donor table, eg.",donationdata$donor$releaseID[min(in.other.only)]))
+  print(paste('Warning:',len,"releaseID's found in",o,"but not in the donor table, eg.",donationdata$donor$releaseID[min(in.other.only)]))
 }
 
 for (o in others) {
@@ -155,3 +156,4 @@ if (!is.null(param$sink.file)) {
   fileName <- param$sink.file
   cat(readChar(fileName, file.info(fileName)$size))
 }
+
