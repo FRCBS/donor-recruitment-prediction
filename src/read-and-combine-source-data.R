@@ -24,7 +24,7 @@ param$sink.file = file.path(param$wd,'log',paste0('read-and-combine-source-data_
 
 # nb! Uncomment and run the following line to skip saving the output to a log file
 # and to have it printed as the lines are run.
-# param$sink.file = NULL
+param$sink.file = NULL
 
 if (!is.null(param$sink.file)) {
   sink(param$sink.file)
@@ -71,6 +71,7 @@ types[['donor']] = c("character","character","character","character","Date","cha
 for (n in names(donationdata)) {
   print(paste('dimensions of',n,paste(dim(donationdata[[n]]),collapse=',')))
   data = donationdata[[n]]
+  str(data[0,])
   
   # convert releaseID to char
   donationdata[[n]]$releaseID = as.character(data$releaseID)
