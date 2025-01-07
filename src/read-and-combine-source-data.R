@@ -39,13 +39,27 @@ datafile = file.path(param$wd,'donationdata.Rdata')
 ####
 # Reading source data files
 # nb! adjust the header (here excluded) and sep (here tab, '\t') parameters as necessary
-t.donation=read.csv('donation.csv',header=FALSE,colClasses=c(NA,NA,'Date',NA,NA),sep='\t')
+t.donation=read.csv('donation-test.csv',header=FALSE,colClasses=c(NA,NA,'Date',NA,NA),sep=',')
 t.deferral=read.csv('deferral.csv',header=FALSE,colClasses=c(NA,'POSIXct','POSIXct',NA),sep='\t')
 t.donor=read.csv('donor.csv',header=FALSE,colClasses=c(NA,NA,NA,NA,'Date',NA),sep='\t')
 t.contact=read.csv('contact.csv',header=FALSE,colClasses=c(NA,NA,NA,'POSIXct',NA),sep='\t')
 
+# print the structure for convenience at an early point
+t.donationdata = list(donation=t.donation,deferral=t.deferral,donor=t.donor,contact=t.contact)
+for (n in names(donationdata)) {
+  print(paste('structure of',n))
+  data = t.donationdata[[n]]
+  str(data[0,])
+  if (dim(data)[2] == 1) {
+    print(paste('Warning: table has one column only. Please check that the separtor in read.csv matches the one used in the data file'))
+  }
+}
+rm(t.donationdata)
+
 # nb! These lines should be run only if the source data files does  not include column names
 # nb! Make sure the column names match the content of the columns in case they are in different order
+# nb! Adjust here your data to match the column names used in data-description.xlsx
+
 colnames(t.donation)=c("releaseID","BloodDonationTypeKey","DonationDate","DonationPlaceType","DonationPlaceCode")
 colnames(t.deferral)=c("releaseID","DeferralStartDate","DeferralEndDate","DonorAdverseReactionType")
 colnames(t.donor)=c("releaseID","Sex","PostalCode","PermissionToInvite","DateOfBirth","BloodGroup")
@@ -95,7 +109,8 @@ others = c('donation','deferral','contact')
 duplicated.donors = which(duplicated(donationdata$donor$releaseID))
 len = length(duplicated.donors)
 if (len > 0) {
-  print(paste('Warning:',len,"releaseID's found in",o,"but not in the donor table, eg.",donationdata$donor$releaseID[min(in.other.only)]))
+  print(paste('Warning:',len,"releaseID's found in",o,"but not in the donor table"))
+  # print(paste('Warning:',len,"releaseID's found in",o,"but not in the donor table, eg.",donationdata$donor$releaseID[min(in.other.only)]))
 }
 
 for (o in others) {
