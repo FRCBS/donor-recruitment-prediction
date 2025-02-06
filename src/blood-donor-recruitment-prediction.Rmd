@@ -82,8 +82,8 @@ age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
 0	25	Mobile	Female	-O-	1	70	Female Mobile 0-25
 25	40	Mobile	Female	-O-	1	70	Female Mobile 25-40
 40	100	Mobile	Female	-O-	1	70	Female Mobile 40-100
-0	100	Office	Male	O-	1	70	Male Office 0-100
-0	100	Office	Female	O-	1	70	Female Office 0-100
+0	100	Office	Male	O-	1	70	Male O- Office 0-100
+0	100	Office	Female	O-	1	70	Female O- Office 0-100
 0	100	Mobile	Male	O-	1	70	Male O- Mobile 0-100
 0	100	Mobile	Female	O-	1	70	Female O- Mobile 0-100"
 table.text=gsub(" ","¤",table.text)
