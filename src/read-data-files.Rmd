@@ -90,6 +90,70 @@ for (file in file.paths) {
 }
 ```
 
+```{r produce-explore-data}
+# This is a copy from blood-donor-recruitment-prediction.R
+# Unfortunately does not work for matrices
+cumulativeToDensity = function(dist) {
+  return((c(dist,0)-c(0,dist))[1:length(dist)])
+}
+
+cdm2pdm = function(distm) {
+  pdm = cbind(cdm)-cbind(data.frame(rep(0,nrow(cdm))),cdm[,-ncol(cdm)])
+  colnames(pdm)=colnames(distm)
+  return(pdm)
+}
+
+et=NULL
+for (cn in names(countries)) {
+  country = countries[[cn]]
+  for (i in 1:nrow(country$gt)) {
+    gt.row = cbind(country=cn,country$gt[i,])
+    rese = country$res[[i]]
+    cdm = rese$distm
+    pdm = cdm2pdm(cdm)
+    
+    m_longer = function(cdm) {
+      cdm = data.frame(cdm)
+      cdm = cbind(year0=rownames(cdm),cdm)
+      cdm= pivot_longer(cdm,colnames(cdm)[2:ncol(cdm)])
+      colnames(cdm)=c('year0','ord','value')
+      cdm$ord = as.integer(sub('X','',cdm$ord))
+      return(cdm)
+    }
+    
+    dista = rese$dista
+    cols = colnames(dista)[-1]
+    dista[cols] = lapply(dista[cols],FUN=cumulativeToDensity)
+
+    avgage = dista %>%
+      pivot_longer(colnames(dista)[-1]) %>%
+      group_by(name) %>%
+      summarise(avage=sum(age*value,na.rm=TRUE)) %>%
+      mutate(year=as.integer(name))
+    
+    lcm=m_longer(cdm)
+    lpm=m_longer(pdm)
+    huu=cross_join(gt.row,lcm)
+    colnames(huu)=sub('value','cdon',colnames(huu))
+    hu2=inner_join(huu,lpm,join_by(year0,ord))
+    colnames(hu2)=sub('value','don',colnames(hu2))
+    hu2$year0=as.integer(hu2$year0)
+    hu2 = inner_join(hu2,avgage,join_by(closest(x$year0<=y$year)))
+    hu2 = hu2[,-ncol(hu2)] # remove the age column from avgage
+    hu2$avage = (hu2$avage + hu2$ord) - 1  # compute the average age for subsequent year
+    hu2 = hu2[,!colnames(hu2) %in% c('name')]
+    hu2$year = (hu2$year0+hu2$ord) - 1
+    int.cols = c('age.lower','age.upper','MaximumAge','year')
+    hu2[int.cols] = lapply(hu2[int.cols],as.integer)
+    if (is.null(et)) {
+      et = hu2
+    } else
+      et =rbind(et,hu2)
+  }
+}
+```
+
+
 ```{r}
 # These values are experimental in the data, so quick-fix them here
 countries$fi$parameters$reference.year = 2003
