@@ -138,8 +138,8 @@ for (cn in names(countries)) {
     hu2=inner_join(huu,lpm,join_by(year0,ord))
     colnames(hu2)=sub('value','don',colnames(hu2))
     hu2$year0=as.integer(hu2$year0)
-    hu2 = inner_join(hu2,avgage,join_by(closest(x$year0<=y$year)))
-    hu2 = hu2[,-ncol(hu2)] # remove the age column from avgage
+    hu2 = left_join(hu2,avgage,join_by(closest(x$year0<=y$year)))
+    hu2 = hu2[,-ncol(hu2)] # remove the age column coming from avgage
     hu2$avage = (hu2$avage + hu2$ord) - 1  # compute the average age for subsequent year
     hu2 = hu2[,!colnames(hu2) %in% c('name')]
     hu2$year = (hu2$year0+hu2$ord) - 1
