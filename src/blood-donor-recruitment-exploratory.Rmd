@@ -17,7 +17,17 @@ library(patchwork)
 
 GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-exploratory.Rmd
 
-# Parameters: 
+
+TODO:
+
+
+- Probability of next donation ?
+
+ - Pick representative sets?
+
+
+
+# Parameters
 
 ```{r working-directory-and-file-paths}
 param=list()
@@ -71,7 +81,7 @@ if (TRUE) {
 set.seed(2030)
 et <- et %>% filter(country == 'fi') %>% 
   mutate(
-    country = "fo",
+    country = "FAKE_fo",
     year0 = year0 -1,
     year = year -1,
     cdon = jitter(cdon),
@@ -80,7 +90,7 @@ et <- et %>% filter(country == 'fi') %>%
   ) %>% bind_rows(et)
 et <- et %>% filter(country == 'nl') %>% 
   mutate(
-    country = "no",
+    country = "FAKE_no",
     year0 = year0 -1,
     year = year -1,
     cdon = jitter(cdon),
@@ -124,16 +134,19 @@ et %>%
 
 
 ```{r}
+# Remove the first year of each country
+miny <- et %>% group_by(country) %>% 
+  summarise(miny=min(year0))
 
-et %>% 
-  filter(country=="fi") %>% 
-  filter(is.na(cdon)) %>% 
-  group_by(country,year) %>% 
-  summarise(
-    n = n(),
-    .groups = "keep"
-  )
-  
+for(i in miny$country) {
+  et <- et %>% 
+    filter(! (country == i & year0 == miny[miny$country== i ,]$miny) )
+}
+
+# Remove last year from Finnish data as it is not complete
+  et <- et %>% 
+    filter(!(country == "fi" & year0 == 2024 ))
+
 
 ```
 
@@ -154,9 +167,6 @@ p <- p +facet_grid(country~age.group)
 p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))
 p <- p + ylab("Cumulative count of donations") + xlab("Year")
 #p <- p + guides(color = guide_legend(title = "First year")) 
-
-
-
     
 }
 
@@ -175,3 +185,87 @@ wrap_plots(pmo + pfo + pmm + pfm) + plot_layout(guides = "collect") &
 
 ```
 
+```{r , warning=FALSE, fig.width=12,fig.height=14}
+
+pmo <- plotcdon(et %>% filter(BloodGroup == "O-" & Sex== "Male", DonationPlaceType == 'Office')) + ggtitle("Male Office")
+pfo <- plotcdon(et %>% filter(BloodGroup == "O-" & Sex== "Female", DonationPlaceType == 'Office')) + ggtitle("Female Office")
+pmm <- plotcdon(et %>% filter(BloodGroup == "O-" & Sex== "Male", DonationPlaceType == 'Mobile')) + ggtitle("Male Mobile")
+pfm <- plotcdon(et %>% filter(BloodGroup == "O-" & Sex== "Female", DonationPlaceType == 'Mobile')) + ggtitle("Female Mobile")
+
+wrap_plots(pmo + pfo + pmm + pfm) + plot_layout(guides = "collect") & 
+  scale_colour_continuous(limits = range(et$year0))
+
+```
+
+
+```{r}
+plotdon <- function(data){
+p <- ggplot(
+  data,
+  aes(x = year, y = don, color = year0, group=year0)
+) 
+p <- p + geom_path()
+p <- p +facet_grid(country~age.group)
+p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))
+p <- p + ylab("Cumulative count of donations") + xlab("Year")
+#p <- p + guides(color = guide_legend(title = "First year")) 
+    
+}
+
+
+```
+
+```{r , warning=FALSE, fig.width=12,fig.height=14}
+
+pmo <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Male", DonationPlaceType == 'Office')) + ggtitle("Male Office")
+pfo <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Female", DonationPlaceType == 'Office')) + ggtitle("Female Office")
+pmm <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Male", DonationPlaceType == 'Mobile')) + ggtitle("Male Mobile")
+pfm <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Female", DonationPlaceType == 'Mobile')) + ggtitle("Female Mobile")
+
+wrap_plots(pmo + pfo + pmm + pfm) + plot_layout(guides = "collect") & 
+  scale_colour_continuous(limits = range(et$year0))
+
+```
+
+
+## Age and donation count
+
+
+```{r}
+plotaveagecdon <- function(data){
+p <- ggplot(
+  data,
+  aes(x = avage, y = cdon, color = year0,shape=age.group)
+) 
+p <- p + geom_point()
+p <- p + facet_grid(country~DonationPlaceType)
+p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))
+p <- p + ylab("Cumulative count of donations") + xlab("Average age")
+#p <- p + guides(color = guide_legend(title = "First year")) 
+    
+}
+
+
+```
+
+```{r , warning=FALSE, fig.width=12,fig.height=14}
+
+pmo <- plotaveagecdon(et %>% filter(BloodGroup == "-O-" & Sex== "Male")) + ggtitle("Male")
+pfo <- plotaveagecdon(et %>% filter(BloodGroup == "-O-" & Sex== "Female")) + ggtitle("Female")
+
+wrap_plots(pmo + pfo ) + plot_layout(guides = "collect") 
+  
+
+```
+
+
+
+```{r}
+tmp <- et %>% 
+  filter(country == "nl" & age.group == "0-25") %>% 
+  filter(avage < 20) %>% droplevels()
+
+summary(tmp)
+```
+
+Something in avage?
