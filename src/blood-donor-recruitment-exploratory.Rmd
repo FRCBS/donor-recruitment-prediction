@@ -1,0 +1,177 @@
+---
+title: "Blood donor recruitment prediction"
+author: "Timo Asikainen & Mikko Arvas"
+date: "`r Sys.time()`"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2) # # heatmaps etc
+library(patchwork)
+```
+
+GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-exploratory.Rmd
+
+# Parameters: 
+
+```{r working-directory-and-file-paths}
+param=list()
+param$wd = getwd()
+
+# getwd() might behave differently depending on the environment where it is run (console vs. Rmd),
+# therefore checking if working directory is set to the src folder and moving up if yes.
+if (grepl('[/\\]src[/\\]?',param$wd)) {
+   param$wd = sub('[/\\]src([/\\]?)$','\\1',param$wd)
+}
+
+dir.create(file.path(param$wd,"results"),showWarnings = FALSE)
+dir.create(file.path(param$wd,"log"),showWarnings = FALSE)
+
+# nb! check that the result and log files point to the right locations
+# No log is currently written in this script
+```
+
+
+```{r parameters} 
+
+param$wd = getwd()
+if (grepl('[/\\]src[/\\]?',param$wd)) {
+   param$wd = sub('[/\\]src(data)?([/\\]?)$','\\2',param$wd)
+}
+
+param$data.file = file.path(param$wd,'/results/et.Rdata')
+# param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata" # fi
+
+```
+
+
+```{r load-data} 
+
+load(param$data.file)
+et <- et %>%
+   mutate(
+  age.group = str_c(age.lower,"-",age.upper)
+) %>% 
+  mutate(
+  across(where(is.character),as.factor)
+) %>% filter(!is.na(cdon))
+
+summary(et)
+
+```
+
+```{r fake-data}
+
+if (TRUE) {
+set.seed(2030)
+et <- et %>% filter(country == 'fi') %>% 
+  mutate(
+    country = "fo",
+    year0 = year0 -1,
+    year = year -1,
+    cdon = jitter(cdon),
+    don = jitter(don),
+    avage = jitter(avage)
+  ) %>% bind_rows(et)
+et <- et %>% filter(country == 'nl') %>% 
+  mutate(
+    country = "no",
+    year0 = year0 -1,
+    year = year -1,
+    cdon = jitter(cdon),
+    don = jitter(don),
+    avage = jitter(avage)
+  ) %>% bind_rows(et) %>%  
+  mutate(
+  across(where(is.character),as.factor)
+)
+  
+summary(et)
+}
+
+```
+
+```{r}
+et %>% group_by(country,age.lower,age.upper,BloodGroup) %>% count() %>% filter(age.upper == 100 & age.lower == 0)
+```
+Comparison groups!!!
+
+
+```{r}
+et %>% group_by(country,age.lower,age.upper,BloodGroup) %>% count() %>% filter(!(age.upper == 100 & age.lower == 0))
+```
+
+
+
+```{r}
+
+et %>% 
+  group_by(country,BloodGroup) %>% 
+  summarise(
+    n = n(),
+    meancdon = mean(cdon, na.rm=TRUE),
+    meandon = mean(don, na.rm=TRUE),
+    .groups = "keep"
+  )
+  
+
+```
+
+
+```{r}
+
+et %>% 
+  filter(country=="fi") %>% 
+  filter(is.na(cdon)) %>% 
+  group_by(country,year) %>% 
+  summarise(
+    n = n(),
+    .groups = "keep"
+  )
+  
+
+```
+
+
+
+# Donation counts
+
+
+```{r}
+
+plotcdon <- function(data){
+p <- ggplot(
+  data,
+  aes(x = year, y = cdon, color = year0, group=year0)
+) 
+p <- p + geom_path()
+p <- p +facet_grid(country~age.group)
+p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))
+p <- p + ylab("Cumulative count of donations") + xlab("Year")
+#p <- p + guides(color = guide_legend(title = "First year")) 
+
+
+
+    
+}
+
+```
+
+
+```{r , warning=FALSE, fig.width=12,fig.height=14}
+
+pmo <- plotcdon(et %>% filter(BloodGroup == "-O-" & Sex== "Male", DonationPlaceType == 'Office')) + ggtitle("Male Office")
+pfo <- plotcdon(et %>% filter(BloodGroup == "-O-" & Sex== "Female", DonationPlaceType == 'Office')) + ggtitle("Female Office")
+pmm <- plotcdon(et %>% filter(BloodGroup == "-O-" & Sex== "Male", DonationPlaceType == 'Mobile')) + ggtitle("Male Mobile")
+pfm <- plotcdon(et %>% filter(BloodGroup == "-O-" & Sex== "Female", DonationPlaceType == 'Mobile')) + ggtitle("Female Mobile")
+
+wrap_plots(pmo + pfo + pmm + pfm) + plot_layout(guides = "collect") & 
+  scale_colour_continuous(limits = range(et$year0))
+
+```
+
