@@ -90,6 +90,23 @@ for (file in file.paths) {
 }
 ```
 
+```{r et-aggregate-ages}
+str(et)
+et.noage = et %>%
+  ungroup() %>%
+  filter(age.upper<100,BloodGroup=='-O-') %>%
+  group_by(country,DonationPlaceType,Sex,BloodGroup,Multiplier,MaximumAge,year0,ord,year) %>%
+  summarise(Name=min(Name),cdon=sum(n*cdon)/sum(n),don=sum(n*don)/sum(n),n=sum(n),avage=sum(n*avage)/sum(n),.groups='drop') %>%
+  mutate(age.lower=0,age.upper=100)
+et.noage=et.noage[,colnames(et)]
+et.noage$Name=sub(' [0-9].+','',et.noage$Name)
+
+# Combine the new -O- with 0-100 age data from above with the O- rows
+# In the combined data, there are no age groups
+et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
+```
+
+
 ```{r produce-explore-data}
 # This is a copy from blood-donor-recruitment-prediction.R
 # Unfortunately does not work for matrices
@@ -133,17 +150,21 @@ for (cn in names(countries)) {
     
     lcm=m_longer(cdm)
     lpm=m_longer(pdm)
+    
     huu=cross_join(gt.row,lcm)
     colnames(huu)=sub('value','cdon',colnames(huu))
     hu2=inner_join(huu,lpm,join_by(year0,ord))
     colnames(hu2)=sub('value','don',colnames(hu2))
     hu2$year0=as.integer(hu2$year0)
+    
+    hu2=left_join(hu2,rese$sizes,join_by(x$year0==y$year))
+    
     hu2 = left_join(hu2,avgage,join_by(closest(x$year0<=y$year)))
     hu2 = hu2[,-ncol(hu2)] # remove the age column coming from avgage
     hu2$avage = (hu2$avage + hu2$ord) - 1  # compute the average age for subsequent year
     hu2 = hu2[,!colnames(hu2) %in% c('name')]
     hu2$year = (hu2$year0+hu2$ord) - 1
-    int.cols = c('age.lower','age.upper','MaximumAge','year')
+    int.cols = c('age.lower','age.upper','MaximumAge','year','n')
     hu2[int.cols] = lapply(hu2[int.cols],as.integer)
     if (is.null(et)) {
       et = hu2
@@ -152,6 +173,35 @@ for (cn in names(countries)) {
   }
 }
 ```
+
+```{r explore-data-examples}
+et %>%
+  summarise(sum(n*don,na.rm=TRUE))
+
+et %>%
+  group_by(country) %>%
+  summarise(sum(n*don,na.rm=TRUE))
+
+# nb! The annual sum for case fi,2000 includes all the donations from those who first donated
+# in 2000 during the first full year since the first date of donation. Hence the sums on the rows represent
+# full years but do not match calendar years; the years are provided just for reference.
+# In particular, the first year has about 1.5 times the donations, and the last year only some remaining bits
+# since it was cut in April anyhow.
+cydata = et %>%
+  group_by(country,year) %>%
+  summarise(sum(n*don,na.rm=TRUE)) %>%
+  filter(year<2024)
+colnames(cydata)[3]='value'
+
+cymat = pivot_wider(cydata,id_cols=c('year'),names_from='country')
+cymat=cymat[cymat$year<=2024,]
+str(cymat)
+ggplot(cydata,                            
+       aes(x = year,
+           y = value,
+           col = country,lwd=3)) + geom_line()
+```
+
 
 
 ```{r}
