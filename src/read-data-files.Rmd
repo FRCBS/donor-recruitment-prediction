@@ -172,6 +172,8 @@ for (cn in names(countries)) {
       et =rbind(et,hu2)
   }
 }
+
+save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))
 ```
 
 ```{r explore-data-examples}
