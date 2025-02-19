@@ -68,9 +68,6 @@ for (file in file.paths) {
         res[[length(res)+1]] = grp
       }
     } else if (grepl('^activity-stats',sn)) {
-      # print('hit')
-      # print(sn)
-      # print(str(data))
       data$delay = as.numeric(data$delay)
       data$prop = as.numeric(data$prop) 
       if (grepl('sex',sn))
@@ -81,29 +78,11 @@ for (file in file.paths) {
     }
   }
   
-  
-  
   curr$gt = gt
   gt = NULL
   curr$res = res
   countries[[identifier]] = curr
 }
-```
-
-```{r et-aggregate-ages}
-str(et)
-et.noage = et %>%
-  ungroup() %>%
-  filter(age.upper<100,BloodGroup=='-O-') %>%
-  group_by(country,DonationPlaceType,Sex,BloodGroup,Multiplier,MaximumAge,year0,ord,year) %>%
-  summarise(Name=min(Name),cdon=sum(n*cdon)/sum(n),don=sum(n*don)/sum(n),n=sum(n),avage=sum(n*avage)/sum(n),.groups='drop') %>%
-  mutate(age.lower=0,age.upper=100)
-et.noage=et.noage[,colnames(et)]
-et.noage$Name=sub(' [0-9].+','',et.noage$Name)
-
-# Combine the new -O- with 0-100 age data from above with the O- rows
-# In the combined data, there are no age groups
-et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
 ```
 
 
@@ -120,9 +99,20 @@ cdm2pdm = function(distm) {
   return(pdm)
 }
 
-et=NULL
+et=NULL # main exploratory data set
+activity.stats=NULL # combined activity stats
+activity.stats.sex=NULL # combined activity stats + grouped by sex
 for (cn in names(countries)) {
   country = countries[[cn]]
+  asincr = cbind(country=cn,country$activity.stats)
+  asincr.sex = cbind(country=cn,country$activity.stats.sex)
+  if (is.null(activity.stats)) {
+    activity.stats = asincr
+    activity.stats.sex = asincr.sex
+  } else {
+    activity.stats = rbind(activity.stats,asincr)
+    activity.stats.sex = rbind(activity.stats.sex,asincr.sex)
+  }
   for (i in 1:nrow(country$gt)) {
     gt.row = cbind(country=cn,country$gt[i,])
     rese = country$res[[i]]
@@ -174,6 +164,25 @@ for (cn in names(countries)) {
 }
 
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))
+save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.Rdata"))
+save(activity.stats.sex,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.sex.Rdata"))
+```
+
+```{r et-aggregate-ages}
+str(et)
+et.noage = et %>%
+  ungroup() %>%
+  filter(age.upper<100,BloodGroup=='-O-') %>%
+  group_by(country,DonationPlaceType,Sex,BloodGroup,Multiplier,MaximumAge,year0,ord,year) %>%
+  summarise(Name=min(Name),cdon=sum(n*cdon)/sum(n),don=sum(n*don)/sum(n),n=sum(n),avage=sum(n*avage)/sum(n),.groups='drop') %>%
+  mutate(age.lower=0,age.upper=100)
+et.noage=et.noage[,colnames(et)]
+et.noage$Name=sub(' [0-9].+','',et.noage$Name)
+
+# Combine the new -O- with 0-100 age data from above with the O- rows
+# In the combined data, there are no age groups
+et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
+save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
 ```
 
 ```{r explore-data-examples}
