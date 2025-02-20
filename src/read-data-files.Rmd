@@ -130,7 +130,21 @@ for (cn in names(countries)) {
     
     dista = rese$dista
     cols = colnames(dista)[-1]
-    dista[cols] = lapply(dista[cols],FUN=cumulativeToDensity)
+
+    # Remove the empty columns from the dista
+    # All the rows may be lacking (i==15,cn='fi'), or there might be one present (i==15,cn='nl')
+    # The apply will result in Warning: no non-missing arguments to max; returning -Inf if there are empty columns
+    wh = which(apply(dista,2,max,na.rm=TRUE)<0.99)
+    if (length(wh) > 0) {
+      dista = dista[,-wh]
+      cols = colnames(dista)[-1]
+    }
+    
+    dista[,cols] = apply(data.frame(dista[,cols]),2,FUN=cumulativeToDensity)
+    
+    # Add an extra column to make sure some distribution will be available when using the closest <= condition below
+    max.year = max(as.integer(colnames(dista[cols]),na.rm=FALSE))
+    dista[['2100']] = dista[[as.character(max.year)]]
 
     avgage = dista %>%
       pivot_longer(colnames(dista)[-1]) %>%
