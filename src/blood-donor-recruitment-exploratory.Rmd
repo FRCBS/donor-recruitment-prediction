@@ -11,20 +11,21 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(ggplot2) # # heatmaps etc
+library(ggplot2)  
 library(patchwork)
+library(binom)
 ```
 
 GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-exploratory.Rmd
 
 
+First run read-data-files.Rmd to produce the data files
+et.Rdata, et.noage.Rdata, activity.stats.Rdata, activity.stats.sex.Rdata
+
 TODO:
 
 
-- Probability of next donation ?
-
- - Pick representative sets?
-
+- more on O- data
 
 
 # Parameters
@@ -59,6 +60,9 @@ param$data.file = file.path(param$wd,'/results/et.Rdata')
 
 ```
 
+# Load and summarise data
+
+## Donation counts
 
 ```{r load-data} 
 
@@ -84,8 +88,8 @@ et <- et %>% filter(country == 'fi') %>%
     country = "FAKE_fo",
     year0 = year0 -1,
     year = year -1,
-    cdon = jitter(cdon),
-    don = jitter(don),
+    cdon = jitter(cdon+1),
+    don = jitter(don+1),
     avage = jitter(avage)
   ) %>% bind_rows(et)
 et <- et %>% filter(country == 'nl') %>% 
@@ -93,8 +97,8 @@ et <- et %>% filter(country == 'nl') %>%
     country = "FAKE_no",
     year0 = year0 -1,
     year = year -1,
-    cdon = jitter(cdon),
-    don = jitter(don),
+    cdon = jitter(cdon+1),
+    don = jitter(don+1),
     avage = jitter(avage)
   ) %>% bind_rows(et) %>%  
   mutate(
@@ -109,7 +113,8 @@ summary(et)
 ```{r}
 et %>% group_by(country,age.lower,age.upper,BloodGroup) %>% count() %>% filter(age.upper == 100 & age.lower == 0)
 ```
-Comparison groups!!!
+
+Comparison groups for O- are not there yet.
 
 
 ```{r}
@@ -132,6 +137,7 @@ et %>%
 
 ```
 
+Mean donations by coutry and blood group.
 
 ```{r}
 # Remove the first year of each country
@@ -151,9 +157,70 @@ for(i in miny$country) {
 ```
 
 
+## Probability of next donation 
 
-# Donation counts
+```{r}
+param$data.file = file.path(param$wd,'/results/activity.stats.sex.rdata')
+load(param$data.file)
 
+activity.stats.sex <-   activity.stats.sex %>% 
+  na.omit() %>% 
+  mutate(
+    x = round(n * prop,0),
+    ciplower =  binom.confint( x = x ,n=n, method=c("ac"),type="central")$lower,
+    cipupper =  binom.confint( x = x ,n=n, method=c("ac"),type="central")$upper,
+    cidelower = 0.5 * qchisq(0.95/2, 2*delay),
+    cideupper = 0.5 * qchisq(1-0.95/2, 2*delay+2)
+   ) %>% 
+ mutate(
+  across(where(is.character),as.factor)
+  )
+summary(activity.stats.sex)
+
+```
+
+
+```{r fake-data-2}
+
+if (TRUE) {
+set.seed(2030)
+activity.stats.sex <- activity.stats.sex %>% filter(country == 'fi') %>% 
+  mutate(
+    country = "FAKE_fo",
+    n = jitter(n+1),
+    prop = jitter(prop+0.01),
+    delay = jitter(delay+10),
+    ciplower = jitter(ciplower+0.01),
+    cipupper = jitter(cipupper+0.01),
+    cidelower = jitter(cidelower+10),
+    cideupper = jitter(cideupper+10),
+  ) %>% bind_rows(activity.stats.sex)
+activity.stats.sex <- activity.stats.sex %>% filter(country == 'nl') %>% 
+  mutate(
+    country = "FAKE_nl",
+    n = jitter(n+1),
+    prop = jitter(prop+0.01),
+    delay = jitter(delay+10),
+    ciplower = jitter(ciplower+0.01),
+    cipupper = jitter(cipupper+0.01),
+    cidelower = jitter(cidelower+10),
+    cideupper = jitter(cideupper+10)
+  ) %>% bind_rows(activity.stats.sex) %>% 
+  mutate(
+  across(where(is.character),as.factor)
+)
+summary(activity.stats.sex)
+}
+
+```
+
+
+
+# Donation counts plots
+
+## Cumulative donation counts raw data
+
+### -O-
 
 ```{r}
 
@@ -185,6 +252,10 @@ wrap_plots(pmo + pfo + pmm + pfm) + plot_layout(guides = "collect") &
 
 ```
 
+These plots are meant for artefact detection. For easier comparison countries look further.
+
+### O-
+
 ```{r , warning=FALSE, fig.width=12,fig.height=14}
 
 pmo <- plotcdon(et %>% filter(BloodGroup == "O-" & Sex== "Male", DonationPlaceType == 'Office')) + ggtitle("Male Office")
@@ -197,38 +268,10 @@ wrap_plots(pmo + pfo + pmm + pfm) + plot_layout(guides = "collect") &
 
 ```
 
-
-```{r}
-plotdon <- function(data){
-p <- ggplot(
-  data,
-  aes(x = year, y = don, color = year0, group=year0)
-) 
-p <- p + geom_path()
-p <- p +facet_grid(country~age.group)
-p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))
-p <- p + ylab("Cumulative count of donations") + xlab("Year")
-#p <- p + guides(color = guide_legend(title = "First year")) 
-    
-}
+These plots are meant for artefact detection. For easier comparison countries look further.
 
 
-```
-
-```{r , warning=FALSE, fig.width=12,fig.height=14}
-
-pmo <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Male", DonationPlaceType == 'Office')) + ggtitle("Male Office")
-pfo <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Female", DonationPlaceType == 'Office')) + ggtitle("Female Office")
-pmm <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Male", DonationPlaceType == 'Mobile')) + ggtitle("Male Mobile")
-pfm <- plotdon(et %>% filter(BloodGroup == "-O-" & Sex== "Female", DonationPlaceType == 'Mobile')) + ggtitle("Female Mobile")
-
-wrap_plots(pmo + pfo + pmm + pfm) + plot_layout(guides = "collect") & 
-  scale_colour_continuous(limits = range(et$year0))
-
-```
-
-
-## Age and donation count
+## Age and donation count on raw data
 
 
 ```{r}
@@ -258,14 +301,96 @@ wrap_plots(pmo + pfo ) + plot_layout(guides = "collect")
 
 ```
 
+These plots are meant for artefact detection. For easier comparison countries look further.
+
+## Cumulative donation count country wise comparison
 
 
 ```{r}
-tmp <- et %>% 
-  filter(country == "nl" & age.group == "0-25") %>% 
-  filter(avage < 20) %>% droplevels()
+plotaveagecdoncountry <- function(data){
+  tmp <- data %>% 
+    mutate(
+      group = str_c(country, Name,year0)
+    )
+p <- ggplot(
+  tmp,
+  aes(x = avage, y = cdon, color = country, alpha=rev(year0))
+  
+) 
+#p <- p + geom_point(alpha =0.5)
+p <- p + geom_point()
+p <- p + geom_line(aes(group=group))
+p <- p + facet_grid(DonationPlaceType~.)
+p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))
+p <- p + ylab("Cumulative count of donations") + xlab("Average age")
+p <- p + guides(
+  color = guide_legend(title = "Country"),
+  alpha = guide_legend(title = "First year")
+  ) 
+p <- p + ylim(1,15)
+}
 
-summary(tmp)
+
 ```
 
-Something in avage?
+```{r , warning=FALSE, fig.width=12,fig.height=8}
+
+pmo <- plotaveagecdoncountry(et %>% filter(BloodGroup == "-O-" & Sex== "Male")) + ggtitle("Male")
+pfo <- plotaveagecdoncountry(et %>% filter(BloodGroup == "-O-" & Sex== "Female")) + ggtitle("Female")
+
+wrap_plots(pmo + pfo ) + plot_layout(guides = "collect") 
+  
+
+```
+
+
+# Next donation plots
+
+## Probability of next donation
+
+```{r}
+p <- ggplot(activity.stats.sex)
+p <- p + geom_ribbon(aes(x = ord, ymin = ciplower,ymax=cipupper,fill=country), alpha = 0.5)
+p <- p + facet_grid(.~Sex)
+p <- p + xlab("Number of consecutive donation event") + ylab("Probability of next donation")
+p
+```
+
+
+```{r }
+p <- ggplot(activity.stats.sex)
+p <- p + geom_ribbon(aes(x = ord, ymin = ciplower,ymax=cipupper,fill=country), alpha = 0.5)
+p <- p + facet_grid(.~Sex)
+p <- p + xlab("Number of consecutive donation event") + ylab("Probability of next donation")
+p <- p + scale_x_log10(limits=c(1,40)) # # how to take into account variable length of data by country?
+p <- p + guides(
+  color = guide_legend(title = "Country")
+  )
+p
+```
+
+
+## Delay to next donation
+
+```{r}
+p <- ggplot(activity.stats.sex)
+p <- p + geom_ribbon(aes(x = ord, ymin = cidelower,ymax=cideupper,fill=country))
+p <- p + facet_grid(.~Sex)
+p <- p + scale_y_log10()
+p <- p + xlab("Number of consecutive donation event") +  ylab("Delay in days to next donation")
+p
+```
+
+
+```{r}
+p <- ggplot(activity.stats.sex)
+p <- p + geom_ribbon(aes(x = ord, ymin = cidelower,ymax=cideupper,fill=country))
+p <- p + facet_grid(.~Sex)
+p <- p + scale_y_log10()
+p <- p + xlim(0,40)  # how to take into account variable length of data by country?
+p <- p + xlab("Number of consecutive donation event") +  ylab("Delay in days to next donation")
+p <- p + guides(
+  color = guide_legend(title = "Country")
+  )
+p
+```
