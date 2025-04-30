@@ -825,6 +825,7 @@ res.nd=processGroupTable(simple,nd)
 # res.oneg=processGroupTable(simple,gt.oneg)
 # res.sex=processGroupTable(simple,gt.sex)
 ```
+
 ```{r activity-stats}
 ord.last = spair %>%
   group_by(numid) %>%
