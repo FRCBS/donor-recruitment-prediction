@@ -237,7 +237,7 @@ cumulativeToDensity = function(dist) {
 
 ```{r}
 # nb! Should the first predicted year actually be 2024? If there is full data for 2024
-computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2023,is.existing=FALSE,by.age=FALSE,total.donations=0) {
+computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2023,is.existing=FALSE,by.age=FALSE,total.donations=0,print.debug=FALSE) {
   if (is.existing) {
     cdata=cbind(gr=1,resl[[1]]$data[,c('numid','date')])
     for (i in 2:length(resl)) {
@@ -327,6 +327,20 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
       
         # donation amounts: rows ~ groups, columns ~ years.ahead
         # Here the loop (i) is over the age distribution
+        
+        # 2025-04-30 debug code
+        if (print.debug) {
+          print(paste('vmult =',vmult))
+          print('annual.donation.densities')
+          print(annual.donation.densities)
+          print(paste('first.predicted.year =',first.predicted.year))
+          print('group$sizes column and row names')
+          print(colnames(group$sizes))
+          print(rownames(group$sizes))
+          print('dista')
+          print(dista)
+        }
+        
         donation.amounts[i,] = vmult * annual.donation.densities *
           as.integer(group$sizes[as.character(first.predicted.year-1),'n']) * dista[i]
           # as.integer(table(year(group$data$date))[as.character(first.predicted.year-1)]) * dista[i]
@@ -756,7 +770,7 @@ distributionMatrix2 = function(data.group,data.full,density=FALSE,max.dt=as.Date
 ```
 
 ```{r}
-sumDonationAmounts = function(nres,gt,existing=FALSE,years.ahead=55,total.donations=0) {
+sumDonationAmounts = function(nres,gt,existing=FALSE,years.ahead=55,total.donations=0,print.debug=FALSE) {
   dares = computeDonationAmounts(nres,gt,by.age=FALSE,is.existing=existing,total.donations=total.donations)
   dona = matrix(0,ncol=years.ahead,nrow=length(nres))
   for (i in 1:length(nres)) {
@@ -811,44 +825,7 @@ res.nd=processGroupTable(simple,nd)
 # res.oneg=processGroupTable(simple,gt.oneg)
 # res.sex=processGroupTable(simple,gt.sex)
 ```
-
-```{r plot-groups}
-# 2024-08-08 This draws the plot for each group of both new and existing donors
-plot.estimated(res.nd,nd,bundle=FALSE)
-# plot.estimated(res.ed,ed,bundle=FALSE)
-
-# oneg.ratio=plot.estimated(res.oneg,gt.oneg,bundle=TRUE)
-# plot.estimated(res.sex,gt.sex,bundle=TRUE)
-```
-
-```{r dompute donation amounts}
-dona.nd = sumDonationAmounts(res.nd,nd,FALSE)
-
-# 22080 is the assumed number of new donors
-nd.annual = 22080
-# the cumulative annual donations multiplier for new donors
-# To be used later in computations specific to Finland
-nd.cad.multiplier = max(colSums(dona.nd)) / nd.annual
-
-# dona.ed = sumDonationAmounts(res.ed,ed,TRUE)
-```
-
-
-
-```{r}
-# 2024-08-08
-# These are the colourful area charts of the projected donation amounts
-# A bonus would be to draw the previous donation amounts at least as ungrouped data.
-# Plot the chart for new donors
-plotDonationAmounts(dona.nd,nd)
-
-# Plot the chart for existing donors
-# plotDonationAmounts(dona.ed,ed)
-
-# Compbined plot with new and existing donors
-# plotDonationAmounts(rbind(colSums(dona.nd),colSums(dona.ed)),data.frame(Name=c('new donors','existing donors')))
-```
-```{r}
+```{r activity-stats}
 ord.last = spair %>%
   group_by(numid) %>%
   summarise(ord.max=max(ord),hasNext=0)
@@ -875,10 +852,9 @@ activity.stats.sex$ord = activity.stats.sex$ord-1
 activity.stats.sex = activity.stats.sex[activity.stats.sex$ord>0,]
 ```
 
-
 # Export
 
-```{r}
+```{r export-function}
 # Function to export the data
 exportSummary = function(gt, res, filename) {
   sheets = list()
@@ -923,6 +899,50 @@ exportSummary = function(gt, res, filename) {
   
   write.xlsx(sheets,filename,rowNames=TRUE)
 }
+```
+
+
+```{r export-summary-data}
+exportSummary(nd,res.nd,param$result.file)
+```
+
+Plotting the results
+
+```{r plot-groups}
+# 2024-08-08 This draws the plot for each group of both new and existing donors
+plot.estimated(res.nd,nd,bundle=FALSE)
+# plot.estimated(res.ed,ed,bundle=FALSE)
+
+# oneg.ratio=plot.estimated(res.oneg,gt.oneg,bundle=TRUE)
+# plot.estimated(res.sex,gt.sex,bundle=TRUE)
+```
+
+```{r dompute donation amounts}
+dona.nd = sumDonationAmounts(res.nd,nd,FALSE,print.debug=TRUE)
+
+# 22080 is the assumed number of new donors
+nd.annual = 22080
+# the cumulative annual donations multiplier for new donors
+# To be used later in computations specific to Finland
+nd.cad.multiplier = max(colSums(dona.nd)) / nd.annual
+
+# dona.ed = sumDonationAmounts(res.ed,ed,TRUE)
+```
+
+
+
+```{r}
+# 2024-08-08
+# These are the colourful area charts of the projected donation amounts
+# A bonus would be to draw the previous donation amounts at least as ungrouped data.
+# Plot the chart for new donors
+plotDonationAmounts(dona.nd,nd)
+
+# Plot the chart for existing donors
+# plotDonationAmounts(dona.ed,ed)
+
+# Compbined plot with new and existing donors
+# plotDonationAmounts(rbind(colSums(dona.nd),colSums(dona.ed)),data.frame(Name=c('new donors','existing donors')))
 ```
 
 ```{r}
@@ -973,11 +993,6 @@ plotDelayBySex(activity.stats.sex,'nl')
 ```{r}
 plotPropBySex(activity.stats.sex,'fi')
 ```
-
-```{r export-summary-data}
-exportSummary(nd,res.nd,param$result.file)
-```
-
 
 ```{r}
 knitr::knit_exit()
