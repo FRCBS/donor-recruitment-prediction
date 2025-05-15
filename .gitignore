@@ -3,7 +3,8 @@
 .Rhistory
 .RData
 .Ruserdata
-
+*.csv
+srcdata/
 #In general ignore everything
 *
 */*

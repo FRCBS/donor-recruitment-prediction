@@ -18,10 +18,9 @@ library(ggplot2) # # heatmaps etc
 #library(reshape2)
 ```
 
-GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd
+GitHub: <https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd>
 
-
-```{r parameters} 
+```{r parameters}
 # Notes from meeting with Mart and Amber (2 Oct 2024)
 # DonationPlaceType: Mobile vs Office/other
 # 2000 -> 2008: first year of data
@@ -37,7 +36,7 @@ param$donation.types = c('Whole Blood (K)')
 
 param$annual.first.time.donors=22080
 
-param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata"
+param$data.file = "/mnt/c/Users/potha01m/data/data_for_Timo/data.rdata"
 
 # Create directory if it does not already exist
 dir.create(file.path("../results"),showWarnings = FALSE)
@@ -50,8 +49,10 @@ param$result.file = '../results/data.xlsx'
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
 # These parameters do not affect the exported distribution matrix (distm).
+
+#MP: Changed this...
 param$reference.year=2011
-param$last.data.year=2020
+param$last.data.year=2023
 
 param$useOfficeMobile = TRUE
 
@@ -391,6 +392,8 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
 
 # Processing
 
+id.map[donationdata\$donation\$releaseID,'numid']
+
 ```{r load-and-preprocess-data}
 # Load the data and process it for the purposes of both the 1st time donor analysis 
 # and the resilience of the donor base.
@@ -604,11 +607,10 @@ plotAgeDistributionMatrix = function(data,years=17:65,main='') {
 }
 ```
 
-
 ```{r}
 # nb: ref.year is the row that is used for prediction; if data begins 2000, this will be year 2003
 # distm should be the cumulative distribution matrix
-estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='') {
+estimate.predict = function(dist,ref.year="2012",last.data.year=2023,years.ahead=55,main='',sub='') {
   # dist = res.nd[[1]]$distm
   ref.year=as.character(ref.year)
   ref.year.numeric = as.integer(ref.year)
@@ -674,7 +676,6 @@ plot.estimated = function(nres,gt,bundle=FALSE,years.ahead=55) {
   return(mean.y)
 }
 ```
-
 
 ```{r}
 # New take on counting the cumulative amounts of donations: utilise pivoting
@@ -769,7 +770,6 @@ if (FALSE) {
 }
 ```
 
-
 # Results
 
 ```{r compute-distributions-groups}
@@ -802,8 +802,6 @@ nd.cad.multiplier = max(colSums(dona.nd)) / nd.annual
 # dona.ed = sumDonationAmounts(res.ed,ed,TRUE)
 ```
 
-
-
 ```{r}
 # 2024-08-08
 # These are the colourful area charts of the projected donation amounts
@@ -817,6 +815,7 @@ plotDonationAmounts(dona.nd,nd)
 # Compbined plot with new and existing donors
 # plotDonationAmounts(rbind(colSums(dona.nd),colSums(dona.ed)),data.frame(Name=c('new donors','existing donors')))
 ```
+
 ```{r}
 ord.last = spair %>%
   group_by(numid) %>%
@@ -834,7 +833,6 @@ activity.stats = spair2 %>%
 activity.stats$ord = activity.stats$ord-1
 activity.stats = activity.stats[activity.stats$ord>0,]
 ```
-
 
 # Export
 
@@ -899,10 +897,6 @@ plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),main='p
 exportSummary(nd,res.nd,param$result.file)
 ```
 
-
 ```{r}
 knitr::knit_exit()
 ```
-
-
-
