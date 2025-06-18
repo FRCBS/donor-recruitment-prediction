@@ -314,7 +314,8 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
       # but still place the first values in the beginning, eg. project them for 2024 etc.
       # Need to compute the dlast table here
       annual.donation.densities = pred.donations.pp
-      annual.donation.densities[(years.active+1):years.ahead]=0
+      if ((years.active+1) <= years.ahead)
+        annual.donation.densities[(years.active+1):years.ahead]=0
       
       # nb! hard coded data again: use the number of donors from year 2003
       if (is.existing) {
