@@ -4,12 +4,13 @@ author: "Timo Asikainen"
 date: "`r Sys.time()`"
 output:
   html_document:
+    code_folding: hide
   toc: true
 theme: united
 ---
   
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE,echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE)
 library(tidyverse)
 library(openxlsx)
 library(ggplot2) # # heatmaps etc
@@ -21,13 +22,14 @@ GitHub: https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/bloo
 
 # Parameters
 
-```{r parameters} 
+```{r parameters,echo=FALSE} 
+source('functions-2.r')
 param=list()
-param$data.directory = 'C:/git_repot/donor-recruitment-prediction/data' # '/data'
+param$data.directory = 'C:/git_repot/donor-recruitment-prediction/data'
 ```
 
 
-```{r read-files}
+```{r read-files,echo=FALSE}
 file.names = dir(path=param$data.directory,pattern="*.xlsx")
 file.names = file.names[!grepl('~',file.names)]
 file.names = file.names[grepl('.xlsx$',file.names)]
@@ -86,7 +88,7 @@ for (file in file.paths) {
 ```
 
 
-```{r produce-explore-data}
+```{r produce-explore-data,echo=FALSE}
 # This is a copy from blood-donor-recruitment-prediction.R
 # Unfortunately does not work for matrices
 cumulativeToDensity = function(dist) {
@@ -182,8 +184,7 @@ save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/result
 save(activity.stats.sex,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.sex.Rdata"))
 ```
 
-```{r et-aggregate-ages}
-str(et)
+```{r et-aggregate-ages,echo=FALSE}
 et.noage = et %>%
   ungroup() %>%
   filter(age.upper<100,BloodGroup=='-O-') %>%
@@ -199,7 +200,7 @@ et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
 ```
 
-```{r explore-data-examples}
+```{r explore-data-examples,echo=FALSE}
 et %>%
   summarise(sum(n*don,na.rm=TRUE))
 
@@ -220,7 +221,6 @@ colnames(cydata)[3]='value'
 
 cymat = pivot_wider(cydata,id_cols=c('year'),names_from='country')
 cymat=cymat[cymat$year<=2024,]
-str(cymat)
 ggplot(cydata,                            
        aes(x = year,
            y = value,
@@ -229,20 +229,22 @@ ggplot(cydata,
 
 
 
-```{r}
+```{r,echo=FALSE}
 # These values are experimental in the data, so quick-fix them here
 countries$fi$parameters$reference.year = 2003
 countries$fi$parameters$last.data.year = 2023
 
 countries$nl$parameters$reference.year = 2011
 countries$nl$parameters$last.data.year = 2023
+
+countries$fr$parameters$reference.year = 2017
+countries$fr$parameters$last.data.year = 2023
+
+countries$au$parameters$reference.year = 2013
+countries$au$parameters$last.data.year = 2023
 ```
 
-```{r}
-for (i in 1:length(countries$nl$res)) {
-  plotDistibutionMatrix(countries$nl$res[[i]]$distm,diff=FALSE,skip.years=1,main=countries$nl$gt$Name)
-}
-```
+
 
 ```{r estimate-models}
 # Here, the data is augmented with models estimated based on distm
@@ -257,8 +259,8 @@ for (m in names(countries)) {
 }
 ```
 
-```{r}
-# This is a slighty modified version of plot.estimted in blood-donor-recruitment-prediction.R
+```{r,echo=FALSE}
+# This is a slighty modified version of plot.estimated in blood-donor-recruitment-prediction.R
 plot.estimated.countries = function(nres,gt,bundle=FALSE,years.ahead=55,main='') {
   # Here, gt contains reference year and last.data year values (per country)
   
@@ -346,14 +348,21 @@ for (i in 1:length(countries$nl$res)) {
 # - (Age)
 # - (Type of place)
 ```
-```{r compute-donation-amounts}
-dona=list()
+```{r,echo=FALSE}
+country='fi'
+for (i in 1:length(countries[[country]]$res)) {
+  plotDistibutionMatrix(countries[[country]]$res[[i]]$distm,diff=FALSE,skip.years=1,main=countries[[country]]$gt$Name[i])
+}
+```
+
+```{r compute-donation-amounts,echo=FALSE}
+dona=list() 
 for (m in names(countries)) {
   dona[[m]] = sumDonationAmounts(countries[[m]]$res,countries[[m]]$gt,FALSE,total.donations=NULL) 
 }
 ```
 
-```{r plot-donation-amounts}
+```{r plot-donation-amounts,echo=FALSE}
 for (m in names(countries)) {
   plotDonationAmounts(dona[[m]],countries[[m]]$gt)
 }
@@ -388,13 +397,12 @@ for (i in 1:length(names(countries))) {
 # Confidence intervals
 ```
 
-```{r}
+```{r echo=FALSE}
 local.gt = countries$fi$gt
 local.gt$reference.year = countries$fi$parameters$reference.year
 local.gt$last.data.year = countries$fi$parameters$last.data.year
 plot.estimated.countries(countries$fi$res,local.gt,bundle=FALSE)
 ```
-
 
 ```{r}
 knitr::knit_exit()
