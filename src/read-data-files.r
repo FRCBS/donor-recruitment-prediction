@@ -1,0 +1,407 @@
+## ----setup, include=FALSE,echo=FALSE------------------------------------------
+# knitr::opts_chunk$set(echo = FALSE,warning=FALSE)
+library(tidyverse)
+library(openxlsx)
+library(ggplot2) # # heatmaps etc
+library(reshape2) # melt (needed in heatmaps)
+
+## ----parameters,echo=FALSE----------------------------------------------------
+source('functions-2.r')
+param=list()
+param$data.directory = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data'
+
+
+## ----read-files,echo=FALSE----------------------------------------------------
+file.names = dir(path=param$data.directory,pattern="*.xlsx")
+file.names = file.names[!grepl('~',file.names)]
+file.names = file.names[grepl('.xlsx$',file.names)]
+file.paths = paste(param$data.directory,'/',file.names,sep='')
+
+countries = list()
+gt = NULL
+for (file in file.paths) {
+  identifier = sub('.+[/\\]([a-z]+)[^/\\]+$','\\1',file) # gsub('.*\\\\(..).*\\.xlsx$','\\1',file)
+  if (nchar(identifier) > 2) 
+    next
+  
+  curr = list()
+  res = list()
+  
+  sheet.names = getSheetNames(file)
+  for (sn in sheet.names) {
+    data = read.xlsx(file,colNames=TRUE,rowNames=TRUE,sheet = sn)
+    if (grepl(' def(inition)?$',sn)) {
+      if (is.null(gt)) {
+        gt = data
+      } else
+        gt = rbind(gt,data)
+    } else if (sn == 'parameters') {
+      curr$parameters = data
+    } else if (grepl('sizes',sn)) {
+        grp = list()
+        grp$sizes = data
+        rownames(grp$sizes) = grp$sizes$year
+    } else if (grepl('distm|dista',sn)) {
+      kind = sub('.+(distm|dista)','\\1',sn)
+      if (kind == 'distm') {
+        # There is an error in data generation: the columns start repeating
+        # Remove the extra columns here
+        ncols = which.max(colSums(is.na(data)))
+        if (length(ncols) > 0) {
+          grp[[kind]] = as.matrix(data[,1:(ncols-0)])
+        } else
+          grp[[kind]]=NULL
+      }
+      if (kind == 'dista') {
+        grp[[kind]] = data
+        res[[length(res)+1]] = grp
+      }
+    } else if (grepl('^activity-stats',sn)) {
+      data$delay = as.numeric(data$delay)
+      data$prop = as.numeric(data$prop) 
+      if (grepl('sex',sn))
+        data = data[data$Sex!="",]
+      curr[[gsub('-','.',sn)]] = data
+    } else {
+      print(paste('not processed',sn))
+    }
+  }
+  
+  curr$gt = gt
+  gt = NULL
+  curr$res = res
+  countries[[identifier]] = curr
+}
+
+
+## ----produce-explore-data,echo=FALSE------------------------------------------
+# This is a copy from blood-donor-recruitment-prediction.R
+# Unfortunately does not work for matrices
+cumulativeToDensity = function(dist) {
+  return((c(dist,0)-c(0,dist))[1:length(dist)])
+}
+
+cdm2pdm = function(distm) {
+  pdm = cbind(cdm)-cbind(data.frame(rep(0,nrow(cdm))),cdm[,-ncol(cdm)])
+  colnames(pdm)=colnames(distm)
+  return(pdm)
+}
+
+et=NULL # main exploratory data set
+activity.stats=NULL # combined activity stats
+activity.stats.sex=NULL # combined activity stats + grouped by sex
+for (cn in names(countries)) {
+  country = countries[[cn]]
+  asincr = cbind(country=cn,country$activity.stats)
+  asincr.sex = cbind(country=cn,country$activity.stats.sex)
+  if (is.null(activity.stats)) {
+    activity.stats = asincr
+    activity.stats.sex = asincr.sex
+  } else {
+    activity.stats = rbind(activity.stats,asincr)
+    activity.stats.sex = rbind(activity.stats.sex,asincr.sex)
+  }
+  for (i in 1:nrow(country$gt)) {
+    gt.row = cbind(country=cn,country$gt[i,])
+    rese = country$res[[i]]
+    cdm = rese$distm
+    pdm = cdm2pdm(cdm)
+    
+    m_longer = function(cdm) {
+      cdm = data.frame(cdm)
+      cdm = cbind(year0=rownames(cdm),cdm)
+      cdm= pivot_longer(cdm,colnames(cdm)[2:ncol(cdm)])
+      colnames(cdm)=c('year0','ord','value')
+      cdm$ord = as.integer(sub('X','',cdm$ord))
+      return(cdm)
+    }
+    
+    dista = rese$dista
+    cols = colnames(dista)[-1]
+
+    # Remove the empty columns from the dista
+    # All the rows may be lacking (i==15,cn='fi'), or there might be one present (i==15,cn='nl')
+    # The apply will result in Warning: no non-missing arguments to max; returning -Inf if there are empty columns
+    wh = which(apply(dista,2,max,na.rm=TRUE)<0.99)
+    if (length(wh) > 0) {
+      dista = dista[,-wh]
+      cols = colnames(dista)[-1]
+    }
+    
+    dista[,cols] = apply(data.frame(dista[,cols]),2,FUN=cumulativeToDensity)
+    
+    # Add an extra column to make sure some distribution will be available when using the closest <= condition below
+    max.year = max(as.integer(colnames(dista[cols]),na.rm=FALSE))
+    dista[['2100']] = dista[[as.character(max.year)]]
+
+    avgage = dista %>%
+      pivot_longer(colnames(dista)[-1]) %>%
+      group_by(name) %>%
+      summarise(avage=sum(age*value,na.rm=TRUE)) %>%
+      mutate(year=as.integer(name))
+    
+    lcm=m_longer(cdm)
+    lpm=m_longer(pdm)
+    
+    huu=cross_join(gt.row,lcm)
+    colnames(huu)=sub('value','cdon',colnames(huu))
+    hu2=inner_join(huu,lpm,join_by(year0,ord))
+    colnames(hu2)=sub('value','don',colnames(hu2))
+    hu2$year0=as.integer(hu2$year0)
+    
+    hu2=left_join(hu2,rese$sizes,join_by(x$year0==y$year))
+    
+    hu2 = left_join(hu2,avgage,join_by(closest(x$year0<=y$year)))
+    hu2 = hu2[,-ncol(hu2)] # remove the age column coming from avgage
+    hu2$avage = (hu2$avage + hu2$ord) - 1  # compute the average age for subsequent year
+    hu2 = hu2[,!colnames(hu2) %in% c('name')]
+    hu2$year = (hu2$year0+hu2$ord) - 1
+    int.cols = c('age.lower','age.upper','MaximumAge','year','n')
+    hu2[int.cols] = lapply(hu2[int.cols],as.integer)
+    if (is.null(et)) {
+      et = hu2
+    } else
+      et =rbind(et,hu2)
+  }
+}
+
+save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))
+save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.Rdata"))
+save(activity.stats.sex,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.sex.Rdata"))
+
+
+## ----et-aggregate-ages,echo=FALSE---------------------------------------------
+et.noage = et %>%
+  ungroup() %>%
+  filter(age.upper<100,BloodGroup=='-O-') %>%
+  group_by(country,DonationPlaceType,Sex,BloodGroup,Multiplier,MaximumAge,year0,ord,year) %>%
+  summarise(Name=min(Name),cdon=sum(n*cdon)/sum(n),don=sum(n*don)/sum(n),n=sum(n),avage=sum(n*avage)/sum(n),.groups='drop') %>%
+  mutate(age.lower=0,age.upper=100)
+et.noage=et.noage[,colnames(et)]
+et.noage$Name=sub(' [0-9].+','',et.noage$Name)
+
+# Combine the new -O- with 0-100 age data from above with the O- rows
+# In the combined data, there are no age groups
+et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
+save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
+
+
+## ----explore-data-examples,echo=FALSE-----------------------------------------
+et %>%
+  summarise(sum(n*don,na.rm=TRUE))
+
+et %>%
+  group_by(country) %>%
+  summarise(sum(n*don,na.rm=TRUE))
+
+# nb! The annual sum for case fi,2000 includes all the donations from those who first donated
+# in 2000 during the first full year since the first date of donation. Hence the sums on the rows represent
+# full years but do not match calendar years; the years are provided just for reference.
+# In particular, the first year has about 1.5 times the donations, and the last year only some remaining bits
+# since it was cut in April anyhow.
+cydata = et %>%
+  group_by(country,year) %>%
+  summarise(sum(n*don,na.rm=TRUE)) %>%
+  filter(year<2024)
+colnames(cydata)[3]='value'
+
+cymat = pivot_wider(cydata,id_cols=c('year'),names_from='country')
+cymat=cymat[cymat$year<=2024,]
+ggplot(cydata,                            
+       aes(x = year,
+           y = value,
+           col = country,lwd=3)) + geom_line()
+
+
+## ----echo=FALSE---------------------------------------------------------------
+# These values are experimental in the data, so quick-fix them here
+countries$fi$parameters$reference.year = 2003
+countries$fi$parameters$last.data.year = 2023
+
+countries$nl$parameters$reference.year = 2011
+countries$nl$parameters$last.data.year = 2023
+
+countries$fr$parameters$reference.year = 2017
+countries$fr$parameters$last.data.year = 2023
+
+countries$au$parameters$reference.year = 2013
+countries$au$parameters$last.data.year = 2023
+
+
+## ----estimate-models----------------------------------------------------------
+# Here, the data is augmented with models estimated based on distm
+for (m in names(countries)) {
+  for (i in 1:length(countries[[m]]$res)) {
+    params = countries[[m]]$parameters
+    last.data.year = params$last.data.year
+    ref.year = as.character(params$reference.year)
+    m0 = estimate.predict(countries[[m]]$res[[i]]$distm,ref.year=ref.year,last.data.year=last.data.year,years.ahead=55,main='',try.nls=TRUE)
+    countries[[m]]$res[[i]]$m = m0$m
+    countries[[m]]$res[[i]]$m.nls = m0$m.nls
+  }
+}
+
+## ----echo=FALSE---------------------------------------------------------------
+# This is a slighty modified version of plot.estimated in blood-donor-recruitment-prediction.R
+plot.estimated.countries = function(nres,gt,bundle=FALSE,years.ahead=55,main='') {
+  # Here, gt contains reference year and last.data year values (per country)
+  
+  models=list()
+  models.nls = list()
+  for (i in 1:length(nres)) {
+    group = nres[[i]]
+    ms = estimate.predict(group$distm,
+                    ref.year=gt[i,'reference.year'],last.data.year=gt[i,'last.data.year'],
+                     main = if (bundle) '' else gt$Name[i],
+                     sub=paste('n=',dim(group$data)[1],sep=''),try.nls=TRUE)
+    
+    models[[i]] = ms$m
+    models.nls[[i]] = ms$m.nls
+  }
+  
+  mean.y = NULL
+  
+  # Create a plot with all the model estimates if requested
+  if (bundle) {
+print('yep')
+    # nb! should set a reasonable value for the maximum
+    plot(x=NULL,type='n',xlim=c(0,55),ylim=c(0,20),main=main,ylab='cumulative number of donations',xlab='years since first donation')
+    for (i in 1:length(models)) {
+      new=data.frame(x=0:years.ahead,sqrt.x=(0:years.ahead)^0.5)
+      pred.w.plim <- predict(models[[i]], new, interval = "prediction")
+      # pred.w.clim <- predict(models[[i]], new, interval = "confidence")
+      lines(new$x, pred.w.plim[,1],lwd=3,col=i+1)
+      lines(new$x, pred.w.plim[,2],lwd=1,col=i+1,lty='dashed')
+      lines(new$x, pred.w.plim[,3],lwd=1,col=i+1,lty='dashed')
+      points(models[[i]]$model$x,models[[i]]$model$y,col=i+1)
+      legend('topleft',legend=gt$Name,fill=1+(1:length(models)))
+    }
+    
+    if (length(models)==2) {
+      # Plot the proportion as well to enable comparisons
+      # Primarily intended to estimate the excess donations by Oneg donors
+      min.len = min(length(models[[1]]$model$y),length(models[[2]]$model$y))
+      lines(models[[1]]$model$x[1:min.len], models[[1]]$model$y[1:min.len]/models[[2]]$model$y[1:min.len],lwd=5,lty='dotted')
+      mean.y=mean(models[[1]]$model$y[1:min.len]/models[[2]]$model$y[1:min.len])
+      text(x=30,y=mean.y,labels=paste('ratio =',round(mean.y,3)))
+    }
+  }
+  
+  return(list(models=models,models.nls=models.nls))
+}
+
+
+## -----------------------------------------------------------------------------
+# Plot the countrywise comparisons for each group
+# nb!/todo Could also make comparisons based on the estimated parameters: integrate over a given range
+for (i in 1:length(countries$nl$res)) {
+  local.gt = NULL
+  local.res = list()
+  for (m in names(countries)) {
+    if (is.null(local.gt)) {
+      local.gt = countries[[m]]$gt[i,]
+      ncol.gt = ncol(countries[[m]]$gt)
+      rownames(local.gt) = m
+    } else {
+      local.gt[m,1:ncol.gt] = countries[[m]]$gt[i,]
+    }
+    local.res[[m]] = countries[[m]]$res[[i]]
+    if (m == 'nl')
+      local.res[[m]]$distm = local.res[[m]]$distm[,1:14]
+    
+    local.gt[nrow(local.gt),'reference.year'] = countries[[m]]$parameters$reference.year
+    local.gt[nrow(local.gt),'last.data.year'] = countries[[m]]$parameters$last.data.year
+  }
+  
+  # nb! hard-coded constant; the name is missing for some reason on the first line
+  group.name = local.gt[2,'Name']
+  local.gt$Name = names(countries)
+  plot.estimated.countries(local.res,local.gt,bundle=TRUE,main=group.name)
+}
+# Change in hemoglobin accross countries
+# Confidence intervals for predictions
+# Countrwise comparisons
+# Model could be estimated using splines
+# Trends over time: some mixed model to see the trends over time
+# Not yet hemoglobin
+# 7th Jan
+# Oneg thing to be included, highlight this; plots for this as well
+# Split by
+# - Oneg/others
+# - Sex
+# - (Age)
+# - (Type of place)
+
+## ----echo=FALSE---------------------------------------------------------------
+country='fi'
+for (i in 1:length(countries[[country]]$res)) {
+  plotDistibutionMatrix(countries[[country]]$res[[i]]$distm,diff=FALSE,skip.years=1,main=countries[[country]]$gt$Name[i])
+}
+
+
+## ----compute-donation-amounts,echo=FALSE--------------------------------------
+dona=list() 
+for (m in names(countries)) {
+  dona[[m]] = sumDonationAmounts(countries[[m]]$res,countries[[m]]$gt,FALSE,total.donations=NULL) 
+}
+
+
+## ----plot-donation-amounts,echo=FALSE-----------------------------------------
+for (m in names(countries)) {
+  plotDonationAmounts(dona[[m]],countries[[m]]$gt)
+}
+
+
+## -----------------------------------------------------------------------------
+plot(x=NULL,type='n',xlim=c(0,200),ylim=c(0,100),xlab='number of previous donations',ylab='probability of next donation (%)')
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats
+  lines(stats$ord,100*stats$prop,lwd=3,col=i+1)
+}
+legend('bottomright',legend=names(countries),fill=1+(1:length(countries)))
+
+plot(x=NULL,type='n',xlim=c(0,200),ylim=c(0,600),xlab='number of previous donations',ylab='time till next donation')
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats
+  lines(stats$ord,stats$delay,lwd=3,col=i+1)
+}
+legend('bottomright',legend=names(countries),fill=1+(1:length(countries)))
+
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats.sex
+  plotPropBySex(stats,names(countries)[i])
+}
+
+for (i in 1:length(names(countries))) {
+  stats = countries[[i]]$activity.stats.sex
+  plotDelayBySex(stats,names(countries)[i])
+}
+
+# Divide both by sex
+# Confidence intervals
+
+
+## ----echo=FALSE---------------------------------------------------------------
+local.gt = countries$fi$gt
+local.gt$reference.year = countries$fi$parameters$reference.year
+local.gt$last.data.year = countries$fi$parameters$last.data.year
+mf=plot.estimated.countries(countries$fi$res,local.gt,bundle=FALSE)
+str(mf[[1]])
+mf$models.nls[[1]]
+
+source('functions-2.r')
+
+# extract the parameter estimates
+for (nm in names(countries)) {
+  mf=plot.estimated.countries(countries[[nm]]$res,countries[[nm]]$gt,bundle=FALSE)
+  for (j in length(mf$models)) {
+    coeff.lm = summary(mf$models[[i]])$coeff
+    # coeff.lm$country=nm
+    coeff.nls = summary(mf$models.nls[[i]])$coeff
+    coeff.nls$country=nm
+  }
+}
+
+## -----------------------------------------------------------------------------
+# knitr::knit_exit()
+
