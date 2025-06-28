@@ -37,14 +37,17 @@ plotAgeDistributionMatrix = function(data,years=17:65,main='') {
   legend('bottomright',legend=colnames(data)[2:dim(data)[2]],fill=1+2:dim(data)[2])
 }
 
+estimate.predict2 = function(y,years.ahead=55,main='',sub='',try.nls=FALSE) {
+	dist=matrix(y,nr=1,nc=length(y))
+	rownames(dist)='1995'
+}
+estimate.predict(dist,ref.year='1995',last.data.year=1995+12)
+
 estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='',try.nls=FALSE) {
   ref.year=as.character(ref.year)
   ref.year.numeric = as.integer(ref.year)
-print(ref.year.numeric)
   years.to.use = 1 + (as.integer(last.data.year) - ref.year.numeric)
 
-print(as.character(ref.year))
-str(dist)
   data=data.frame(y=dist[as.character(ref.year),1:years.to.use],x=1:years.to.use) # dim(dist)[2])
   
   # assume the data follows the square root form

@@ -171,6 +171,42 @@ save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rda
 save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.Rdata"))
 save(activity.stats.sex,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.sex.Rdata"))
 
+# 2025-06-28 new things
+reference.years=data.frame(year=integer(),country=character())
+for (cn in names(countries)) {
+	reference.years[cn,'country']=cn
+	reference.years[cn,'year']=countries[[cn]]$param$reference.year
+}
+
+colnames(et)
+nuisance.cols = c('Multiplier','MaximumAge','Name','avage')
+dim.cols = c('country','age.lower','age.upper','DonationPlaceType','Sex','BloodGroup',nuisance.cols)
+dim.keep = c('country','Sex')
+
+et.test = et %>%
+	# dplyr::select(-Multiplier,-MaximumAge,-Name) %>%
+	inner_join(reference.years,join_by(x$year0==y$year,country)) %>%
+	group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,dim.keep)))) %>%
+	summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
+	group_by(!!!syms(c(dim.keep,'year0','ord','year'))) %>%
+	summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') %>%
+
+et.test %>%
+	filter(country=='fi',year0==2003) %>%
+	data.frame()
+
+grps=unique(et.test[,dim.keep])
+for (rw in 1:nrow(grps)) {
+	data = et.test
+	for (cn in 1:ncol(grps)) {
+		grp.name=colnames(grps)[cn]
+		grp.value=data.frame(grps)[rw,cn]
+		data=data[data[[grp.name]]==grp.value,]
+	}
+	print(data)
+}
+
+str(rw)
 
 ## ----et-aggregate-ages,echo=FALSE---------------------------------------------
 et.noage = et %>%
@@ -186,7 +222,6 @@ et.noage$Name=sub(' [0-9].+','',et.noage$Name)
 # In the combined data, there are no age groups
 et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
-
 
 ## ----explore-data-examples,echo=FALSE-----------------------------------------
 et %>%
@@ -262,6 +297,7 @@ for (m in names(countries)) {
 
 names(countries[[m]]$res[[i]]$all[[1]])
 
+# extract results from the baseline only
 names(countries$fi$res[[1]])
 summary(countries$fi$res[[1]]$m)
 df.list=list()
@@ -278,6 +314,7 @@ for (m in names(countries)) {
 }
 mcf=do.call(rbind,df.list)
 
+# use all years with enough data points from distm's
 df.list=list()
 for (m in names(countries)) {
 	lv.all=lapply(countries[[m]]$res,FUN=function(x) {
@@ -286,17 +323,20 @@ for (m in names(countries)) {
 		res.all = x$all # this will be a list
 		df.all = lapply(res.all,FUN=function(y) {
 			cf = summary(y$m)$coeff
+			cf=data.frame(cf)
+			cf['r.squared','Estimate'] = summary(y$m)$r.squared
 			if (!is.null(y$m.nls)) {
 				cf.nls = summary(y$m.nls)$coeff
 			} else 
 				cf.nls=cf[0,]
-			return(cbind(country=m,i=x$index,year0=y$year,term=c(rownames(cf),rownames(cf.nls)),rbind(cf,cf.nls)))
+			colnames(cf)=c('estimate','std.error','t.value','p.value')
+			colnames(cf.nls)=c('estimate','std.error','t.value','p.value')
+			return(cbind(country=m,i=y$index,year0=y$year,term=c(rownames(cf),rownames(cf.nls)),rbind(cf,cf.nls)))
 		})
 		df.all2=data.frame(do.call(rbind,df.all))
 		return(df.all2)
 		})
 	df=data.frame(do.call(rbind,lv.all))
- 	# df[,5:8]=apply(df[,5:8],1,as.numeric)
  	df$i=as.integer(df$i)
 	df.list[[paste0(m,'.m')]]=df
 }
@@ -304,12 +344,9 @@ mcf=do.call(rbind,df.list)
 mcf[,5:8]=apply(mcf[,5:8],2,as.numeric)
 rownames(mcf)=1:nrow(mcf)
 
+str(et)
 
-
-# 4.085200e-02
-mcf[mcf$country=='nl'&mcf$i==16&mcf$year0==2000,]
-df.all2[1:6,]
-res.all[[1]]
+# haluttaisiin siis piirtää käyriä esim. kokonaisuuksina maittain
 
 mcf %>%
 	filter(term=='lambda') %>%
@@ -341,7 +378,7 @@ skip0=3
 
 plot(x=NULL,xlim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	ylim=c(min(plotdata[[plot.terms[1]]],na.rm=TRUE),max(plotdata[[plot.terms[1]]],na.rm=TRUE)),
-	xlab=plot.terms[1],ylab=plot.terms[2])
+	xlab=plot.terms[2],ylab=plot.terms[1])
 for (m in names(countries)) {
 	cn.data=plotdata[plotdata$country==m,]
 	cn.data=cn.data[skip0:nrow(cn.data),]
@@ -354,10 +391,11 @@ for (m in names(countries)) {
 	points(cn.data[[plot.terms[2]]][nrow(cn.data)],cn.data[[plot.terms[1]]][nrow(cn.data)],col=colfun(m),pch=8)
 }
 
-x=list(fi=1,fr=1,au=2.3,nl=4)
-xrange=c(0,50)
-plot(x=NULL,xlim=xrange,ylim=c(0,20)
+sqrt.param=list(fi=1,fr=1.2,au=2.3,nl=4)
+xrange=0:20
+plot(x=NULL,xlim=c(min(xrange),max(xrange)),ylim=c(0,20))
 for (m in names(countries)) {
+	lines(xrange,sqrt.param[[m]]*sqrt(xrange)-0.15*xrange,col=colfun(m),lwd=3)
 }
 
 ?points
