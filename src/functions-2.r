@@ -1,3 +1,63 @@
+getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
+	reference.years.local=reference.years
+	reference.years.local$year=reference.years.local$year+year.offset
+	et.test = et %>%
+		# dplyr::select(-Multiplier,-MaximumAge,-Name) %>%
+		inner_join(reference.years.local,join_by(x$year0==y$year,country)) %>%
+		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
+		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
+		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>%
+		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') 
+
+	grps=data.frame(unique(et.test[,spec$dim.keep]))
+	res.all=list
+	for (rw in 1:nrow(grps)) {
+		data = et.test
+
+		if (nrow(data) < 3)
+			next
+
+		for (cn in 1:ncol(grps)) {
+			grp.name=colnames(grps)[cn]
+			grp.value=data.frame(grps)[rw,cn]
+			data=data[data[[grp.name]]==grp.value,]
+		}
+
+		m0 = estimate.predict2(data$cdon,try.nls=TRUE)
+		res=list()
+		res$index=i
+		res$year=year
+		res$m = m0$m
+		res$m.nls = m0$m.nls
+		print(spec$dim.keep)
+		coeff=summary(res$m)$coeff
+
+		x.m=1:50
+		y.m=coeff['(Intercept)','Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
+		y.max=max(y.m)
+		y.star=y.max/2
+		x0=max(which(y.m<y.star))
+		x1=x0+1
+		y0=y.m[x0]
+		y1=y.m[x1]
+		x.half=(y.star-y0)/(y1-y0)+x0
+
+		col.start=colours[[grps[rw,spec$col.dim]]]
+		colfunc <- colorRampPalette(c(col.start, "white"))
+		colfun=colfunc(20)
+		col0=colfun[index]
+
+		if (plot=='orig') {
+			points(coeff[plot.terms[1],'Estimate'],coeff[plot.terms[2],'Estimate'],
+				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
+		} else if (plot=='alt') {
+			points(x.half,y.max,
+				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
+		} else if (plot=='curve') {
+			lines(x.m,y.m,col=col0,lwd=lwd)
+		}
+	}
+}
 
 getAgeDistributionMatrix = function(data) {
   # The two out-commented conditions on the following row are unnecessary at this point (at least they should be)
@@ -40,8 +100,18 @@ plotAgeDistributionMatrix = function(data,years=17:65,main='') {
 estimate.predict2 = function(y,years.ahead=55,main='',sub='',try.nls=FALSE) {
 	dist=matrix(y,nr=1,nc=length(y))
 	rownames(dist)='1995'
+	if (all(!is.na(y))) {
+		nr.of.years=length(y)+1
+	} else 
+		nr.of.years=min(which(is.na(y)))
+	return(estimate.predict(dist,ref.year="1995",last.data.year=1995+nr.of.years-2,
+		years.ahead=years.ahead,try.nls=try.nls))
 }
-estimate.predict(dist,ref.year='1995',last.data.year=1995+12)
+# estimate.predict(dist,ref.year='1995',last.data.year=1995+12)
+
+# two new parameters, more intuitive and can be computed
+# - Estimated donations at 50 years since start
+# - Time needed to reach half of the 50 year donations
 
 estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='',try.nls=FALSE) {
   ref.year=as.character(ref.year)
@@ -53,8 +123,6 @@ estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead
   # assume the data follows the square root form
   data$sqrt.x=data$x^0.5
   m=lm(y~x+sqrt.x,data=data)
-  
-  # assign("sample",data,.GlobalEnv)
   
   if (try.nls) {
     m.nls = NULL
@@ -145,10 +213,7 @@ plot.estimated = function(nres,gt,bundle=FALSE,years.ahead=55) {
 distributionMatrix2 = function(data.group,data.full,density=FALSE,max.dt=as.Date('2024-04-16'),year.start=2000,year.end=2023) {
   # nb! should implement the remaining parameters
   # The last year should include a full year of donations
-  
-  # assign('data.group',data.group,.GlobalEnv)
-  # assign('data.full',data.full,.GlobalEnv)
-  
+    
   # stats will contain the time in years from each donor's first donation to each subsequent donation
   # in years. Example tibble [220,092 × 3]
   stats = data.group %>%

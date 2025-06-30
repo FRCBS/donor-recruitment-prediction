@@ -178,35 +178,70 @@ for (cn in names(countries)) {
 	reference.years[cn,'year']=countries[[cn]]$param$reference.year
 }
 
+########
 colnames(et)
 nuisance.cols = c('Multiplier','MaximumAge','Name','avage')
 dim.cols = c('country','age.lower','age.upper','DonationPlaceType','Sex','BloodGroup',nuisance.cols)
-dim.keep = c('country','Sex')
+dim.keep = c('country','Sex') # this is the changing part
 
-et.test = et %>%
-	# dplyr::select(-Multiplier,-MaximumAge,-Name) %>%
-	inner_join(reference.years,join_by(x$year0==y$year,country)) %>%
-	group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,dim.keep)))) %>%
-	summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
-	group_by(!!!syms(c(dim.keep,'year0','ord','year'))) %>%
-	summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') %>%
+spec.list = list()
+spec.list$country = list()
+spec.list$country$dim.keep = c('country')
+spec.list$country$pch = function(x) {1}
+spec.list$country$colours = colours
+spec.list$country$col.dim = 'country'
 
-et.test %>%
-	filter(country=='fi',year0==2003) %>%
-	data.frame()
+spec.list$Sex = list()
+spec.list$Sex$dim.keep = c('Sex')
+spec.list$Sex$pch = function(x) {2}
+spec.list$Sex$colours = list(Male='blue3',Female='red3')
+spec.list$Sex$col.dim = 'Sex'
 
-grps=unique(et.test[,dim.keep])
-for (rw in 1:nrow(grps)) {
-	data = et.test
-	for (cn in 1:ncol(grps)) {
-		grp.name=colnames(grps)[cn]
-		grp.value=data.frame(grps)[rw,cn]
-		data=data[data[[grp.name]]==grp.value,]
-	}
-	print(data)
-}
+spec.list$country.sex = list()
+spec.list$country.sex$dim.keep = c('country','Sex')
+spec.list$country.sex$pch = function(x) { pchs=list(Female=6,Male=2);  return(pchs[[x]])}
+spec.list$country.sex$colours = colours
+spec.list$country.sex$col.dim = 'country'
+spec.list$country.sex$pch.dim = 'Sex'
 
-str(rw)
+spec.list$country.bloodgr = list()
+spec.list$country.bloodgr$dim.keep = c('country','BloodGroup')
+spec.list$country.bloodgr$pch = function(x) { pchs=list(); pchs[['-O-']]=3; pchs[['O-']]=4;  return(pchs[[x]])}
+spec.list$country.bloodgr$colours = colours
+spec.list$country.bloodgr$col.dim = 'country'
+spec.list$country.bloodgr$pch.dim = 'BloodGroup'
+
+spec=spec.list$country
+
+plot.terms
+# initialise the (x,sqrt.x) plotting area
+plot(x=NULL,
+	xlim=c(-0.4,0.0),ylim=c(1,6),
+	# xlim=c(min(plotdata[[plot.terms[1]]],na.rm=TRUE),max(plotdata[[plot.terms[1]]],na.rm=TRUE)),
+	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
+	xlab=plot.terms[1],ylab=plot.terms[2])
+
+source('getGroupEstimates.r')
+plot(x=NULL,
+	xlim=c(1,20),ylim=c(-3,25),
+	# xlim=c(min(plotdata[[plot.terms[1]]],na.rm=TRUE),max(plotdata[[plot.terms[1]]],na.rm=TRUE)),
+	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
+	xlab='time till half of the expected maximum',ylab='estimated maximum')
+legend(x='bottom',fill=unlist(colours),legend=names(colours))
+legend(x='bottomright',pch=c(1,6,2,3,4),legend=c('all','Female','Male','-O-','O-'))
+
+
+# spec=spec.list$country
+getGroupEstimates(et,spec.list$country,lwd=5,plot='curve')
+getGroupEstimates(et,spec.list$country,lwd=5,plot='alt')
+for (i in -2:20) 
+	getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=i,index=i+3)
+getGroupEstimates(et,spec.list$country.bloodgr,plot='alt')
+getGroupEstimates(et,spec.list$country.sex,plot='alt')
+
+getGroupEstimates(et,spec.list$Sex)
+spec=spec.list$Sex
+
 
 ## ----et-aggregate-ages,echo=FALSE---------------------------------------------
 et.noage = et %>%
@@ -273,7 +308,9 @@ for (m in names(countries)) {
 		last.data.year = params$last.data.year
 		ref.year = as.character(params$reference.year)
 		distm=countries[[m]]$res[[i]]$distm
+
 		m0 = estimate.predict(distm,ref.year=ref.year,last.data.year=last.data.year,years.ahead=55,main='',try.nls=TRUE)
+
 		countries[[m]]$res[[i]]$index=i
 		countries[[m]]$res[[i]]$m = m0$m
 		countries[[m]]$res[[i]]$m.nls = m0$m.nls
@@ -356,7 +393,7 @@ colours=list()
 colours$fi='darkblue'
 colours$nl='orange'
 colours$fr='red3'
-colours$au='green3'
+colours$au='#007F3B' # 'green3'
 colfun = function(x) {
 	colours[[x]]
 }
@@ -424,7 +461,6 @@ plot.estimated.countries = function(nres,gt,bundle=FALSE,years.ahead=55,main='')
 	
 	# Create a plot with all the model estimates if requested
 	if (bundle) {
-print('yep')
 		# nb! should set a reasonable value for the maximum
 		plot(x=NULL,type='n',xlim=c(0,55),ylim=c(0,20),main=main,ylab='cumulative number of donations',xlab='years since first donation')
 		for (i in 1:length(models)) {
