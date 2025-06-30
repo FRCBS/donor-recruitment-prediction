@@ -29,7 +29,6 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 		res$year=year
 		res$m = m0$m
 		res$m.nls = m0$m.nls
-		print(spec$dim.keep)
 		coeff=summary(res$m)$coeff
 
 		x.m=1:50
@@ -42,7 +41,7 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 		y1=y.m[x1]
 		x.half=(y.star-y0)/(y1-y0)+x0
 
-		col.start=colours[[grps[rw,spec$col.dim]]]
+		col.start=spec$colours[[grps[rw,spec$col.dim]]]
 		colfunc <- colorRampPalette(c(col.start, "white"))
 		colfun=colfunc(20)
 		col0=colfun[index]

@@ -184,6 +184,15 @@ nuisance.cols = c('Multiplier','MaximumAge','Name','avage')
 dim.cols = c('country','age.lower','age.upper','DonationPlaceType','Sex','BloodGroup',nuisance.cols)
 dim.keep = c('country','Sex') # this is the changing part
 
+colours=list()
+colours$fi='darkblue'
+colours$nl='orange'
+colours$fr='red3'
+colours$au='#007F3B' # 'green3'
+colfun = function(x) {
+	colours[[x]]
+}
+
 spec.list = list()
 spec.list$country = list()
 spec.list$country$dim.keep = c('country')
@@ -199,7 +208,7 @@ spec.list$Sex$col.dim = 'Sex'
 
 spec.list$country.sex = list()
 spec.list$country.sex$dim.keep = c('country','Sex')
-spec.list$country.sex$pch = function(x) { pchs=list(Female=6,Male=2);  return(pchs[[x]])}
+spec.list$country.sex$pch = function(x) { pchs=list(Female=2,Male=6);  return(pchs[[x]])}
 spec.list$country.sex$colours = colours
 spec.list$country.sex$col.dim = 'country'
 spec.list$country.sex$pch.dim = 'Sex'
@@ -211,9 +220,13 @@ spec.list$country.bloodgr$colours = colours
 spec.list$country.bloodgr$col.dim = 'country'
 spec.list$country.bloodgr$pch.dim = 'BloodGroup'
 
-spec=spec.list$country
+et %>%
+	filter(!is.na(cdon)) %>%
+	group_by(country) %>%
+	summarise(min(year0),max(year))
 
-plot.terms
+
+spec=spec.list$country
 # initialise the (x,sqrt.x) plotting area
 plot(x=NULL,
 	xlim=c(-0.4,0.0),ylim=c(1,6),
@@ -222,26 +235,26 @@ plot(x=NULL,
 	xlab=plot.terms[1],ylab=plot.terms[2])
 
 source('getGroupEstimates.r')
+res=150
+# png('../figures/estimated-parameters.png',width=8*res,height=6*res,res=res)
 plot(x=NULL,
-	xlim=c(1,20),ylim=c(-3,25),
+	xlim=c(1,25),ylim=c(-3,40),
 	# xlim=c(min(plotdata[[plot.terms[1]]],na.rm=TRUE),max(plotdata[[plot.terms[1]]],na.rm=TRUE)),
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
-	xlab='time till half of the expected maximum',ylab='estimated maximum')
-legend(x='bottom',fill=unlist(colours),legend=names(colours))
-legend(x='bottomright',pch=c(1,6,2,3,4),legend=c('all','Female','Male','-O-','O-'))
+	xlab='years from first donation (till half of the expected maximum)',ylab='(estimated total) number of donations')
 
-
-# spec=spec.list$country
-getGroupEstimates(et,spec.list$country,lwd=5,plot='curve')
-getGroupEstimates(et,spec.list$country,lwd=5,plot='alt')
-for (i in -2:20) 
+getGroupEstimates(et,spec.list$country,lwd=3,plot='curve')
+for (i in 1:20) 
 	getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=i,index=i+3)
 getGroupEstimates(et,spec.list$country.bloodgr,plot='alt')
 getGroupEstimates(et,spec.list$country.sex,plot='alt')
+getGroupEstimates(et,spec.list$country,lwd=7,plot='alt')
+legend(x='bottom',fill=unlist(colours),legend=names(colours))
+legend(x='bottomright',pch=c(1,2,6,3,4),legend=c('all','Female','Male','-O-','O-'))
+# dev.off()
 
 getGroupEstimates(et,spec.list$Sex)
 spec=spec.list$Sex
-
 
 ## ----et-aggregate-ages,echo=FALSE---------------------------------------------
 et.noage = et %>%
@@ -388,15 +401,6 @@ str(et)
 mcf %>%
 	filter(term=='lambda') %>%
 	arrange(Estimate)
-
-colours=list()
-colours$fi='darkblue'
-colours$nl='orange'
-colours$fr='red3'
-colours$au='#007F3B' # 'green3'
-colfun = function(x) {
-	colours[[x]]
-}
 
 # nls(y~y1*exp(-lambda*x)+y0,data=sample2
 
