@@ -16,6 +16,7 @@ param$data.directory = 'C:/Users/super/OneDrive - University of Helsinki/veripal
 ## ----read-files,echo=FALSE----------------------------------------------------
 file.names = dir(path=param$data.directory,pattern="*.xlsx")
 file.names = file.names[!grepl('~',file.names)]
+file.names = file.names[!grepl('^old',file.names)]
 file.names = file.names[grepl('.xlsx$',file.names)]
 file.paths = paste(param$data.directory,'/',file.names,sep='')
 
@@ -124,7 +125,7 @@ for (cn in names(countries)) {
 		# Remove the empty columns from the dista
 		# All the rows may be lacking (i==15,cn='fi'), or there might be one present (i==15,cn='nl')
 		# The apply will result in Warning: no non-missing arguments to max; returning -Inf if there are empty columns
-		wh = which(apply(dista,2,max,na.rm=TRUE)<0.99)
+		wh = which(apply(dista,2,max,na.rm=TRUE)<0.85)
 		if (length(wh) > 0) {
 			dista = dista[,-wh]
 			cols = colnames(dista)[-1]
@@ -189,6 +190,8 @@ colours$fi='darkblue'
 colours$nl='orange'
 colours$fr='red3'
 colours$au='#007F3B' # 'green3'
+colours$nc='black' # 'green3'
+
 colfun = function(x) {
 	colours[[x]]
 }
@@ -311,7 +314,10 @@ countries$fr$parameters$last.data.year = 2023
 
 countries$au$parameters$reference.year = 2013
 countries$au$parameters$last.data.year = 2023
-	
+
+countries$nc$parameters$reference.year = 2003
+countries$nc$parameters$last.data.year = 2024
+
 
 ## ----estimate-models----------------------------------------------------------
 # Here, the data is augmented with models estimated based on distm
