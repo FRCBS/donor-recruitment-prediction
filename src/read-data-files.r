@@ -1,3 +1,65 @@
+# 2025-07-01 Should try using all the years to model the shape of the curves
+# Maybe the first year to estimate the trend
+# Must check that the last year is a full year (cannot be for those who started in 2024).
+# - There used to be a need to recruit donors on behalf of other areas.
+# How much immigration there is from that are in general.
+
+# - 2025-07-07
+# Pitäisi siis muodostaa pätkistä sarjat
+# Kuitenkin jotain ryhmittäisyyttä? Vastaavat ryhmittelyt kuin nyt
+# Voi olla myös pelkkä maa, tai sitten maa/sukupuoli + maa/veriryhmä
+# Tuloksia voisi sitten tarkastella sen mukaan, miten minkin numeron selittäminen onnistuu
+# Olisiko sittenkin vain ensimmäinen ja viimeinen mukana kullakin rivillä selittäjänä?
+
+# y=x_n=x0*r1*r2*r3*r4^(n-3) | log(·)
+# Y=X0+R1+R2+R3+(n-3)R4 (R ~ parametreja, X,Y: lukuarvoja riveiltä, n rivin pituudesta)
+# Mahdollisesti sekamalli niin, että samoissa suhteissa muuttuvat mutta alkuarvot ovat eri
+# k~montako r-termiä otetaan alusta (r4-kerroin ei mukana)
+
+distm=(countries$fi$res[[1]]$distm)
+newRegression = function(distm,k=3,y0=3) {
+	col.names=c('year0','y','x0',paste0('r',1:k),'rr')
+	nc=length(col.names)	
+	mat=matrix(0.0,nc=nc,nr=nrow(distm)^2)
+	index=1
+	for (i in y0:nrow(distm)) {
+		len0=length(which(!is.na(distm[i,])))
+		for (j in 2:len0) {
+			len = j
+			# if (len < 2)
+			# 	break
+
+			x0 = log(distm[i,1])
+			y = log(distm[i,len]) # tässä pitäisi varmaankin olla -1, koska viimeinen vuosi voi olla vajaa
+
+			# print(paste(x0,y,len))
+		
+			predv=c(i,y,x0,rep(1,k),len-(k+1))
+			if (len - (k+1) < 0) {
+				predv[(length(predv)+(len-(k+1))):length(predv)]=0
+			}
+			mat[index,]=predv # i+1-y0
+			index = index + 1
+		}
+	}
+log(distm[3,])
+df[1:10,]
+
+mat[1:30,]
+	mat=mat[apply(mat,1,FUN=function(x) !all(x==0)),]
+	df=data.frame(mat)
+summary(df)
+	colnames(df)=col.names
+	df$year0=as.factor(df$year0)
+	m=lm(y~0+year0:x0+r1+r2+r3+rr,data=df)
+	sm=summary(m)
+sm
+df
+	plot(exp(sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']),ylim=c(0,5)
+# distm[20:25,1:5]
+
+}
+
 setwd('c:/hy-version/donor-recruitment-prediction/src')
 
 ## ----setup, include=FALSE,echo=FALSE------------------------------------------
@@ -240,6 +302,8 @@ plot(x=NULL,
 source('getGroupEstimates.r')
 res=150
 # png('../figures/estimated-parameters.png',width=8*res,height=6*res,res=res)
+par("mar")
+par(mar=c(4,4,0.1,0.1))
 plot(x=NULL,
 	xlim=c(1,25),ylim=c(-3,40),
 	# xlim=c(min(plotdata[[plot.terms[1]]],na.rm=TRUE),max(plotdata[[plot.terms[1]]],na.rm=TRUE)),

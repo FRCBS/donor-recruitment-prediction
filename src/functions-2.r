@@ -23,7 +23,7 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 			data=data[data[[grp.name]]==grp.value,]
 		}
 
-		m0 = estimate.predict2(data$cdon,try.nls=TRUE)
+		m0 = estimate.predict2(data$cdon,try.nls=FALSE)
 		res=list()
 		res$index=i
 		res$year=year
@@ -103,7 +103,7 @@ estimate.predict2 = function(y,years.ahead=55,main='',sub='',try.nls=FALSE) {
 		nr.of.years=length(y)+1
 	} else 
 		nr.of.years=min(which(is.na(y)))
-	return(estimate.predict(dist,ref.year="1995",last.data.year=1995+nr.of.years-2,
+	return(estimate.predict(dist,ref.year="1995",last.data.year=(1995+nr.of.years-2)-1, # nb 2025-07-01
 		years.ahead=years.ahead,try.nls=try.nls))
 }
 # estimate.predict(dist,ref.year='1995',last.data.year=1995+12)
