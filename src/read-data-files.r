@@ -16,14 +16,20 @@
 # Mahdollisesti sekamalli niin, että samoissa suhteissa muuttuvat mutta alkuarvot ovat eri
 # k~montako r-termiä otetaan alusta (r4-kerroin ei mukana)
 
+k=4
 distm=(countries$fi$res[[1]]$distm)
-newRegression = function(distm,k=3,y0=3) {
-	col.names=c('year0','y','x0',paste0('r',1:k),'rr')
-	nc=length(col.names)	
+newRegression = function(distm,k=15,y0=3) {
+	col.names=c('year0','len','y','x0',paste0('r',1:k),'rr')
+	nc=length(col.names)
 	mat=matrix(0.0,nc=nc,nr=nrow(distm)^2)
 	index=1
 	for (i in y0:nrow(distm)) {
-		len0=length(which(!is.na(distm[i,])))
+		len0=length(which(!is.na(distm[i,])))-1
+		if (len0 < 2) {
+			print('breaking')
+			break
+			i=i-2
+		}
 		for (j in 2:len0) {
 			len = j
 			# if (len < 2)
@@ -32,9 +38,7 @@ newRegression = function(distm,k=3,y0=3) {
 			x0 = log(distm[i,1])
 			y = log(distm[i,len]) # tässä pitäisi varmaankin olla -1, koska viimeinen vuosi voi olla vajaa
 
-			# print(paste(x0,y,len))
-		
-			predv=c(i,y,x0,rep(1,k),len-(k+1))
+			predv=c(i,len,y,x0,rep(1,k),len-(k+1))
 			if (len - (k+1) < 0) {
 				predv[(length(predv)+(len-(k+1))):length(predv)]=0
 			}
@@ -42,22 +46,72 @@ newRegression = function(distm,k=3,y0=3) {
 			index = index + 1
 		}
 	}
-log(distm[3,])
-df[1:10,]
-
-mat[1:30,]
 	mat=mat[apply(mat,1,FUN=function(x) !all(x==0)),]
 	df=data.frame(mat)
-summary(df)
 	colnames(df)=col.names
 	df$year0=as.factor(df$year0)
-	m=lm(y~0+year0:x0+r1+r2+r3+rr,data=df)
+	frml.char=paste0('y~0+year0:x0+',paste0('r',1:k,collapse='+'),'+rr')
+
+	# ok, this seems to work: need to use the same x0 for the last year, 
+	# otherwise that parameter becomes obsolete as there is only one data point for it
+	max.i = levels(df$year0)[max(as.integer(df$year0))]
+	df[df$year0==max.i,'year0']=as.character(as.integer(max.i)-1)
+	m=lm(formula(frml.char),data=df)
 	sm=summary(m)
 sm
-df
-	plot(exp(sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']),ylim=c(0,5)
-# distm[20:25,1:5]
 
+	df2=df
+	df2$year0.factor=df2$year0
+	df2$year0=as.integer(df2$year0)
+	df2[nrow(df2),'year0']=df2[nrow(df2),'year0']+1
+
+	resa=data.frame(cbind(df2[,c('year0','len')],res=sm$residuals))
+	resa2=as.matrix(pivot_wider(resa,values_from='res',names_from='len'))
+	rownames(resa2)=rownames(distm)[y0:(y0+nrow(resa2)-1)]
+	resa2=resa2[,-1]
+	plotDistibutionMatrix((resa2),diff=TRUE,skip.years=0,main='the residuals')
+	plot((sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']),ylim=c(0,5))
+
+	new.data.cols=c('year0.factor','x0',paste0('r',1:k),'rr')
+	new.data=df2[,new.data.cols]
+
+	# datan jatkaminen
+	df.block = df2[df2$year0==1,c(new.data.cols,'len')]
+	extras=do.call(rbind, replicate(20, df.block[nrow(df.block),], simplify = FALSE))
+	extras$rr=extras$rr+(1:nrow(extras))
+	extras$len=extras$len+(1:nrow(extras))
+	df.block=rbind(df.block,extras)
+
+	new.data.ext = do.call(rbind,
+		by(df2,df2[,'year0.factor'],function(x) {
+			df.block$year0.factor=unique(x$year0.factor)[1]
+			df.block$x0=min(x$x0)
+			df.block
+			})
+		)
+	# new.data.ext$year0=as.factor(new)
+	wh = grepl('year0.factor',colnames(new.data.ext))
+	colnames(new.data.ext)[wh]='year0'
+
+	esti=predict(m,new.data.ext,interval='confidence')
+	esti=(data.frame(exp(esti)))
+	dftot=cbind(new.data.ext,esti)
+	# dftot$y2=exp(dftot$y)
+
+	offset=2
+	plot(x=NULL,ylim=c(0,50),xlim=c(2,20))
+	for (i2 in 1:length(unique(dftot$year0))) {
+		y2 = unique(dftot$year0)[i2]
+		dfslc=dftot[dftot$year0==y2,]
+		ddf = df[df$year0==y2,]
+
+		y2=as.integer(y2)
+		lines(dfslc$len,dfslc$fit+(offset*y2),lty='dashed')
+		lines(dfslc$len,dfslc$lwr+(offset*y2),lty='dotted')	
+		lines(dfslc$len,dfslc$upr+(offset*y2),lty='dotted')
+
+		points(ddf$len,exp(ddf$y)+(offset*y2),lwd=2)
+	}
 }
 
 setwd('c:/hy-version/donor-recruitment-prediction/src')
