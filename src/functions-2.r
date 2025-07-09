@@ -14,14 +14,14 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
-		if (nrow(data) < 3)
-			next
-
 		for (cn in 1:ncol(grps)) {
 			grp.name=colnames(grps)[cn]
 			grp.value=data.frame(grps)[rw,cn]
 			data=data[data[[grp.name]]==grp.value,]
 		}
+
+		if (nrow(data) < 3)
+			next
 
 		m0 = estimate.predict2(data$cdon,try.nls=FALSE)
 		res=list()
@@ -29,7 +29,7 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 		res$year=year
 		res$m = m0$m
 		res$m.nls = m0$m.nls
-		coeff=summary(res$m)$coeff
+		coeff=data.frame(summary(res$m)$coeff)
 
 		x.m=1:50
 		y.m=coeff['(Intercept)','Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
@@ -56,6 +56,8 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 			lines(x.m,y.m,col=col0,lwd=lwd)
 		}
 	}
+
+	return(et.test)
 }
 
 getAgeDistributionMatrix = function(data) {
@@ -159,7 +161,7 @@ estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead
     return(list(m=m,m.nls=m.nls))
   }
   
-  return(m)
+  return(list(m=m))
 }
 
 plot.estimated = function(nres,gt,bundle=FALSE,years.ahead=55) {

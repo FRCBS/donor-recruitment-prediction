@@ -18,7 +18,20 @@
 
 k=4
 distm=(countries$fi$res[[1]]$distm)
-newRegression = function(distm,k=15,y0=3) {
+distm=as.matrix(distm)
+is.matrix(distm)
+k=NULL
+y0=3
+
+# millainen olisi sitten neliöjuuriin perustuva malli, jossa kaikki data samassa?
+# Saisiko että vakiokerroin vain on eri tehtyä?
+
+newRegression(distm,k=NULL,y0=3)
+
+newRegression = function(distm,k=NULL,y0=1) {
+	if (is.null(k)) {
+		k=length(which(!is.na(distm[y0,])))-6
+	}
 	col.names=c('year0','len','y','x0',paste0('r',1:k),'rr')
 	nc=length(col.names)
 	mat=matrix(0.0,nc=nc,nr=nrow(distm)^2)
@@ -58,7 +71,7 @@ newRegression = function(distm,k=15,y0=3) {
 	df[df$year0==max.i,'year0']=as.character(as.integer(max.i)-1)
 	m=lm(formula(frml.char),data=df)
 	sm=summary(m)
-sm
+	print(sm)
 
 	df2=df
 	df2$year0.factor=df2$year0
@@ -99,7 +112,7 @@ sm
 	# dftot$y2=exp(dftot$y)
 
 	offset=2
-	plot(x=NULL,ylim=c(0,50),xlim=c(2,20))
+	plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
 	for (i2 in 1:length(unique(dftot$year0))) {
 		y2 = unique(dftot$year0)[i2]
 		dfslc=dftot[dftot$year0==y2,]
@@ -112,6 +125,7 @@ sm
 
 		points(ddf$len,exp(ddf$y)+(offset*y2),lwd=2)
 	}
+	return(coeff=sm$coeff,data=ddf,estimate=esti)
 }
 
 setwd('c:/hy-version/donor-recruitment-prediction/src')
@@ -353,7 +367,10 @@ plot(x=NULL,
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	xlab=plot.terms[1],ylab=plot.terms[2])
 
-source('getGroupEstimates.r')
+# 2025-07-08 This is the plot presented in the meeting
+# The results are formed based on spec.list and et in getGroupEstimates.
+# This function does some plotting.
+source('functions-2.r')
 res=150
 # png('../figures/estimated-parameters.png',width=8*res,height=6*res,res=res)
 par("mar")
@@ -364,9 +381,40 @@ plot(x=NULL,
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	xlab='years from first donation (till half of the expected maximum)',ylab='(estimated total) number of donations')
 
+# spec=spec.list$country
 getGroupEstimates(et,spec.list$country,lwd=3,plot='curve')
-for (i in 1:20) 
-	getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=i,index=i+3)
+dfr=NULL
+for (i in 1:20) {
+	res=getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=i,index=i+3)
+	if (is.null(dfr)) {
+		dfr=res
+	} else
+		dfr=rbind(dfr,res)
+}
+
+test= dfr %>%
+	# filter(country=='fi') %>%
+	filter(!is.na(cdon)) %>%
+	dplyr::select(country,year0,ord,cdon) %>%
+	data.frame()
+
+test2 = pivot_wider(test,names_from='ord',values_from='cdon',id_cols=c('year0','country')) %>%
+	arrange(country,year0)
+for (cn in unique(test2$country)) {
+	distm = test2 %>%
+		filter(country==cn) %>%
+		dplyr::select(-country) %>%
+		data.frame()
+	rownames(distm)=distm[,1]
+	colnames(distm)=1:ncol(distm)
+	distm=distm[,-1]
+	distm
+}
+
+# 2025-07-08 Nämä 
+
+?append
+
 getGroupEstimates(et,spec.list$country.bloodgr,plot='alt')
 getGroupEstimates(et,spec.list$country.sex,plot='alt')
 getGroupEstimates(et,spec.list$country,lwd=7,plot='alt')
@@ -521,11 +569,6 @@ rownames(mcf)=1:nrow(mcf)
 str(et)
 
 # haluttaisiin siis piirtää käyriä esim. kokonaisuuksina maittain
-
-mcf %>%
-	filter(term=='lambda') %>%
-	arrange(Estimate)
-
 # nls(y~y1*exp(-lambda*x)+y0,data=sample2
 
 plot.terms=c('lambda','y0')
@@ -534,7 +577,7 @@ plot.terms=c('x','sqrt.x')
 testdata=mcf %>%
 	filter(i==15,term %in% plot.terms)
 
-plotdata=pivot_wider(testdata[,c('country','Estimate','term','year0')],values_from='Estimate',names_from=c('term'))
+plotdata=pivot_wider(testdata[,c('country','estimate','term','year0')],values_from='estimate',names_from=c('term'))
 
 plotdata$col=sapply(plotdata$country,FUN=colfun)
 # kaikki kerralla
@@ -562,10 +605,6 @@ plot(x=NULL,xlim=c(min(xrange),max(xrange)),ylim=c(0,20))
 for (m in names(countries)) {
 	lines(xrange,sqrt.param[[m]]*sqrt(xrange)-0.15*xrange,col=colfun(m),lwd=3)
 }
-
-?points
-
-plot(rnorm(1000),col='green3')
 
 ## ----echo=FALSE---------------------------------------------------------------
 # This is a slighty modified version of plot.estimated in blood-donor-recruitment-prediction.R
