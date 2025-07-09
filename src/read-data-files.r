@@ -367,6 +367,73 @@ plot(x=NULL,
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	xlab=plot.terms[1],ylab=plot.terms[2])
 
+# estimate and plot countries using the sqrt-models all years at once, plot the results
+csm=NULL
+for (cn in unique(dfr$country)) {
+	data=dfr %>% filter(country==cn)
+	data$year0=as.factor(data$year0)
+	m=lm(y~0+year0+x+sqrt.x,data=data)
+	sm=summary(m)
+	new.data=expand.grid(year0=unique(data$year0),x=1:50)
+	new.data$sqrt.x=sqrt(new.data$x)
+	# new.data=data.frame(new.data)
+	esq=predict(m,new.data,interval='confidence')
+	dftot=cbind(new.data,esq)
+
+	# plotting: copied from the newRegression function
+	offset=2
+	resolution=150
+	filename=paste0('../fig/',cn,'-sqrt-multiple.png')
+	png(filename,res=resolution,width=9*resolution,height=7*resolution)
+	plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
+	yrs=sort(unique(data$year0))
+print(cn)
+print(yrs)
+	for (i2 in 1:length(yrs)) {
+		y2 = yrs[i2]
+		dfslc=dftot[dftot$year0==y2,]
+		ddf = data[data$year0==y2,]
+
+		if (reference.years[cn,'year'] == y2) {
+			y.m = dfslc$fit
+print(y.m)
+			y.max = max(y.m[1:50])
+			y.star=y.max/2
+			x0=max(which(y.m<y.star))
+			x1=x0+1
+			y0=y.m[x0]
+			y1=y.m[x1]
+			x.half=(y.star-y0)/(y1-y0)+x0
+		}
+
+		y2i=as.integer(y2)
+		lines(dfslc$x,dfslc$fit+(offset*y2i),lty='dashed')
+		lines(dfslc$x,dfslc$lwr+(offset*y2i),lty='dotted')	
+		lines(dfslc$x,dfslc$upr+(offset*y2i),lty='dotted')
+
+		points(ddf$x,(ddf$y)+(offset*y2i),lwd=2)
+	}
+	dev.off()
+
+	coeff=cbind(country=cn,data.frame(sm$coeff))
+	coeff$var=rownames(sm$coeff)
+	coeff['r.squared',c('Estimate','var','country')]=c(sm$r.squared,'r.squared',cn)
+	coeff['y.max',c('Estimate','var','country')]=c(y.max,'y.max',cn)
+	coeff['x.half',c('Estimate','var','country')]=c(x.half,'x.half',cn)
+	if (is.null(csm)) {
+		csm=coeff
+	} else
+		csm=rbind(csm,coeff)
+}
+csm
+csm[grepl('x.half|y.max',csm$var),]
+
+getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=0,index=1)
+
+
+# 2025-07-09 There is quite a bit of variation in these
+boxplot(Estimate~country,data=csm)
+
 # 2025-07-08 This is the plot presented in the meeting
 # The results are formed based on spec.list and et in getGroupEstimates.
 # This function does some plotting.
@@ -376,30 +443,46 @@ res=150
 par("mar")
 par(mar=c(4,4,0.1,0.1))
 plot(x=NULL,
-	xlim=c(1,25),ylim=c(-3,40),
+	xlim=c(1,50),ylim=c(-3,40),
 	# xlim=c(min(plotdata[[plot.terms[1]]],na.rm=TRUE),max(plotdata[[plot.terms[1]]],na.rm=TRUE)),
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	xlab='years from first donation (till half of the expected maximum)',ylab='(estimated total) number of donations')
 
-# spec=spec.list$country
 getGroupEstimates(et,spec.list$country,lwd=3,plot='curve')
 dfr=NULL
-for (i in 1:20) {
+for (i in -2:20) {
 	res=getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=i,index=i+3)
 	if (is.null(dfr)) {
-		dfr=res
+		dfr=res$data
 	} else
-		dfr=rbind(dfr,res)
+		dfr=rbind(dfr,res$data)
 }
 
+# Plot the points based on the combined sqrt regressions
+for (cn in unique(csm$country)) {
+	data=csm[csm$country==cn,]
+	data$Estimate=as.numeric(data$Estimate)
+print(paste(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate']))
+	points(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate'],col=spec$colours[[cn]],pch=11,cex=1.2)
+}
+
+et %>%
+	filter(country=='nc',Name=='Male O- Office 0-100') %>%
+	arrange(year0,ord)
+
+test2 = pivot_wider(data[,c('x','y','year0')],names_from='x',values_from='y') 
+
+unique(et$Name)
+
 test= dfr %>%
-	# filter(country=='fi') %>%
+	filter(country=='cn') %>%
 	filter(!is.na(cdon)) %>%
 	dplyr::select(country,year0,ord,cdon) %>%
 	data.frame()
 
 test2 = pivot_wider(test,names_from='ord',values_from='cdon',id_cols=c('year0','country')) %>%
 	arrange(country,year0)
+
 for (cn in unique(test2$country)) {
 	distm = test2 %>%
 		filter(country==cn) %>%
@@ -410,10 +493,6 @@ for (cn in unique(test2$country)) {
 	distm=distm[,-1]
 	distm
 }
-
-# 2025-07-08 Nämä 
-
-?append
 
 getGroupEstimates(et,spec.list$country.bloodgr,plot='alt')
 getGroupEstimates(et,spec.list$country.sex,plot='alt')

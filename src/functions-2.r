@@ -2,7 +2,7 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 	reference.years.local=reference.years
 	reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
-		# dplyr::select(-Multiplier,-MaximumAge,-Name) %>%
+		filter(!is.na(cdon),!is.na(don)) %>%
 		inner_join(reference.years.local,join_by(x$year0==y$year,country)) %>%
 		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
 		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
@@ -11,12 +11,15 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 
 	grps=data.frame(unique(et.test[,spec$dim.keep]))
 	res.all=list
+	simple.data=NULL
+	sp.data=NULL
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
 		for (cn in 1:ncol(grps)) {
 			grp.name=colnames(grps)[cn]
 			grp.value=data.frame(grps)[rw,cn]
+print(grp.value)
 			data=data[data[[grp.name]]==grp.value,]
 		}
 
@@ -31,8 +34,17 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 		res$m.nls = m0$m.nls
 		coeff=data.frame(summary(res$m)$coeff)
 
+		simple.data=m0$data
+		for (ci in colnames(grps)) {
+			simple.data[[ci]] = grps[rw,ci]
+		}
+
+		# nb! assuming a fixed year here
+		simple.data$year0=min(data$year0)
+
 		x.m=1:50
 		y.m=coeff['(Intercept)','Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
+print(y.m)
 		y.max=max(y.m)
 		y.star=y.max/2
 		x0=max(which(y.m<y.star))
@@ -55,9 +67,14 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 		} else if (plot=='curve') {
 			lines(x.m,y.m,col=col0,lwd=lwd)
 		}
+
+		if (is.null(sp.data)) {
+			sp.data=simple.data 
+		} else
+			sp.data=rbind(sp.data,simple.data)
 	}
 
-	return(et.test)
+	return(list(et.data=et.test,data=sp.data))
 }
 
 getAgeDistributionMatrix = function(data) {
@@ -158,10 +175,10 @@ estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead
   }
   
   if (try.nls) {
-    return(list(m=m,m.nls=m.nls))
+    return(list(m=m,m.nls=m.nls,data=data))
   }
   
-  return(list(m=m))
+  return(list(m=m,data=data))
 }
 
 plot.estimated = function(nres,gt,bundle=FALSE,years.ahead=55) {
