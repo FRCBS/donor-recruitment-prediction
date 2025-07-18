@@ -1,3 +1,70 @@
+# estimate and plot countries using the sqrt-models all years at once, plot the results
+# csm ~ estimated coefficients based on the sqrt-model, total data and varying intercept (year0)
+compute.csm = function(dfr,plot='all') {
+	csm=NULL
+	for (cn in unique(dfr$country)) {
+		data=dfr %>% filter(country==cn)
+		data$year0=as.factor(data$year0)
+
+		# lm is called directly here: no function for this
+		m=lm(y~0+year0+x+sqrt.x,data=data)
+		sm=summary(m)
+		new.data=expand.grid(year0=unique(data$year0),x=1:50)
+		new.data$sqrt.x=sqrt(new.data$x)
+		esq=predict(m,new.data,interval='confidence')
+		dftot=cbind(new.data,esq)
+
+		# plotting: copied from the newRegression function
+		offset=2
+		resolution=150
+		filename=paste0('../fig/',cn,'-sqrt-multiple.png')
+print(filename)
+		if (plot=='all') {
+			png(filename,res=resolution,width=9*resolution,height=7*resolution)
+			plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
+			yrs=sort(unique(data$year0))
+			for (i2 in 1:length(yrs)) {
+				y2 = yrs[i2]
+				dfslc=dftot[dftot$year0==y2,]
+				ddf = data[data$year0==y2,]
+
+				if (reference.years[cn,'year'] == y2) {
+					y.m = dfslc$fit
+					y.max = max(y.m[1:50])
+					y.star=y.max/2
+					x0=max(which(y.m<y.star))
+					x1=x0+1
+					y0=y.m[x0]
+					y1=y.m[x1]
+					x.half=(y.star-y0)/(y1-y0)+x0
+				}
+
+				y2i=as.integer(y2)
+				lines(dfslc$x,dfslc$fit+(offset*y2i),lty='dashed')
+				lines(dfslc$x,dfslc$lwr+(offset*y2i),lty='dotted')	
+				lines(dfslc$x,dfslc$upr+(offset*y2i),lty='dotted')
+
+				points(ddf$x,(ddf$y)+(offset*y2i),lwd=2)
+			}
+			dev.off()
+		}
+
+		coeff=cbind(country=cn,data.frame(sm$coeff))
+		coeff$var=rownames(sm$coeff)
+		coeff['r.squared',c('Estimate','var','country')]=c(sm$r.squared,'r.squared',cn)
+		coeff['y.max',c('Estimate','var','country')]=c(y.max,'y.max',cn)
+		coeff['x.half',c('Estimate','var','country')]=c(x.half,'x.half',cn)
+		if (is.null(csm)) {
+			csm=coeff
+		} else
+			csm=rbind(csm,coeff)
+	}
+	# csm
+	csm$Estimate=as.numeric(csm$Estimate)
+
+	return(csm)
+} # compute.csm
+
 getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 	reference.years.local=reference.years
 	reference.years.local$year=reference.years.local$year+year.offset
@@ -19,7 +86,6 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 		for (cn in 1:ncol(grps)) {
 			grp.name=colnames(grps)[cn]
 			grp.value=data.frame(grps)[rw,cn]
-print(grp.value)
 			data=data[data[[grp.name]]==grp.value,]
 		}
 
@@ -509,4 +575,17 @@ plotPropBySex = function(activity.stats.sex,country) {
 bsAssign = function(name) {
 	obj = get(name,envir=parent.frame())
 	assign(name,obj,.GlobalEnv)
+}
+
+## ----produce-explore-data,echo=FALSE------------------------------------------
+# This is a copy from blood-donor-recruitment-prediction.R
+# Unfortunately does not work for matrices
+cumulativeToDensity = function(dist) {
+	return((c(dist,0)-c(0,dist))[1:length(dist)])
+}
+
+cdm2pdm = function(distm) {
+	pdm = cbind(cdm)-cbind(data.frame(rep(0,nrow(cdm))),cdm[,-ncol(cdm)])
+	colnames(pdm)=colnames(distm)
+	return(pdm)
 }

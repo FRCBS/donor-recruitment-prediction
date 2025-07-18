@@ -25,8 +25,25 @@ y0=3
 
 # millainen olisi sitten neliöjuuriin perustuva malli, jossa kaikki data samassa?
 # Saisiko että vakiokerroin vain on eri tehtyä?
+# The pieces below have been copied to newRegression -> could be removed
+rv=newRegression(distm,k=NULL,y0=3)
+rs=rv$coeff[grep('^r[0-9]+$',rownames(rv$coeff)),'Estimate']
+rs
+plot(rs)
+plot(1/rs)
+ind=2:length(rs)
+rs.inv=1/(rs[2:length(rs)])
+m=lm(rs.inv~ind)
+sm=summary(m)
+sm
+new.data=data.frame(ind=1:55)
+est=data.frame(predict(m,new.data,interval='confidence'))
+plot(new.data$ind,est$fit,type='l')
+points(ind,rs.inv,col='red')
 
-newRegression(distm,k=NULL,y0=3)
+plot(new.data$ind,1/est$fit,type='l')
+points(ind,1/rs.inv,col='red')
+sm
 
 newRegression = function(distm,k=NULL,y0=1) {
 	if (is.null(k)) {
@@ -82,8 +99,10 @@ newRegression = function(distm,k=NULL,y0=1) {
 	resa2=as.matrix(pivot_wider(resa,values_from='res',names_from='len'))
 	rownames(resa2)=rownames(distm)[y0:(y0+nrow(resa2)-1)]
 	resa2=resa2[,-1]
-	plotDistibutionMatrix((resa2),diff=TRUE,skip.years=0,main='the residuals')
-	plot((sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']),ylim=c(0,5))
+	# plotDistibutionMatrix((resa2),diff=TRUE,skip.years=0,main='the residuals')
+
+	intercepts=sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']
+	plot(intercepts,ylim=c(0,5))
 
 	new.data.cols=c('year0.factor','x0',paste0('r',1:k),'rr')
 	new.data=df2[,new.data.cols]
@@ -125,11 +144,31 @@ newRegression = function(distm,k=NULL,y0=1) {
 
 		points(ddf$len,exp(ddf$y)+(offset*y2),lwd=2)
 	}
-	return(coeff=sm$coeff,data=ddf,estimate=esti)
+
+	rs=sm$coeff[grep('^r[0-9]+$',rownames(sm$coeff)),'Estimate']
+	rs
+	plot(rs)
+	plot(1/rs)
+	ind=2:length(rs)
+	rs.inv=1/(rs[2:length(rs)]) # nb! r1 is often negative, hence skipped here
+	m=lm(rs.inv~ind)
+	# sm=summary(m)
+	# sm
+	new.data=data.frame(ind=1:55)
+	est=data.frame(predict(m,new.data,interval='confidence'))
+	# plot(new.data$ind,est$fit,type='l')
+	# points(ind,rs.inv,col='red')
+
+	# plot(new.data$ind,1/est$fit,type='l')
+	# points(ind,1/rs.inv,col='red')
+	# sm
+
+	return(list(coeff=sm$coeff,data=ddf,estimate=esti,r.m=m,intercepts=intercepts))
 }
 
 setwd('c:/hy-version/donor-recruitment-prediction/src')
 
+# %%% read anonymous data files
 ## ----setup, include=FALSE,echo=FALSE------------------------------------------
 # knitr::opts_chunk$set(echo = FALSE,warning=FALSE)
 library(tidyverse)
@@ -206,20 +245,9 @@ for (file in file.paths) {
 	countries[[identifier]] = curr
 }
 
+# read anonymous data files %%% -->
 
-## ----produce-explore-data,echo=FALSE------------------------------------------
-# This is a copy from blood-donor-recruitment-prediction.R
-# Unfortunately does not work for matrices
-cumulativeToDensity = function(dist) {
-	return((c(dist,0)-c(0,dist))[1:length(dist)])
-}
-
-cdm2pdm = function(distm) {
-	pdm = cbind(cdm)-cbind(data.frame(rep(0,nrow(cdm))),cdm[,-ncol(cdm)])
-	colnames(pdm)=colnames(distm)
-	return(pdm)
-}
-
+# %%% compute statistics for exploratory analysis
 et=NULL # main exploratory data set
 activity.stats=NULL # combined activity stats
 activity.stats.sex=NULL # combined activity stats + grouped by sex
@@ -298,22 +326,36 @@ for (cn in names(countries)) {
 	}
 }
 
+# save
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))
 save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.Rdata"))
 save(activity.stats.sex,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.sex.Rdata"))
 
+# %%% define structures, configurations etc. for analysis
 # 2025-06-28 new things
+
+## ----echo=FALSE---------------------------------------------------------------
+# These values are experimental in the data, so quick-fix them here
+countries$fi$parameters$reference.year = 2003
+countries$fi$parameters$last.data.year = 2023
+
+countries$nl$parameters$reference.year = 2011
+countries$nl$parameters$last.data.year = 2023
+
+countries$fr$parameters$reference.year = 2017
+countries$fr$parameters$last.data.year = 2023
+
+countries$au$parameters$reference.year = 2013
+countries$au$parameters$last.data.year = 2023
+
+countries$nc$parameters$reference.year = 2003
+countries$nc$parameters$last.data.year = 2024
+
 reference.years=data.frame(year=integer(),country=character())
 for (cn in names(countries)) {
 	reference.years[cn,'country']=cn
 	reference.years[cn,'year']=countries[[cn]]$param$reference.year
 }
-
-########
-colnames(et)
-nuisance.cols = c('Multiplier','MaximumAge','Name','avage')
-dim.cols = c('country','age.lower','age.upper','DonationPlaceType','Sex','BloodGroup',nuisance.cols)
-dim.keep = c('country','Sex') # this is the changing part
 
 colours=list()
 colours$fi='darkblue'
@@ -325,6 +367,10 @@ colours$nc='black' # 'green3'
 colfun = function(x) {
 	colours[[x]]
 }
+
+nuisance.cols = c('Multiplier','MaximumAge','Name','avage')
+dim.cols = c('country','age.lower','age.upper','DonationPlaceType','Sex','BloodGroup',nuisance.cols)
+dim.keep = c('country','Sex') # this is the changing part
 
 spec.list = list()
 spec.list$country = list()
@@ -353,12 +399,9 @@ spec.list$country.bloodgr$colours = colours
 spec.list$country.bloodgr$col.dim = 'country'
 spec.list$country.bloodgr$pch.dim = 'BloodGroup'
 
-et %>%
-	filter(!is.na(cdon)) %>%
-	group_by(country) %>%
-	summarise(min(year0),max(year))
-
-
+# 2025-07-18 main computations
+# nb! computing csm is out of sequence
+# The problem is the plotting that occurs within the function
 spec=spec.list$country
 # initialise the (x,sqrt.x) plotting area
 plot(x=NULL,
@@ -367,71 +410,8 @@ plot(x=NULL,
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	xlab=plot.terms[1],ylab=plot.terms[2])
 
-# estimate and plot countries using the sqrt-models all years at once, plot the results
-csm=NULL
-for (cn in unique(dfr$country)) {
-	data=dfr %>% filter(country==cn)
-	data$year0=as.factor(data$year0)
-	m=lm(y~0+year0+x+sqrt.x,data=data)
-	sm=summary(m)
-	new.data=expand.grid(year0=unique(data$year0),x=1:50)
-	new.data$sqrt.x=sqrt(new.data$x)
-	# new.data=data.frame(new.data)
-	esq=predict(m,new.data,interval='confidence')
-	dftot=cbind(new.data,esq)
-
-	# plotting: copied from the newRegression function
-	offset=2
-	resolution=150
-	filename=paste0('../fig/',cn,'-sqrt-multiple.png')
-	png(filename,res=resolution,width=9*resolution,height=7*resolution)
-	plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
-	yrs=sort(unique(data$year0))
-print(cn)
-print(yrs)
-	for (i2 in 1:length(yrs)) {
-		y2 = yrs[i2]
-		dfslc=dftot[dftot$year0==y2,]
-		ddf = data[data$year0==y2,]
-
-		if (reference.years[cn,'year'] == y2) {
-			y.m = dfslc$fit
-print(y.m)
-			y.max = max(y.m[1:50])
-			y.star=y.max/2
-			x0=max(which(y.m<y.star))
-			x1=x0+1
-			y0=y.m[x0]
-			y1=y.m[x1]
-			x.half=(y.star-y0)/(y1-y0)+x0
-		}
-
-		y2i=as.integer(y2)
-		lines(dfslc$x,dfslc$fit+(offset*y2i),lty='dashed')
-		lines(dfslc$x,dfslc$lwr+(offset*y2i),lty='dotted')	
-		lines(dfslc$x,dfslc$upr+(offset*y2i),lty='dotted')
-
-		points(ddf$x,(ddf$y)+(offset*y2i),lwd=2)
-	}
-	dev.off()
-
-	coeff=cbind(country=cn,data.frame(sm$coeff))
-	coeff$var=rownames(sm$coeff)
-	coeff['r.squared',c('Estimate','var','country')]=c(sm$r.squared,'r.squared',cn)
-	coeff['y.max',c('Estimate','var','country')]=c(y.max,'y.max',cn)
-	coeff['x.half',c('Estimate','var','country')]=c(x.half,'x.half',cn)
-	if (is.null(csm)) {
-		csm=coeff
-	} else
-		csm=rbind(csm,coeff)
-}
-csm
-csm[grepl('x.half|y.max',csm$var),]
-
-getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=0,index=1)
-
-
 # 2025-07-09 There is quite a bit of variation in these
+# Should specify the parameter if used; now multiple included
 boxplot(Estimate~country,data=csm)
 
 # 2025-07-08 This is the plot presented in the meeting
@@ -448,7 +428,8 @@ plot(x=NULL,
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	xlab='years from first donation (till half of the expected maximum)',ylab='(estimated total) number of donations')
 
-getGroupEstimates(et,spec.list$country,lwd=3,plot='curve')
+# getGroupEstimates(et,spec.list$country,lwd=3,plot='curve')
+### dfr: results the sqrt-models estimated based on each year0 separately
 dfr=NULL
 for (i in -2:20) {
 	res=getGroupEstimates(et,spec.list$country,lwd=3,plot='alt',year.offset=i,index=i+3)
@@ -458,28 +439,22 @@ for (i in -2:20) {
 		dfr=rbind(dfr,res$data)
 }
 
+csm=compute.csm(dfr,plot=FALSE)
+
 # Plot the points based on the combined sqrt regressions
 for (cn in unique(csm$country)) {
 	data=csm[csm$country==cn,]
 	data$Estimate=as.numeric(data$Estimate)
-print(paste(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate']))
+	# print(paste(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate']))
 	points(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate'],col=spec$colours[[cn]],pch=11,cex=1.2)
 }
 
-et %>%
-	filter(country=='nc',Name=='Male O- Office 0-100') %>%
-	arrange(year0,ord)
-
-test2 = pivot_wider(data[,c('x','y','year0')],names_from='x',values_from='y') 
-
-unique(et$Name)
-
+# test2 = pivot_wider(data[,c('x','y','year0')],names_from='x',values_from='y') 
 test= dfr %>%
 	filter(country=='cn') %>%
 	filter(!is.na(cdon)) %>%
 	dplyr::select(country,year0,ord,cdon) %>%
 	data.frame()
-
 test2 = pivot_wider(test,names_from='ord',values_from='cdon',id_cols=c('year0','country')) %>%
 	arrange(country,year0)
 
@@ -499,10 +474,10 @@ getGroupEstimates(et,spec.list$country.sex,plot='alt')
 getGroupEstimates(et,spec.list$country,lwd=7,plot='alt')
 legend(x='bottom',fill=unlist(colours),legend=names(colours))
 legend(x='bottomright',pch=c(1,2,6,3,4),legend=c('all','Female','Male','-O-','O-'))
-# dev.off()
+# end of the plot presented in the SanguinStats meeting --> %%% 
 
-getGroupEstimates(et,spec.list$Sex)
-spec=spec.list$Sex
+# the traditional csm-plots (written to files)
+compute.csm(dfr,plot='all')
 
 ## ----et-aggregate-ages,echo=FALSE---------------------------------------------
 et.noage = et %>%
@@ -544,25 +519,6 @@ ggplot(cydata,
 			 aes(x = year,
 					 y = value,
 					 col = country,lwd=3)) + geom_line()
-
-
-## ----echo=FALSE---------------------------------------------------------------
-# These values are experimental in the data, so quick-fix them here
-countries$fi$parameters$reference.year = 2003
-countries$fi$parameters$last.data.year = 2023
-
-countries$nl$parameters$reference.year = 2011
-countries$nl$parameters$last.data.year = 2023
-
-countries$fr$parameters$reference.year = 2017
-countries$fr$parameters$last.data.year = 2023
-
-countries$au$parameters$reference.year = 2013
-countries$au$parameters$last.data.year = 2023
-
-countries$nc$parameters$reference.year = 2003
-countries$nc$parameters$last.data.year = 2024
-
 
 ## ----estimate-models----------------------------------------------------------
 # Here, the data is augmented with models estimated based on distm
