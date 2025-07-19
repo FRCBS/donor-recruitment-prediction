@@ -18,7 +18,6 @@ compute.csm = function(dfr,plot='all') {
 		offset=2
 		resolution=150
 		filename=paste0('../fig/',cn,'-sqrt-multiple.png')
-print(filename)
 		if (plot=='all') {
 			png(filename,res=resolution,width=9*resolution,height=7*resolution)
 			plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
@@ -65,7 +64,7 @@ print(filename)
 	return(csm)
 } # compute.csm
 
-getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
+getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,years.ahead=55) {
 	reference.years.local=reference.years
 	reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
@@ -108,9 +107,8 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0) {
 		# nb! assuming a fixed year here
 		simple.data$year0=min(data$year0)
 
-		x.m=1:50
+		x.m=1:years.ahead
 		y.m=coeff['(Intercept)','Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
-print(y.m)
 		y.max=max(y.m)
 		y.star=y.max/2
 		x0=max(which(y.m<y.star))

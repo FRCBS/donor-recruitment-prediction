@@ -16,47 +16,24 @@
 # Mahdollisesti sekamalli niin, että samoissa suhteissa muuttuvat mutta alkuarvot ovat eri
 # k~montako r-termiä otetaan alusta (r4-kerroin ei mukana)
 
-k=4
-distm=(countries$fi$res[[1]]$distm)
-distm=as.matrix(distm)
-is.matrix(distm)
-k=NULL
-y0=3
-
-# millainen olisi sitten neliöjuuriin perustuva malli, jossa kaikki data samassa?
-# Saisiko että vakiokerroin vain on eri tehtyä?
-# The pieces below have been copied to newRegression -> could be removed
-rv=newRegression(distm,k=NULL,y0=3)
-rs=rv$coeff[grep('^r[0-9]+$',rownames(rv$coeff)),'Estimate']
-rs
-plot(rs)
-plot(1/rs)
-ind=2:length(rs)
-rs.inv=1/(rs[2:length(rs)])
-m=lm(rs.inv~ind)
-sm=summary(m)
-sm
-new.data=data.frame(ind=1:55)
-est=data.frame(predict(m,new.data,interval='confidence'))
-plot(new.data$ind,est$fit,type='l')
-points(ind,rs.inv,col='red')
-
-plot(new.data$ind,1/est$fit,type='l')
-points(ind,1/rs.inv,col='red')
-sm
-
-newRegression = function(distm,k=NULL,y0=1) {
+newRegression = function(distm,k=NULL,y0=1,plots=NULL,cn=NULL,years.ahead=55) {
 	if (is.null(k)) {
-		k=length(which(!is.na(distm[y0,])))-6
+		k=length(which(!is.na(distm[y0,])))-4
 	}
 	col.names=c('year0','len','y','x0',paste0('r',1:k),'rr')
 	nc=length(col.names)
 	mat=matrix(0.0,nc=nc,nr=nrow(distm)^2)
 	index=1
+
+	distm.1=distm[,1]
+
+	# normlisation of distm
+	distm=distm/distm.1
+
 	for (i in y0:nrow(distm)) {
 		len0=length(which(!is.na(distm[i,])))-1
 		if (len0 < 2) {
-			print('breaking')
+			# print('breaking')
 			break
 			i=i-2
 		}
@@ -72,7 +49,7 @@ newRegression = function(distm,k=NULL,y0=1) {
 			if (len - (k+1) < 0) {
 				predv[(length(predv)+(len-(k+1))):length(predv)]=0
 			}
-			mat[index,]=predv # i+1-y0
+			mat[index,]=predv
 			index = index + 1
 		}
 	}
@@ -81,6 +58,10 @@ newRegression = function(distm,k=NULL,y0=1) {
 	colnames(df)=col.names
 	df$year0=as.factor(df$year0)
 	frml.char=paste0('y~0+year0:x0+',paste0('r',1:k,collapse='+'),'+rr')
+
+	# new formula without the year0-terms
+	# year0:x0
+	frml.char=paste0('y~0+',paste0('r',1:k,collapse='+'),'+rr')
 
 	# ok, this seems to work: need to use the same x0 for the last year, 
 	# otherwise that parameter becomes obsolete as there is only one data point for it
@@ -99,10 +80,10 @@ newRegression = function(distm,k=NULL,y0=1) {
 	resa2=as.matrix(pivot_wider(resa,values_from='res',names_from='len'))
 	rownames(resa2)=rownames(distm)[y0:(y0+nrow(resa2)-1)]
 	resa2=resa2[,-1]
-	# plotDistibutionMatrix((resa2),diff=TRUE,skip.years=0,main='the residuals')
+	# plotDistibutionMatrix(resa2,diff=TRUE,skip.years=0,main='the residuals')
 
-	intercepts=sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']
-	plot(intercepts,ylim=c(0,5))
+	# intercepts=sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']
+	# plot(intercepts,ylim=c(0,5))
 
 	new.data.cols=c('year0.factor','x0',paste0('r',1:k),'rr')
 	new.data=df2[,new.data.cols]
@@ -128,9 +109,13 @@ newRegression = function(distm,k=NULL,y0=1) {
 	esti=predict(m,new.data.ext,interval='confidence')
 	esti=(data.frame(exp(esti)))
 	dftot=cbind(new.data.ext,esti)
-	# dftot$y2=exp(dftot$y)
 
+	resolution=150
 	offset=2
+if ('stage-1' %in% plots) {
+	filename=paste0('../fig/',cn,'-exponential-stage-1.png')
+	png(filename,res=resolution,width=9*resolution,height=7*resolution)
+
 	plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
 	for (i2 in 1:length(unique(dftot$year0))) {
 		y2 = unique(dftot$year0)[i2]
@@ -144,23 +129,59 @@ newRegression = function(distm,k=NULL,y0=1) {
 
 		points(ddf$len,exp(ddf$y)+(offset*y2),lwd=2)
 	}
+	dev.off()
+}
 
-	rs=sm$coeff[grep('^r[0-9]+$',rownames(sm$coeff)),'Estimate']
-	rs
-	plot(rs)
-	plot(1/rs)
+bsAssign('sm')
+bsAssign('intercepts')
+	rs0=sm$coeff[grep('^r[0-9]+$',rownames(sm$coeff)),'Estimate']
+	# plot(rs)
+	# plot(1/rs)
 	ind=2:length(rs)
-	rs.inv=1/(rs[2:length(rs)]) # nb! r1 is often negative, hence skipped here
-	m=lm(rs.inv~ind)
+	rs=rs0[ind]
+	rs.inv=1/rs # nb! r1 is often negative, hence skipped here
+	m2=lm(rs.inv~ind)
+	print(summary(m2))
 	# sm=summary(m)
 	# sm
-	new.data=data.frame(ind=1:55)
-	est=data.frame(predict(m,new.data,interval='confidence'))
+	new.data=data.frame(ind=1:years.ahead)
+	est=data.frame(predict(m2,new.data,interval='confidence'))
+
+	rs.est=rep(0,years.ahead)
+	rs.est[1:length(rs0)]=rs0
+	rs.est[(length(rs0)+1):years.ahead]=1/est$fit[(length(rs0)+1):years.ahead]
+	prd=exp(cumsum(rs.est[1:years.ahead]))
+	prd=mean(intercepts)*prd
+	prd
+
+	filename=paste0('../fig/',cn,'-exponential-stage-3.png')
+	png(filename,res=resolution,width=9*resolution,height=7*resolution)
+	plot(x=NULL,xlim=c(1,years.ahead),ylim=c(0,50))
+	for (i in y0:nrow(distm)) {
+		lines(1:years.ahead,prd+i*offset)
+		points(1:ncol(distm),distm[i,]+i*offset)
+	}
+	dev.off()
+
+plot(prd)
+
+	# sapply(1:years.ahead,FUN=function(x) {
+	#		prd=exp(cumsum(rs.est[1:x]))
+	#		prd=mean(intercepts)*prd
+	#		prd
+	#	})
+
 	# plot(new.data$ind,est$fit,type='l')
 	# points(ind,rs.inv,col='red')
 
-	# plot(new.data$ind,1/est$fit,type='l')
-	# points(ind,1/rs.inv,col='red')
+if ('stage-2' %in% plots) {
+	filename=paste0('../fig/',cn,'-exponential-stage-2.png')
+	png(filename,res=resolution,width=9*resolution,height=7*resolution)
+
+	plot(new.data$ind,1/est$fit,type='l')
+	points(ind,1/rs.inv,col='red')
+	dev.off()
+}
 	# sm
 
 	return(list(coeff=sm$coeff,data=ddf,estimate=esti,r.m=m,intercepts=intercepts))
@@ -331,6 +352,20 @@ save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rda
 save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.Rdata"))
 save(activity.stats.sex,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.sex.Rdata"))
 
+et.noage = et %>%
+	ungroup() %>%
+	filter(age.upper<100,BloodGroup=='-O-') %>%
+	group_by(country,DonationPlaceType,Sex,BloodGroup,Multiplier,MaximumAge,year0,ord,year) %>%
+	summarise(Name=min(Name),cdon=sum(n*cdon)/sum(n),don=sum(n*don)/sum(n),n=sum(n),avage=sum(n*avage)/sum(n),.groups='drop') %>%
+	mutate(age.lower=0,age.upper=100)
+et.noage=et.noage[,colnames(et)]
+et.noage$Name=sub(' [0-9].+','',et.noage$Name)
+
+# Combine the new -O- with 0-100 age data from above with the O- rows
+# In the combined data, there are no age groups
+et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
+save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
+
 # %%% define structures, configurations etc. for analysis
 # 2025-06-28 new things
 
@@ -400,8 +435,6 @@ spec.list$country.bloodgr$col.dim = 'country'
 spec.list$country.bloodgr$pch.dim = 'BloodGroup'
 
 # 2025-07-18 main computations
-# nb! computing csm is out of sequence
-# The problem is the plotting that occurs within the function
 spec=spec.list$country
 # initialise the (x,sqrt.x) plotting area
 plot(x=NULL,
@@ -479,20 +512,33 @@ legend(x='bottomright',pch=c(1,2,6,3,4),legend=c('all','Female','Male','-O-','O-
 # the traditional csm-plots (written to files)
 compute.csm(dfr,plot='all')
 
-## ----et-aggregate-ages,echo=FALSE---------------------------------------------
-et.noage = et %>%
-	ungroup() %>%
-	filter(age.upper<100,BloodGroup=='-O-') %>%
-	group_by(country,DonationPlaceType,Sex,BloodGroup,Multiplier,MaximumAge,year0,ord,year) %>%
-	summarise(Name=min(Name),cdon=sum(n*cdon)/sum(n),don=sum(n*don)/sum(n),n=sum(n),avage=sum(n*avage)/sum(n),.groups='drop') %>%
-	mutate(age.lower=0,age.upper=100)
-et.noage=et.noage[,colnames(et)]
-et.noage$Name=sub(' [0-9].+','',et.noage$Name)
+# %%% iterate over the new exponential models
 
-# Combine the new -O- with 0-100 age data from above with the O- rows
-# In the combined data, there are no age groups
-et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
-save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
+et.test = et %>%
+	filter(!is.na(cdon),!is.na(don)) %>%
+	# inner_join(reference.years,join_by(x$year0==y$year,country)) %>%
+	group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
+	summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
+	group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>%
+	summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') 
+
+for (cn in names(countries)) {
+	distm = et.test %>% 
+		filter(country==cn) %>% 
+		dplyr::select(cdon,ord,year0) %>%
+		pivot_wider(values_from='cdon',names_from=c('ord')) %>%
+		data.frame()
+	rownames(distm)=distm$year0
+	distm=distm[,2:ncol(distm)]
+	colnames(distm)=1:ncol(distm)
+	distm=as.matrix(distm)
+
+	print(cn)
+	rv=newRegression(distm,y0=3,cn=cn,plots=c('stage-1','stage-2'))
+}
+
+
+# end of computations --> %%%
 
 ## ----explore-data-examples,echo=FALSE-----------------------------------------
 et %>%
@@ -615,7 +661,6 @@ testdata=mcf %>%
 plotdata=pivot_wider(testdata[,c('country','estimate','term','year0')],values_from='estimate',names_from=c('term'))
 
 plotdata$col=sapply(plotdata$country,FUN=colfun)
-# kaikki kerralla
 plot(plotdata[[plot.terms[2]]],plotdata[[plot.terms[1]]],col=plotdata$col)
 skip0=3
 
