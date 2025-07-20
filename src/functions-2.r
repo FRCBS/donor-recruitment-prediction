@@ -1,3 +1,112 @@
+# 2025-07-20 way forward
+# compute.csm below is fixed for counties are the grouping variable
+# Should really utilise the computations in getGroupEstimates
+# The data could more easily be derived similarly as et.test
+
+getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,years.ahead=55) {
+	reference.years.local=reference.years
+	reference.years.local$year=reference.years.local$year+year.offset
+	et.test = et %>%
+		filter(!is.na(cdon),!is.na(don)) %>%
+		inner_join(reference.years.local,join_by(x$year0==y$year,country)) %>%
+		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
+		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
+		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
+		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') 
+
+	grps=data.frame(unique(et.test[,spec$dim.keep]))
+	res.all=list
+	simple.data=NULL
+	sp.data=NULL
+	for (rw in 1:nrow(grps)) {
+		data = et.test
+
+		for (cn in 1:ncol(grps)) {
+			grp.name=colnames(grps)[cn]
+			grp.value=data.frame(grps)[rw,cn]
+			data=data[data[[grp.name]]==grp.value,]
+		}
+
+		if (nrow(data) < 3)
+			next
+
+		m0 = estimate.predict2(data$cdon,try.nls=FALSE)
+		res=list()
+		res$index=i
+		res$year=year
+		res$m = m0$m
+		res$m.nls = m0$m.nls
+		coeff=data.frame(summary(res$m)$coeff)
+
+		simple.data=m0$data
+		for (ci in colnames(grps)) {
+			simple.data[[ci]] = grps[rw,ci]
+		}
+
+		# nb! assuming a fixed year here
+		simple.data$year0=min(data$year0)
+
+		x.m=1:years.ahead
+		y.m=coeff['(Intercept)','Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
+		y.max=max(y.m)
+		y.star=y.max/2
+		x0=max(which(y.m<y.star))
+		x1=x0+1
+		y0=y.m[x0]
+		y1=y.m[x1]
+		x.half=(y.star-y0)/(y1-y0)+x0
+
+		col.start=spec$colours[[grps[rw,spec$col.dim]]]
+		colfunc <- colorRampPalette(c(col.start, "white"))
+		colfun=colfunc(20)
+		col0=colfun[index]
+
+		if (plot=='orig') {
+			points(coeff[plot.terms[1],'Estimate'],coeff[plot.terms[2],'Estimate'],
+				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
+		} else if (plot=='alt') {
+			points(x.half,y.max,
+				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
+		} else if (plot=='curve') {
+			lines(x.m,y.m,col=col0,lwd=lwd)
+		}
+
+		if (is.null(sp.data)) {
+			sp.data=simple.data 
+		} else
+			sp.data=rbind(sp.data,simple.data)
+	}
+
+	return(list(et.data=et.test,data=sp.data))
+}
+
+getAgeDistributionMatrix = function(data) {
+  # The two out-commented conditions on the following row are unnecessary at this point (at least they should be)
+  # Restricting to first time donors should be done in the first stage, if at all
+  
+  # nb! hard coded
+  byAgeYear=data[year(data$date)>=2003,c('age','date')] # data$type=='donation'&data$ord==1&
+  stats=byAgeYear %>%
+    mutate(year=year(date),age=as.integer(age)) %>%
+    mutate(year=year-(year %% 5)) %>%
+    group_by(age,year) %>%
+    summarise(n=n(),avgAge=mean(age,na.rm=TRUE),.groups='drop')
+  
+  mat=pivot_wider(stats[,c('age','year','n')],names_from=year,values_from=n,values_fn=mean)
+  m=mat[,2:dim(mat)[2]]
+  ptbl=sweep(m,2,colSums(m,na.rm=TRUE),`/`)
+  
+  ctbl=apply(ptbl,2,cumsum)
+  p2=cbind(mat[,1],ctbl)
+  wh=which(is.na(p2$age))
+  if (length(wh) > 0) {
+    wh0=min(wh)
+    p2=p2[1:(wh0-1),]
+  }
+  rownames(p2)=p2$age
+  return(p2)
+}
+
 # estimate and plot countries using the sqrt-models all years at once, plot the results
 # csm ~ estimated coefficients based on the sqrt-model, total data and varying intercept (year0)
 compute.csm = function(dfr,plot='all',return.fit=FALSE) {
@@ -82,7 +191,7 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,yea
 		inner_join(reference.years.local,join_by(x$year0==y$year,country)) %>%
 		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
 		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
-		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>%
+		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
 		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') 
 
 	grps=data.frame(unique(et.test[,spec$dim.keep]))
