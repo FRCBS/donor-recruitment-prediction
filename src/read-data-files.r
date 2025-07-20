@@ -1,3 +1,8 @@
+# 2025-07-19
+# Much effort was invested to improve the exponential models. However, the results were not satisfactory.
+# The sqrt-models seems to work better overall.
+# These should be estimated for 
+
 # 2025-07-01 Should try using all the years to model the shape of the curves
 # Maybe the first year to estimate the trend
 # Must check that the last year is a full year (cannot be for those who started in 2024).
@@ -30,6 +35,7 @@ newRegression = function(distm,k=NULL,y0=1,plots=NULL,cn=NULL,years.ahead=55) {
 	# normlisation of distm
 	distm=distm/distm.1
 
+	hs = cumsum(0.5^((1:nc)-1))
 	for (i in y0:nrow(distm)) {
 		len0=length(which(!is.na(distm[i,])))-1
 		if (len0 < 2) {
@@ -49,6 +55,11 @@ newRegression = function(distm,k=NULL,y0=1,plots=NULL,cn=NULL,years.ahead=55) {
 			if (len - (k+1) < 0) {
 				predv[(length(predv)+(len-(k+1))):length(predv)]=0
 			}
+
+			# 2025-07-19 computing the rr value
+			if (predv[length(predv)] > 0)
+				predv[length(predv)]=hs[predv[length(predv)]]
+
 			mat[index,]=predv
 			index = index + 1
 		}
@@ -61,6 +72,8 @@ newRegression = function(distm,k=NULL,y0=1,plots=NULL,cn=NULL,years.ahead=55) {
 
 	# new formula without the year0-terms
 	# year0:x0
+	# 0 removed: need a constant term
+	# cannot introduce it, because r1 is essentially a constant
 	frml.char=paste0('y~0+',paste0('r',1:k,collapse='+'),'+rr')
 
 	# ok, this seems to work: need to use the same x0 for the last year, 
@@ -81,7 +94,6 @@ newRegression = function(distm,k=NULL,y0=1,plots=NULL,cn=NULL,years.ahead=55) {
 	rownames(resa2)=rownames(distm)[y0:(y0+nrow(resa2)-1)]
 	resa2=resa2[,-1]
 	# plotDistibutionMatrix(resa2,diff=TRUE,skip.years=0,main='the residuals')
-
 	# intercepts=sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate']
 	# plot(intercepts,ylim=c(0,5))
 
@@ -132,8 +144,10 @@ if ('stage-1' %in% plots) {
 	dev.off()
 }
 
+bsAssign('m')
 bsAssign('sm')
 bsAssign('intercepts')
+bsAssign('new.data.ext')
 	rs0=sm$coeff[grep('^r[0-9]+$',rownames(sm$coeff)),'Estimate']
 	# plot(rs)
 	# plot(1/rs)
@@ -147,23 +161,31 @@ bsAssign('intercepts')
 	new.data=data.frame(ind=1:years.ahead)
 	est=data.frame(predict(m2,new.data,interval='confidence'))
 
-	rs.est=rep(0,years.ahead)
-	rs.est[1:length(rs0)]=rs0
-	rs.est[(length(rs0)+1):years.ahead]=1/est$fit[(length(rs0)+1):years.ahead]
-	prd=exp(cumsum(rs.est[1:years.ahead]))
-	prd=mean(intercepts)*prd
-	prd
+	est0=data.frame(predict(m,unique(new.data.ext[,grepl('^r[0-9r]',colnames(new.data.ext))]),interval='confidence'))
+
+	rs.est=est # rep(0,years.ahead)
+	# rs.est[1:length(rs0)]=rs0
+	rs.est[1:length(rs0),]=exp(est0[1:length(rs0),])
+	est2=(1/est[(length(rs0)+1):years.ahead,][,c(1,3,2)])
+	a1=rs.est[length(rs0),]
+	a2=apply(est2,2,FUN=function(x) exp(cumsum(x)))
+	for (i in 1:ncol(a1)) {
+		rs.est[(length(rs0)+1):years.ahead,i]=a2[,i]*a1[1,i]
+	}
+	# prd=exp(cumsum(rs.est[1:years.ahead]))
+	# prd=mean(intercepts)*prd
+	# prd
 
 	filename=paste0('../fig/',cn,'-exponential-stage-3.png')
 	png(filename,res=resolution,width=9*resolution,height=7*resolution)
 	plot(x=NULL,xlim=c(1,years.ahead),ylim=c(0,50))
 	for (i in y0:nrow(distm)) {
-		lines(1:years.ahead,prd+i*offset)
-		points(1:ncol(distm),distm[i,]+i*offset)
+		lines(1:years.ahead,rs.est$fit+(i-y0)*offset,lty='dashed')
+		lines(1:years.ahead,rs.est$lwr+(i-y0)*offset,lty='dotted')
+		lines(1:years.ahead,rs.est$upr+(i-y0)*offset,lty='dotted')
+		points(1:ncol(distm),distm[i,]+(i-y0)*offset)
 	}
 	dev.off()
-
-plot(prd)
 
 	# sapply(1:years.ahead,FUN=function(x) {
 	#		prd=exp(cumsum(rs.est[1:x]))
@@ -452,11 +474,10 @@ boxplot(Estimate~country,data=csm)
 # This function does some plotting.
 source('functions-2.r')
 res=150
-# png('../figures/estimated-parameters.png',width=8*res,height=6*res,res=res)
-par("mar")
+# png('../fig/estimated-parameters.png',width=8*res,height=6*res,res=res)
 par(mar=c(4,4,0.1,0.1))
 plot(x=NULL,
-	xlim=c(1,50),ylim=c(-3,40),
+	xlim=c(1,30),ylim=c(-3,40),
 	# xlim=c(min(plotdata[[plot.terms[1]]],na.rm=TRUE),max(plotdata[[plot.terms[1]]],na.rm=TRUE)),
 	# ylim=c(min(plotdata[[plot.terms[2]]],na.rm=TRUE),max(plotdata[[plot.terms[2]]],na.rm=TRUE)),
 	xlab='years from first donation (till half of the expected maximum)',ylab='(estimated total) number of donations')
@@ -478,11 +499,13 @@ csm=compute.csm(dfr,plot=FALSE)
 for (cn in unique(csm$country)) {
 	data=csm[csm$country==cn,]
 	data$Estimate=as.numeric(data$Estimate)
-	# print(paste(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate']))
+print(paste(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate']))
 	points(data[data$var=='x.half','Estimate'],data[data$var=='y.max','Estimate'],col=spec$colours[[cn]],pch=11,cex=1.2)
 }
 
+# 2025-07-19 This causes an error, but does not seem to do anything
 # test2 = pivot_wider(data[,c('x','y','year0')],names_from='x',values_from='y') 
+if (FALSE) {
 test= dfr %>%
 	filter(country=='cn') %>%
 	filter(!is.na(cdon)) %>%
@@ -501,16 +524,19 @@ for (cn in unique(test2$country)) {
 	distm=distm[,-1]
 	distm
 }
+}
 
-getGroupEstimates(et,spec.list$country.bloodgr,plot='alt')
-getGroupEstimates(et,spec.list$country.sex,plot='alt')
-getGroupEstimates(et,spec.list$country,lwd=7,plot='alt')
+rv=getGroupEstimates(et,spec.list$country.bloodgr,plot='alt')
+rv=getGroupEstimates(et,spec.list$country.sex,plot='alt')
+rv=getGroupEstimates(et,spec.list$country,lwd=7,plot='alt')
 legend(x='bottom',fill=unlist(colours),legend=names(colours))
 legend(x='bottomright',pch=c(1,2,6,3,4),legend=c('all','Female','Male','-O-','O-'))
 # end of the plot presented in the SanguinStats meeting --> %%% 
 
+dev.off()
+
 # the traditional csm-plots (written to files)
-compute.csm(dfr,plot='all')
+rv=compute.csm(dfr,plot='all',return.fit=TRUE)
 
 # %%% iterate over the new exponential models
 
@@ -522,6 +548,8 @@ et.test = et %>%
 	group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>%
 	summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') 
 
+# pah = dfr %>% arrange(country,year0,x) %>% data.frame(); pah[1:30,]
+# 2025-07-19 checked that the sqrt estimates are correct
 for (cn in names(countries)) {
 	distm = et.test %>% 
 		filter(country==cn) %>% 

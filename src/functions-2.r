@@ -1,7 +1,8 @@
 # estimate and plot countries using the sqrt-models all years at once, plot the results
 # csm ~ estimated coefficients based on the sqrt-model, total data and varying intercept (year0)
-compute.csm = function(dfr,plot='all') {
+compute.csm = function(dfr,plot='all',return.fit=FALSE) {
 	csm=NULL
+	fit=list()
 	for (cn in unique(dfr$country)) {
 		data=dfr %>% filter(country==cn)
 		data$year0=as.factor(data$year0)
@@ -21,6 +22,7 @@ compute.csm = function(dfr,plot='all') {
 		if (plot=='all') {
 			png(filename,res=resolution,width=9*resolution,height=7*resolution)
 			plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
+		}
 			yrs=sort(unique(data$year0))
 			for (i2 in 1:length(yrs)) {
 				y2 = yrs[i2]
@@ -28,6 +30,7 @@ compute.csm = function(dfr,plot='all') {
 				ddf = data[data$year0==y2,]
 
 				if (reference.years[cn,'year'] == y2) {
+					fit[[cn]]=dfslc
 					y.m = dfslc$fit
 					y.max = max(y.m[1:50])
 					y.star=y.max/2
@@ -38,15 +41,19 @@ compute.csm = function(dfr,plot='all') {
 					x.half=(y.star-y0)/(y1-y0)+x0
 				}
 
+				if (plot=='all') {
 				y2i=as.integer(y2)
 				lines(dfslc$x,dfslc$fit+(offset*y2i),lty='dashed')
 				lines(dfslc$x,dfslc$lwr+(offset*y2i),lty='dotted')	
 				lines(dfslc$x,dfslc$upr+(offset*y2i),lty='dotted')
 
 				points(ddf$x,(ddf$y)+(offset*y2i),lwd=2)
+				}
 			}
+			if (plot=='all') {
 			dev.off()
-		}
+			}
+		# }
 
 		coeff=cbind(country=cn,data.frame(sm$coeff))
 		coeff$var=rownames(sm$coeff)
@@ -60,6 +67,9 @@ compute.csm = function(dfr,plot='all') {
 	}
 	# csm
 	csm$Estimate=as.numeric(csm$Estimate)
+
+	if (return.fit)
+		return(list(csm=csm,fit=fit))
 
 	return(csm)
 } # compute.csm
