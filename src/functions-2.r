@@ -3,12 +3,41 @@
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
 
-getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,years.ahead=55) {
-	reference.years.local=reference.years
-	reference.years.local$year=reference.years.local$year+year.offset
+rv=getGroupEstimates2(et,spec)
+
+rv$coeff
+rv$fit
+names(rv)
+
+rv$fit
+# todo: pitäisi tarkistaa, onko näissä eroa sen suhteen, mikä on ennustejakson pituus
+
+# ok, this works
+fit.table=pivot_wider(rv$fit[rv$fit$rw==5,c('x','upr','year0')],names_from='x',values_from='upr')
+ref.year=as.integer(as.character(as.data.frame(fit.table)[nrow(fit.table),1]))
+fitted=predict(rv$m.year0[[5]],newdata=data.frame(x0=c(ref.year,2025)),interval='confidence')
+correction=fitted[2]-fitted[1]
+# forecast for the year 2025 (e.g.)
+fit.table[nrow(fit.table),2:ncol(fit.table)]+correction
+
+# The confidence intervals are not equal among different year0-levels
+# Major differences
+
+tt=fit.table[,2:ncol(fit.table)]
+tt[10,]-tt[15,]
+
+t.lwr=fit.table
+t.upr=fit.table
+
+# TODO
+# year0 should be added to the spec
+# similarly for year to use maybe reference year +/- offset
+getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55) {
+	# reference.years.local=reference.years
+	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
-		inner_join(reference.years.local,join_by(x$year0==y$year,country)) %>%
+		# inner_join(reference.years.local,join_by(x$year0==y$year,country)) %>%
 		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
 		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
 		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
@@ -18,9 +47,13 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,ye
 	res.all=list
 	simple.data=NULL
 	sp.data=NULL
+	sp.coeff=NULL
+	sp.dftot=NULL
+	sp.m.year0=list()
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
+		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
 			grp.name=colnames(grps)[cn]
 			grp.value=data.frame(grps)[rw,cn]
@@ -30,24 +63,58 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,ye
 		if (nrow(data) < 3)
 			next
 
+		data$x=data$ord
+		data$sqrt.x=sqrt(data$x)
+		data$year0=as.factor(data$year0)
+
+		frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
+
+		m=lm(formula(frml.char),data=data)
+		sm=summary(m)
+
+		# copied from the newRegressoin procedure
+		# This seems to work, and it is worth using the year-specific trajectories when
+		# predicting each year
+		new.data=expand.grid(year0=unique(data$year0),x=1:years.ahead)
+		new.data$sqrt.x=sqrt(new.data$x)
+		esq=predict(m,newdata=new.data,interval='confidence')
+		dftot=cbind(new.data,esq,rw=rw)
+
+		# estimate a trend for the year-based constant terms - not yet used
+		# todo: these should be included in the results as well
+
+		y0=(sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate'])
+		x0=as.integer(sub('year0','',names(y0)))
+		y0.num=as.numeric(y0)
+		m2=lm(y0.num~x0)
+		summary(m2)
+		sp.m.year0[[rw]]=m2
+
+if (FALSE) {
 		m0 = estimate.predict2(data$cdon,try.nls=FALSE)
 		res=list()
-		res$index=i
+		# res$index=i # i is not defined in this context
 		res$year=year
 		res$m = m0$m
 		res$m.nls = m0$m.nls
 		coeff=data.frame(summary(res$m)$coeff)
-
 		simple.data=m0$data
+}
+
 		for (ci in colnames(grps)) {
-			simple.data[[ci]] = grps[rw,ci]
+			data[[ci]] = grps[rw,ci]
 		}
 
 		# nb! assuming a fixed year here
-		simple.data$year0=min(data$year0)
+		# data$year0=min(as.integer(data$year0))
 
+		coeff=cbind(data.frame(sm$coeff))
+		coeff$Estimate=as.numeric(coeff$Estimate)
+bsAssign('sm')
+bsAssign('coeff')
+bsAssign('y0')
 		x.m=1:years.ahead
-		y.m=coeff['(Intercept)','Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
+		y.m=coeff[names(y0)[3],'Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
 		y.max=max(y.m)
 		y.star=y.max/2
 		x0=max(which(y.m<y.star))
@@ -55,6 +122,16 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,ye
 		y0=y.m[x0]
 		y1=y.m[x1]
 		x.half=(y.star-y0)/(y1-y0)+x0
+
+if (is.na(x.half))
+	error(3)
+
+		coeff$var=rownames(sm$coeff)
+		coeff['r.squared',c('Estimate','var')]=c(sm$r.squared,'r.squared')
+		coeff['y.max',c('Estimate','var')]=c(y.max,'y.max')
+		coeff['x.half',c('Estimate','var')]=c(x.half,'x.half')
+
+		coeff$rw=rw
 
 		col.start=spec$colours[[grps[rw,spec$col.dim]]]
 		colfunc <- colorRampPalette(c(col.start, "white"))
@@ -72,12 +149,17 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,ye
 		}
 
 		if (is.null(sp.data)) {
-			sp.data=simple.data 
-		} else
-			sp.data=rbind(sp.data,simple.data)
+			sp.data=data 
+			sp.coeff=coeff
+			sp.dftot=dftot
+		} else {
+			sp.data=rbind(sp.data,data)
+			sp.coeff=rbind(sp.coeff,coeff)
+			sp.dftot=rbind(sp.dftot,dftot)
+		}
 	}
 
-	return(list(et.data=et.test,data=sp.data))
+	return(list(et.data=et.test,data=sp.data,grps=grps,coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0))
 }
 
 getAgeDistributionMatrix = function(data) {
