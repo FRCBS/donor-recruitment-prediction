@@ -1,10 +1,88 @@
 source('functions-2.r')
-rv=getGroupEstimates2(et,spec,plot='curve',try.nls=TRUE)
+
+plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='coefficient')
+
+rv=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE)
+phase='log-log'
+dparam=c('log.x.','.Intercept.')
+vfun=c(NA,exp)
+plotCoeffData(rv$coeff,spec,rv$grps,phase,dparam,vfun)
+
+# points by year
+# TODO The years could also be estimated separately, one line of distm per each round
+dparam=c('log.x.','year0')
+phase='log-year0-log'
+# plotCoeffData(rv$coeff,spec,rv$grps,phase,dparam,vfun,FALSE)
+
+rv=getGroupEstimates2(et,spec.list$country.sex,plot='curve',try.nls=FALSE)
+phase='log-log'
+dparam=c('log.x.','.Intercept.')
+plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
+
+rv=getGroupEstimates2(et,spec.list$country.bloodgr,plot='curve',try.nls=FALSE)
+plotCoeffData(rv$coeff,spec.list$country.bloodgr,rv$grps,phase,dparam,vfun,TRUE)
+
+plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
+	data0=data[data$phase==phase,]
+
+	wh.x=which(grepl(dparam[1],data0$parameter))
+	wh.y=which(grepl(dparam[2],data0$parameter))
+	est.x=data0[wh.x,'Estimate']
+	est.y=data0[wh.y,'Estimate']
+
+	lo.x=est.x+qnorm(0.025)*data0[wh.x,'Std..Error']
+	hi.x=est.x+qnorm(0.975)*data0[wh.x,'Std..Error']
+	if (!is.na(vfun[1])) {
+		est.x=vfun[[1]](est.x)
+		lo.x=vfun[[1]](lo.x)
+		hi.x=vfun[[1]](hi.x)
+	}
+
+	lo.y=est.y+qnorm(0.025)*data0[wh.y,'Std..Error']
+	hi.y=est.y+qnorm(0.975)*data0[wh.y,'Std..Error']
+	if (!is.na(vfun[2])) {
+		est.y=vfun[[2]](est.y)
+		lo.y=vfun[[2]](lo.y)
+		hi.y=vfun[[2]](hi.y)
+	}
+
+	df.x=data.frame(est.x,lo.x,hi.x,rw=data0[wh.x,'rw'])
+	df.y=data.frame(est.y,lo.y,hi.y,rw=data0[wh.y,'rw'])
+
+	df=full_join(df.x,df.y,join_by(rw)) %>%
+		inner_join(grps,join_by(rw))
+
+	col=unlist(spec$colours[df[,spec$col.dim]])
+	pch=sapply(df[,spec$pch.dim],spec$pch ) # spec$pch(df[,spec$pch.dim])
+	points(df$est.x,df$est.y,col=col,pch=pch)
+
+	if (!error.bars)
+		return()
+
+	arrows(df$est.x,df$lo.y,df$est.x,df$hi.y,length=0.05,angle=90,code=3,col=col)
+	arrows(df$lo.x,df$est.y,df$hi.x,df$est.y,length=0.05,angle=90,code=3,col=col)
+
+	return(df)
+}
+
+#### 
+
+# arrows(x, avg-sdev, x, avg+sdev, length=0.05, angle=90, code=3)
+param.log.intercept=rv$coeff[grepl('^log',rv$coeff$phase)&rv$coeff$param!='log(x)',]
+
+rv$coeff[grepl('^log',rv$coeff$phase)&rv$coeff$param=='log(x)',]
+summary(exp(param.log.intercept$Estimate))
+
+# This is not actually needed, after all (join is done within the function)
+data=rv$coeff %>%
+	inner_join(rv$grps,join_by(rw))
+
+
+dev.off()
 
 data$x0=data$x-1
 data$y0=data$cdon-1
 plot((cdon-1)^2~x0,data=data,ylim=c(0,76)) # ,xlim=c(0,15),ylim=c(0,10))
-plot
 
 data
 

@@ -434,9 +434,10 @@ dim.keep = c('country','Sex') # this is the changing part
 spec.list = list()
 spec.list$country = list()
 spec.list$country$dim.keep = c('country')
-spec.list$country$pch = function(x) {1}
+spec.list$country$pch = function(x) {15}
 spec.list$country$colours = colours
 spec.list$country$col.dim = 'country'
+spec.list$country$pch.dim = 'country'
 
 spec.list$Sex = list()
 spec.list$Sex$dim.keep = c('Sex')
@@ -453,7 +454,7 @@ spec.list$country.sex$pch.dim = 'Sex'
 
 spec.list$country.bloodgr = list()
 spec.list$country.bloodgr$dim.keep = c('country','BloodGroup')
-spec.list$country.bloodgr$pch = function(x) { pchs=list(); pchs[['-O-']]=3; pchs[['O-']]=4;  return(pchs[[x]])}
+spec.list$country.bloodgr$pch = function(x) { pchs=list(); pchs[['-O-']]=10; pchs[['O-']]=1;  return(pchs[[x]])}
 spec.list$country.bloodgr$colours = colours
 spec.list$country.bloodgr$col.dim = 'country'
 spec.list$country.bloodgr$pch.dim = 'BloodGroup'

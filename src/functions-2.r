@@ -17,6 +17,9 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
 		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop')
 
+# bsAssign('et.test')
+# data.frame(unique(et.test[,spec.list$country.sex$dim.keep]))
+
 	grps=data.frame(unique(et.test[,spec$dim.keep]))
 	res.all=list
 	simple.data=NULL
@@ -24,10 +27,16 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	sp.coeff=NULL
 	sp.dftot=NULL
 	sp.m.year0=list()
+
+	sm.extract = function(m,phase) {
+		sm=summary(m)$coeff
+		data.frame(parameter=rownames(sm),sm,phase=phase)
+	}
+
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
-print(paste(grps[rw,]))
+print(paste(grps[rw,],collapse=', '))
 
 		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
@@ -56,60 +65,71 @@ print(paste(grps[rw,]))
 			dplyr::select(-ord.max)
 
 		data$year0=as.factor(data$year0)
+		bsAssign('data')
 
-m=lm(log(cdon)~log(x),data=data)
-sm=summary(m)
-print(sm)
-# print(summary(m)$coeff[2,1])
-power.term=summary(m)$coeff[2,1]
-intercept=summary(m)$coeff[1,1]
-b=exp(intercept)
+		# The model with a common intercept/multiplier
+		m=lm(log(cdon)~log(x),data=data)
+		sm=summary(m)
+		print(sm)
+		power.term=summary(m)$coeff[2,1]
+		intercept=summary(m)$coeff[1,1]
+		b=exp(intercept)
 
-bsAssign('data')
+		# initialise the coeff-structure
+		# coeff=data.frame(sm$coeff,phase='log-log')
+		coeff = sm.extract(m,'log-log')
+
 		resolution=150
 		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-fund-plot.png')
-		# if (plot=='all') {
-			png(filename,res=resolution,width=9*resolution,height=7*resolution)
-# data2=data[as.integer(as.character(data$year0))>=2012,]
-data2=data
-data2$y=data2$cdon^(1/power.term)
-plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
-for(yr in unique(data2$year0)) {
-	data3=data2[data2$year0==yr,]
-	lines(data3$x,data3$y,col=as.integer(yr))
-}
-dev.off()
+		png(filename,res=resolution,width=9*resolution,height=7*resolution)
+		# data2=data[as.integer(as.character(data$year0))>=2012,]
+		data2=data
+		data2$y=data2$cdon^(1/power.term)
+		plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
+		for(yr in unique(data2$year0)) {
+			data3=data2[data2$year0==yr,]
+			lines(data3$x,data3$y,col=as.integer(yr))
+		}
+		dev.off()
 
-# model with year0-based slopes (b_i)
-m=lm(log(cdon)~0+year0+log(x),data=data)
-sm=summary(m)
-print(sm)
+		# model with year0-based slopes (b_i)
+		m=lm(log(cdon)~0+year0+log(x),data=data)
+		sm=summary(m)
+		print(sm)
+		coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
 
-data2$sq.x=data2$x^2
-m=lm(y~x+sq.x+year0+0,data=data2)
-sm=summary(m)
-print(sm)
+		# linear model with converted response variable
+		data2$sq.x=data2$x^2
+		m=lm(y~x+year0+0,data=data2)
+		sm=summary(m)
+		print(sm)
+		coeff = rbind(coeff,sm.extract(m,'cdon.a-x'))
 
+		# model with the added squared regressor
+		data2$sq.x=data2$x^2
+		m=lm(y~x+sq.x+year0+0,data=data2)
+		sm=summary(m)
+		print(sm)
+		coeff = rbind(coeff,sm.extract(m,'cdon.a-x-sq.x'))
 
+		# the x+sqrt.x model (kind of old-fashioned already)
 		frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
 		m=lm(formula(frml.char),data=data)
 		sm=summary(m)
+		coeff = rbind(coeff,sm.extract(m,'cdon-sqrt-x'))
 
-# str(data)
-
+		# the surely outdated exponential model
 		if (try.nls) {
-m.nls=NULL
-data$cdon0=data$cdon-1
-data$x0=data$x-1
-		    try(m.nls <- nls(cdon0~c1*exp(-lambda*(x0))+c0,data=data,
+			m.nls=NULL
+			# data$cdon0=data$cdon-1
+			# data$x0=data$x-1
+			try(m.nls <- nls(cdon~c1*exp(-lambda*(x))+c0,data=data,
                      start=list(c1=-(max(data$cdon)-min(data$cdon)),lambda=0.2,c0=0)))
-if (!is.null(m.nls))
-	print(summary(m.nls))
-bsAssign('data')
+			if (!is.null(m.nls))
+				print(summary(m.nls))
 		}
 
-
-		# copied from the newRegressoin procedure
+		# copied from the newRegression procedure
 		# This seems to work, and it is worth using the year-specific trajectories when
 		# predicting each year
 		new.data=expand.grid(year0=unique(data$year0),x=1:years.ahead)
@@ -127,48 +147,9 @@ bsAssign('data')
 		summary(m2)
 		sp.m.year0[[rw]]=m2
 
-if (FALSE) {
-		m0 = estimate.predict2(data$cdon,try.nls=FALSE)
-		res=list()
-		# res$index=i # i is not defined in this context
-		res$year=year
-		res$m = m0$m
-		res$m.nls = m0$m.nls
-		coeff=data.frame(summary(res$m)$coeff)
-		simple.data=m0$data
-}
-
 		for (ci in colnames(grps)) {
 			data[[ci]] = grps[rw,ci]
 		}
-
-		# nb! assuming a fixed year here
-		# data$year0=min(as.integer(data$year0))
-
-		coeff=cbind(data.frame(sm$coeff))
-		coeff$Estimate=as.numeric(coeff$Estimate)
-bsAssign('sm')
-bsAssign('coeff')
-bsAssign('y0')
-		x.m=1:years.ahead
-		y.m=coeff[names(y0)[3],'Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
-		y.max=max(y.m)
-		y.star=y.max/2
-		x0=max(which(y.m<y.star))
-		x1=x0+1
-		y0=y.m[x0]
-		y1=y.m[x1]
-		x.half=(y.star-y0)/(y1-y0)+x0
-
-if (is.na(x.half))
-	error(3)
-
-		coeff$var=rownames(sm$coeff)
-		coeff['r.squared',c('Estimate','var')]=c(sm$r.squared,'r.squared')
-		coeff['y.max',c('Estimate','var')]=c(y.max,'y.max')
-		coeff['x.half',c('Estimate','var')]=c(x.half,'x.half')
-
-		coeff$rw=rw
 
 		col.start=spec$colours[[grps[rw,spec$col.dim]]]
 		colfunc <- colorRampPalette(c(col.start, "white"))
@@ -197,6 +178,9 @@ if (is.na(x.half))
 
 		dev.off()
 
+		coeff$rw=rw
+		# coeff=coeff[5:7,1:4)]
+
 		if (is.null(sp.data)) {
 			sp.data=data 
 			sp.coeff=coeff
@@ -208,7 +192,7 @@ if (is.na(x.half))
 		}
 	}
 
-	return(list(et.data=et.test,data=sp.data,grps=grps,coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0))
+	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0))
 }
 
 getAgeDistributionMatrix = function(data) {
