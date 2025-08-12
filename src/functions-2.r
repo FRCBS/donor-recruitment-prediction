@@ -3,36 +3,10 @@
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
 
-rv=getGroupEstimates2(et,spec)
-
-rv$coeff
-rv$fit
-names(rv)
-
-rv$fit
-# todo: pitäisi tarkistaa, onko näissä eroa sen suhteen, mikä on ennustejakson pituus
-
-# ok, this works
-fit.table=pivot_wider(rv$fit[rv$fit$rw==5,c('x','upr','year0')],names_from='x',values_from='upr')
-ref.year=as.integer(as.character(as.data.frame(fit.table)[nrow(fit.table),1]))
-fitted=predict(rv$m.year0[[5]],newdata=data.frame(x0=c(ref.year,2025)),interval='confidence')
-correction=fitted[2]-fitted[1]
-# forecast for the year 2025 (e.g.)
-fit.table[nrow(fit.table),2:ncol(fit.table)]+correction
-
-# The confidence intervals are not equal among different year0-levels
-# Major differences
-
-tt=fit.table[,2:ncol(fit.table)]
-tt[10,]-tt[15,]
-
-t.lwr=fit.table
-t.upr=fit.table
-
 # TODO
 # year0 should be added to the spec
 # similarly for year to use maybe reference year +/- offset
-getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55) {
+getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,skip.start=2,skip.last=TRUE) {
 	# reference.years.local=reference.years
 	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
@@ -41,7 +15,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55) {
 		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
 		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
 		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
-		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop') 
+		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop')
 
 	grps=data.frame(unique(et.test[,spec$dim.keep]))
 	res.all=list
@@ -52,6 +26,8 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55) {
 	sp.m.year0=list()
 	for (rw in 1:nrow(grps)) {
 		data = et.test
+
+print(paste(grps[rw,]))
 
 		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
@@ -65,12 +41,73 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55) {
 
 		data$x=data$ord
 		data$sqrt.x=sqrt(data$x)
+		data$year0.int=data$year0
+		
+		year.start = min(data$year0.int)
+		data = data %>% filter(year0.int>year.start+skip.start)
+
+		# compute the max year to cut the final years out
+		data.ord.max = data %>%
+			group_by(year0.int) %>%
+			summarise(ord.max=max(ord),.groups='drop') 
+
+		data = data %>%
+			inner_join(data.ord.max,join_by(year0.int,x$ord<y$ord.max)) %>%
+			dplyr::select(-ord.max)
+
 		data$year0=as.factor(data$year0)
 
-		frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
+m=lm(log(cdon)~log(x),data=data)
+sm=summary(m)
+print(sm)
+# print(summary(m)$coeff[2,1])
+power.term=summary(m)$coeff[2,1]
+intercept=summary(m)$coeff[1,1]
+b=exp(intercept)
 
+bsAssign('data')
+		resolution=150
+		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-fund-plot.png')
+		# if (plot=='all') {
+			png(filename,res=resolution,width=9*resolution,height=7*resolution)
+# data2=data[as.integer(as.character(data$year0))>=2012,]
+data2=data
+data2$y=data2$cdon^(1/power.term)
+plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
+for(yr in unique(data2$year0)) {
+	data3=data2[data2$year0==yr,]
+	lines(data3$x,data3$y,col=as.integer(yr))
+}
+dev.off()
+
+# model with year0-based slopes (b_i)
+m=lm(log(cdon)~0+year0+log(x),data=data)
+sm=summary(m)
+print(sm)
+
+data2$sq.x=data2$x^2
+m=lm(y~x+sq.x+year0+0,data=data2)
+sm=summary(m)
+print(sm)
+
+
+		frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
 		m=lm(formula(frml.char),data=data)
 		sm=summary(m)
+
+# str(data)
+
+		if (try.nls) {
+m.nls=NULL
+data$cdon0=data$cdon-1
+data$x0=data$x-1
+		    try(m.nls <- nls(cdon0~c1*exp(-lambda*(x0))+c0,data=data,
+                     start=list(c1=-(max(data$cdon)-min(data$cdon)),lambda=0.2,c0=0)))
+if (!is.null(m.nls))
+	print(summary(m.nls))
+bsAssign('data')
+		}
+
 
 		# copied from the newRegressoin procedure
 		# This seems to work, and it is worth using the year-specific trajectories when
@@ -136,17 +173,29 @@ if (is.na(x.half))
 		col.start=spec$colours[[grps[rw,spec$col.dim]]]
 		colfunc <- colorRampPalette(c(col.start, "white"))
 		colfun=colfunc(20)
-		col0=colfun[index]
+		col0=colfun[rw] # 2025-08-06 -> index
 
-		if (plot=='orig') {
+		resolution=150
+		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-sqrt-multiple-new.png')
+		# if (plot=='all') {
+			png(filename,res=resolution,width=9*resolution,height=7*resolution)
+			plot(x=NULL,ylim=c(0,50),xlim=c(0,55))
+
+		# plot.terms=c('lambda','y0')
+		plot.terms=c('x','sqrt.x') # These are kind of obsolete
+		if ('orig' %in% plot) {
 			points(coeff[plot.terms[1],'Estimate'],coeff[plot.terms[2],'Estimate'],
 				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
-		} else if (plot=='alt') {
+		}
+		if ('alt' %in% plot) {
 			points(x.half,y.max,
 				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
-		} else if (plot=='curve') {
+		}
+		if ('curve' %in% plot) {
 			lines(x.m,y.m,col=col0,lwd=lwd)
 		}
+
+		dev.off()
 
 		if (is.null(sp.data)) {
 			sp.data=data 
@@ -212,7 +261,7 @@ compute.csm = function(dfr,plot='all',return.fit=FALSE) {
 		filename=paste0('../fig/',cn,'-sqrt-multiple.png')
 		if (plot=='all') {
 			png(filename,res=resolution,width=9*resolution,height=7*resolution)
-			plot(x=NULL,ylim=c(0,50),xlim=c(2,55))
+			plot(x=NULL,ylim=c(0,50),xlim=c(0,55))
 		}
 			yrs=sort(unique(data$year0))
 			for (i2 in 1:length(yrs)) {
@@ -233,7 +282,7 @@ compute.csm = function(dfr,plot='all',return.fit=FALSE) {
 				}
 
 				if (plot=='all') {
-				y2i=as.integer(y2)
+				y2i=as.integer(y2)-1
 				lines(dfslc$x,dfslc$fit+(offset*y2i),lty='dashed')
 				lines(dfslc$x,dfslc$lwr+(offset*y2i),lty='dotted')	
 				lines(dfslc$x,dfslc$upr+(offset*y2i),lty='dotted')

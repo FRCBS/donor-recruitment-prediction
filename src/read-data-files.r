@@ -146,12 +146,12 @@ if ('stage-1' %in% plots) {
 
 bsAssign('m')
 bsAssign('sm')
-bsAssign('intercepts')
+# bsAssign('intercepts')
 bsAssign('new.data.ext')
 	rs0=sm$coeff[grep('^r[0-9]+$',rownames(sm$coeff)),'Estimate']
 	# plot(rs)
 	# plot(1/rs)
-	ind=2:length(rs)
+	ind=2:length(rs0)
 	rs=rs0[ind]
 	rs.inv=1/rs # nb! r1 is often negative, hence skipped here
 	m2=lm(rs.inv~ind)
@@ -175,6 +175,8 @@ bsAssign('new.data.ext')
 	# prd=exp(cumsum(rs.est[1:years.ahead]))
 	# prd=mean(intercepts)*prd
 	# prd
+
+bsAssign('rs.est')
 
 	filename=paste0('../fig/',cn,'-exponential-stage-3.png')
 	png(filename,res=resolution,width=9*resolution,height=7*resolution)
@@ -206,7 +208,7 @@ if ('stage-2' %in% plots) {
 }
 	# sm
 
-	return(list(coeff=sm$coeff,data=ddf,estimate=esti,r.m=m,intercepts=intercepts))
+	return(list(coeff=sm$coeff,data=ddf,estimate=esti,r.m=m,intercepts=NULL))
 }
 
 setwd('c:/hy-version/donor-recruitment-prediction/src')
@@ -563,6 +565,7 @@ for (cn in names(countries)) {
 
 	print(cn)
 	rv=newRegression(distm,y0=3,cn=cn,plots=c('stage-1','stage-2'))
+print(rs.est)
 }
 
 
