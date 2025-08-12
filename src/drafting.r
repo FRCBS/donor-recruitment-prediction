@@ -3,6 +3,9 @@ source('functions-2.r')
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='coefficient')
 
 rv=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE)
+
+rv$prdct
+
 phase='log-log'
 dparam=c('log.x.','.Intercept.')
 vfun=c(NA,exp)
@@ -21,6 +24,26 @@ plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
 
 rv=getGroupEstimates2(et,spec.list$country.bloodgr,plot='curve',try.nls=FALSE)
 plotCoeffData(rv$coeff,spec.list$country.bloodgr,rv$grps,phase,dparam,vfun,TRUE)
+
+### --- ennustekäyrät
+for (rw in rv$grps$rw) {
+	filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
+	resolution=150
+	png(filename,res=resolution,width=9*resolution,height=7*resolution)
+	plot(x=NULL,xlim=c(1,55),ylim=c(1,25))
+	phases=unique(rv$prdct$phase)
+	
+	col=1
+	for (ph in phases) {
+		data5=rv$prdct[rv$prdct$phase==ph&rv$prdct$rw==rw,]
+		lines(data5$x,data5$fit,lty='solid',lwd=3,col=col)
+		lines(data5$x,data5$lwr,lty='dashed',lwd=1.5,col=col)
+		lines(data5$x,data5$upr,lty='dashed',lwd=1.5,col=col)
+		col=col+1
+	}
+	legend(x='bottom',fill=1:length(phases),legend=phases)
+	dev.off()
+}
 
 plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 	data0=data[data$phase==phase,]

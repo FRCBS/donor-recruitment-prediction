@@ -33,6 +33,32 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		data.frame(parameter=rownames(sm),sm,phase=phase)
 	}
 
+	m.predict = function(m,phase,power.term=NULL) {
+bsAssign('m')
+		# frml=as.character(m$call)[2]
+		new.data=data.frame(x=1:55)
+		if ('sq.x' %in% names(m$model))
+			new.data$sq.x=new.data$x^2
+		if ('sqrt.x' %in% names(m$model))
+			new.data$sqrt.x=new.data$x^0.5
+
+		esq=data.frame(predict(m,newdata=new.data,interval='confidence')) %>%
+			cbind(new.data)
+		
+		if (grepl('^log',names(m$model[1]))) {
+print(paste(phase,'exp applied'))
+			esq=exp(esq[,1:3])
+		} else if (!is.null(power.term)) {
+			esq=esq[,1:3]^power.term
+		}
+
+		esq=esq[,1:3]
+		esq$x=new.data[,1]
+		esq$phase=phase
+
+		return(esq)
+	}
+
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
@@ -70,7 +96,7 @@ print(paste(grps[rw,],collapse=', '))
 		# The model with a common intercept/multiplier
 		m=lm(log(cdon)~log(x),data=data)
 		sm=summary(m)
-		print(sm)
+		# print(sm)
 		power.term=summary(m)$coeff[2,1]
 		intercept=summary(m)$coeff[1,1]
 		b=exp(intercept)
@@ -78,12 +104,15 @@ print(paste(grps[rw,],collapse=', '))
 		# initialise the coeff-structure
 		# coeff=data.frame(sm$coeff,phase='log-log')
 		coeff = sm.extract(m,'log-log')
+		prdct = m.predict(m,'log-log')
 
 		resolution=150
 		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-fund-plot.png')
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		# data2=data[as.integer(as.character(data$year0))>=2012,]
 		data2=data
+
+		# the power-conversion happens here
 		data2$y=data2$cdon^(1/power.term)
 		plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
 		for(yr in unique(data2$year0)) {
@@ -95,28 +124,47 @@ print(paste(grps[rw,],collapse=', '))
 		# model with year0-based slopes (b_i)
 		m=lm(log(cdon)~0+year0+log(x),data=data)
 		sm=summary(m)
-		print(sm)
+		# print(sm)
 		coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
+		# prdct = rbind(prdct,m.predict(m,'log-year0-log'))
 
 		# linear model with converted response variable
 		data2$sq.x=data2$x^2
 		m=lm(y~x+year0+0,data=data2)
 		sm=summary(m)
-		print(sm)
+		# print(sm)
+		coeff = rbind(coeff,sm.extract(m,'cdon.a-x-year0'))
+		# prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
+
+		# linear model converted response variable, no year0
+		data2$sq.x=data2$x^2
+		m=lm(y~x,data=data2)
+		sm=summary(m)
+		# print(sm)
 		coeff = rbind(coeff,sm.extract(m,'cdon.a-x'))
+		prdct = rbind(prdct,m.predict(m,'cdon.a-x',power.term=power.term))
 
 		# model with the added squared regressor
 		data2$sq.x=data2$x^2
-		m=lm(y~x+sq.x+year0+0,data=data2)
+		m=lm(y~x+sq.x,data=data2)
 		sm=summary(m)
-		print(sm)
+		# print(sm)
 		coeff = rbind(coeff,sm.extract(m,'cdon.a-x-sq.x'))
+		prdct = rbind(prdct,m.predict(m,'cdon.a-x-sq.x',power.term=power.term))
 
 		# the x+sqrt.x model (kind of old-fashioned already)
 		frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
 		m=lm(formula(frml.char),data=data)
 		sm=summary(m)
+		coeff = rbind(coeff,sm.extract(m,'cdon-sqrt-x-year0'))
+		# prdct = rbind(prdct,m.predict(m,'cdon-sqrt-x-year0'))
+
+		# the x+sqrt.x model (kind of old-fashioned already)
+		frml.char = paste0('cdon~x+sqrt.x')
+		m=lm(formula(frml.char),data=data)
+		sm=summary(m)
 		coeff = rbind(coeff,sm.extract(m,'cdon-sqrt-x'))
+		# prdct = rbind(prdct,m.predict(m,'cdon-sqrt-x'))
 
 		# the surely outdated exponential model
 		if (try.nls) {
@@ -140,12 +188,14 @@ print(paste(grps[rw,],collapse=', '))
 		# estimate a trend for the year-based constant terms - not yet used
 		# todo: these should be included in the results as well
 
+if (FALSE) {
 		y0=(sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate'])
 		x0=as.integer(sub('year0','',names(y0)))
 		y0.num=as.numeric(y0)
 		m2=lm(y0.num~x0)
 		summary(m2)
 		sp.m.year0[[rw]]=m2
+}
 
 		for (ci in colnames(grps)) {
 			data[[ci]] = grps[rw,ci]
@@ -179,20 +229,23 @@ print(paste(grps[rw,],collapse=', '))
 		dev.off()
 
 		coeff$rw=rw
+		prdct$rw=rw
 		# coeff=coeff[5:7,1:4)]
 
 		if (is.null(sp.data)) {
 			sp.data=data 
 			sp.coeff=coeff
 			sp.dftot=dftot
+			sp.prdct=prdct
 		} else {
 			sp.data=rbind(sp.data,data)
 			sp.coeff=rbind(sp.coeff,coeff)
 			sp.dftot=rbind(sp.dftot,dftot)
+			sp.prdct=rbind(sp.prdct,prdct)
 		}
 	}
 
-	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0))
+	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct))
 }
 
 getAgeDistributionMatrix = function(data) {
