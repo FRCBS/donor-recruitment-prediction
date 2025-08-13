@@ -2,9 +2,105 @@ source('functions-2.r')
 
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='coefficient')
 
-rv=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE)
+rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1)
+rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2)
+rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100)
+rvs=list(rv.1,rv.2,rv.3p)
+estimates=do.call(rbind,lapply(rvs,FUN=predictDonations2))
+str(estimates)
 
-rv$prdct
+predictDonations2(rv.3p) %>%
+	arrange(rw,prd.year,year0)
+
+pah=estimates %>% 
+	group_by(rw,prd.year) %>%
+	summarise(est=sum(est),.groups='drop') %>% 
+	inner_join(rv.1$grps,join_by(rw)) %>%
+	data.frame()
+
+df3=data.frame(pivot_wider(pah,values_from='est',names_from=c('country','rw')))
+matplot(df3,type='l')
+
+tmp=by(rv.1$prdct,rv.1$prdct[,c('phase','rw')],FUN=prd.cumulative2density)
+pred.d=array2DF(tmp)
+pred.d=pred.d[,3:ncol(pred.d)]
+str(pred.d)
+
+pred.d[1:10,]
+
+# Tätä ei ehkä sittenkään tarvita
+prdct.all = rbind(rv.1$prdct,rv.2$prdct,rv.3p$prdct)
+
+sizes = rv.1$data %>%
+
+prd.years=data.frame(prd.year=2024:(2024+10))
+prd.data=pred.d
+
+str(prd.data)
+str(rv.1$data)
+
+predictDonations2 = function(rv) {
+	tmp=by(rv$prdct,rv$prdct[,c('phase','rw')],FUN=prd.cumulative2density)
+	pred.d=array2DF(tmp)
+	pred.d=pred.d[,3:ncol(pred.d)]
+	prd.years=data.frame(prd.year=2024:(2024+10)) # nb! hard-coded parameters
+	prd.data=pred.d
+
+	sizes.data = rv$data[rv$data$ord==1,c('rw','year0','n2')] 
+	# nb! should probably cut the sizes as well earlier, not just for predictions (skip.last)
+	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=function(x) {
+			year.max=max(x$year0)
+			n2.max=x[x$year0==year.max,'n2']
+			df.new=data.frame(rw=max(x$rw),year0=(year.max+1):max(prd.years$prd.year),n2.max)
+			return(rbind(x,df.new))
+		})
+	sizes.data=array2DF(tmp)[,-1]
+
+	pah=cross_join(prd.years,sizes.data) %>% # ennustevuodet, ryhmän koko ryhmän koko
+		inner_join(prd.data[prd.data$phase=='cdon.a-x',],join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
+		mutate(year=year0+x-1) %>%
+		filter(year==prd.year) %>%
+		mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
+	return(pah)
+}
+
+str(pah)
+
+pah$estimate
+
+str(prd.data)
+unique(prd.data[,c('rw','year0.lo','year0.hi')])
+
+,join_by(x$prd.year==y$year)
+
+unique(pah$rw)
+
+pah
+pah[1:50,]
+str(prd.data[prd.data$phase=='cdon.a-x',])
+?between
+
+data.frame(rv.1$data)
+
+pah %>% filter(rw==1,year0==2015)
+
+)) 
+%>%
+	inner_join(prd.data)
+
+prd.data[prd.data$phase=='cdon.a-x',],join_by(x$prd.year==y$year)
+
+# cumulative to density
+# pah=prd.data[prd.data$phase=='cdon.a-x',][1:20,]
+
+prd.cumulative2density = function(pah) {
+	dpah=(rbind(pah[,1:3],0*pah[1,1:3])-rbind(0*pah[1,1:3],pah[,1:3]))[1:nrow(pah),] # nämä siis saa vähentämällä
+	return(cbind(dpah,pah[,4:ncol(pah)]))
+}
+
+str(rv$prdct)
+
+# Miten tämä siis pitäisi tehdä?
 
 phase='log-log'
 dparam=c('log.x.','.Intercept.')
@@ -36,23 +132,25 @@ for (u in c(5,10,15,20,25,30)) {
 }
 
 ### --- ennustekäyrät: tuotetaan kuvat vertailua varten
-for (rw in rv$grps$rw) {
-	filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
-	resolution=150
-	png(filename,res=resolution,width=9*resolution,height=7*resolution)
-	plot(x=NULL,xlim=c(1,55),ylim=c(1,25))
-	phases=unique(rv$prdct$phase)
-	
-	col=1
-	for (ph in phases) {
-		data5=rv$prdct[rv$prdct$phase==ph&rv$prdct$rw==rw,]
-		lines(data5$x,data5$fit,lty='solid',lwd=3,col=col)
-		lines(data5$x,data5$lwr,lty='dashed',lwd=1.5,col=col)
-		lines(data5$x,data5$upr,lty='dashed',lwd=1.5,col=col)
-		col=col+1
+plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25)) {
+	for (rw in rv$grps$rw) {
+		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
+		resolution=150
+		png(filename,res=resolution,width=9*resolution,height=7*resolution)
+		plot(x=NULL,xlim=xlim,ylim=ylim)
+		phases=unique(rv$prdct$phase)
+		
+		col=1
+		for (ph in phases) {
+			data5=rv$prdct[rv$prdct$phase==ph&rv$prdct$rw==rw,]
+			lines(data5$x,data5$fit,lty='solid',lwd=3,col=col)
+			lines(data5$x,data5$lwr,lty='dashed',lwd=1.5,col=col)
+			lines(data5$x,data5$upr,lty='dashed',lwd=1.5,col=col)
+			col=col+1
+		}
+		legend(x='bottom',fill=1:length(phases),legend=phases)
+		dev.off()
 	}
-	legend(x='bottom',fill=1:length(phases),legend=phases)
-	dev.off()
 }
 
 plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {

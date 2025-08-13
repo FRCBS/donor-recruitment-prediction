@@ -6,7 +6,7 @@
 # TODO
 # year0 should be added to the spec
 # similarly for year to use maybe reference year +/- offset
-getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,skip.start=2,skip.last=TRUE) {
+getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE) { # skip.start
 	# reference.years.local=reference.years
 	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
@@ -16,9 +16,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
 		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
 		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop')
-
-# bsAssign('et.test')
-# data.frame(unique(et.test[,spec.list$country.sex$dim.keep]))
 
 	grps=data.frame(unique(et.test[,spec$dim.keep]))
 	res.all=list
@@ -34,7 +31,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	}
 
 	m.predict = function(m,phase,power.term=NULL) {
-bsAssign('m')
 		# frml=as.character(m$call)[2]
 		new.data=data.frame(x=1:55)
 		if ('sq.x' %in% names(m$model))
@@ -46,7 +42,7 @@ bsAssign('m')
 			cbind(new.data)
 		
 		if (grepl('^log',names(m$model[1]))) {
-print(paste(phase,'exp applied'))
+			# print(paste(phase,'exp applied'))
 			esq=exp(esq[,1:3])
 		} else if (!is.null(power.term)) {
 			esq=esq[,1:3]^power.term
@@ -62,7 +58,7 @@ print(paste(phase,'exp applied'))
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
-print(paste(grps[rw,],collapse=', '))
+		print(paste(grps[rw,],collapse=', '))
 
 		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
@@ -70,6 +66,9 @@ print(paste(grps[rw,],collapse=', '))
 			grp.value=data.frame(grps)[rw,cn]
 			data=data[data[[grp.name]]==grp.value,]
 		}
+
+		data$rw=rw
+		export.data=data
 
 		if (nrow(data) < 3)
 			next
@@ -79,16 +78,18 @@ print(paste(grps[rw,],collapse=', '))
 		data$year0.int=data$year0
 		
 		year.start = min(data$year0.int)
-		data = data %>% filter(year0.int>year.start+skip.start)
-
+		# year0.ord = 3:100
+		data = data %>% filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
 		# compute the max year to cut the final years out
-		data.ord.max = data %>%
-			group_by(year0.int) %>%
-			summarise(ord.max=max(ord),.groups='drop') 
+		if (skip.last) {
+			data.ord.max = data %>%
+				group_by(year0.int) %>%
+				summarise(ord.max=max(ord),.groups='drop') 
 
-		data = data %>%
-			inner_join(data.ord.max,join_by(year0.int,x$ord<y$ord.max)) %>%
-			dplyr::select(-ord.max)
+			data = data %>%
+				inner_join(data.ord.max,join_by(year0.int,x$ord<y$ord.max)) %>%
+				dplyr::select(-ord.max)
+		}
 
 		data$year0=as.factor(data$year0)
 		bsAssign('data')
@@ -122,19 +123,22 @@ print(paste(grps[rw,],collapse=', '))
 		dev.off()
 
 		# model with year0-based slopes (b_i)
-		m=lm(log(cdon)~0+year0+log(x),data=data)
-		sm=summary(m)
-		# print(sm)
-		coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
-		# prdct = rbind(prdct,m.predict(m,'log-year0-log'))
+		multi.year = (length(year0.ord) > 1)
+		if (multi.year) {
+			m=lm(log(cdon)~0+year0+log(x),data=data)
+			sm=summary(m)
+			# print(sm)
+			coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
+			# prdct = rbind(prdct,m.predict(m,'log-year0-log'))
 
-		# linear model with converted response variable
-		data2$sq.x=data2$x^2
-		m=lm(y~x+year0+0,data=data2)
-		sm=summary(m)
-		# print(sm)
-		coeff = rbind(coeff,sm.extract(m,'cdon.a-x-year0'))
-		# prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
+			# linear model with converted response variable
+			data2$sq.x=data2$x^2
+			m=lm(y~x+year0+0,data=data2)
+			sm=summary(m)
+			# print(sm)
+			coeff = rbind(coeff,sm.extract(m,'cdon.a-x-year0'))
+			# prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
+		}
 
 		# linear model converted response variable, no year0
 		data2$sq.x=data2$x^2
@@ -152,13 +156,15 @@ print(paste(grps[rw,],collapse=', '))
 		coeff = rbind(coeff,sm.extract(m,'cdon.a-x-sq.x'))
 		prdct = rbind(prdct,m.predict(m,'cdon.a-x-sq.x',power.term=power.term))
 
-		# the x+sqrt.x model (kind of old-fashioned already)
-		frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
-		m=lm(formula(frml.char),data=data)
-		sm=summary(m)
-		coeff = rbind(coeff,sm.extract(m,'cdon-sqrt-x-year0'))
-		# prdct = rbind(prdct,m.predict(m,'cdon-sqrt-x-year0'))
-
+		if (multi.year) {
+			# the x+sqrt.x model (kind of old-fashioned already)
+			frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
+			m=lm(formula(frml.char),data=data)
+			sm=summary(m)
+			coeff = rbind(coeff,sm.extract(m,'cdon-sqrt-x-year0'))
+			# prdct = rbind(prdct,m.predict(m,'cdon-sqrt-x-year0'))
+		}
+		
 		# the x+sqrt.x model (kind of old-fashioned already)
 		frml.char = paste0('cdon~x+sqrt.x')
 		m=lm(formula(frml.char),data=data)
@@ -223,13 +229,17 @@ print(paste(grps[rw,],collapse=', '))
 		prdct$rw=rw
 		# coeff=coeff[5:7,1:4)]
 
+		# Add these to enable joining with forecasted years
+		prdct$year0.lo=year.start+min(year0.ord)-1
+		prdct$year0.hi=year.start+max(year0.ord)-1
+
 		if (is.null(sp.data)) {
-			sp.data=data 
+			sp.data=export.data 
 			sp.coeff=coeff
 			sp.dftot=dftot
 			sp.prdct=prdct
 		} else {
-			sp.data=rbind(sp.data,data)
+			sp.data=rbind(sp.data,export.data)
 			sp.coeff=rbind(sp.coeff,coeff)
 			sp.dftot=rbind(sp.dftot,dftot)
 			sp.prdct=rbind(sp.prdct,prdct)
@@ -693,6 +703,9 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
 # names(countries$fi$res[[1]])
 # [1] "sizes" "distm" "dista" "index" "m"     "m.nls" "all"  
 # Täällä on tarvittavia tietoja
+# gtl: countries$fi$gt
+# Huom! Tehtävä erikseen ennusteet myös 1. ja 2. vuodelle
+# Näiden perusteella voi sitten ennustaa nykyisen luovuttajakunnan liikkeitä. Nyt ennustetussa mallissa vain 3+-vuodet mukana.
 computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2023,is.existing=FALSE,by.age=FALSE,total.donations=0,print.debug=FALSE) {
 	data.sum = 0
 	for (k in 1:length(resl)) {
