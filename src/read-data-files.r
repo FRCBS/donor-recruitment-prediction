@@ -371,6 +371,42 @@ for (cn in names(countries)) {
 	}
 }
 
+# 2025-08-13
+# select and normalize (no NA's, maximum value 1) the age distributions
+# Selecting the most recent year with an age distribution of reasonable length
+for (cn in names(countries)) {
+	# print(paste('*********',cn))
+	for (i in 1:length(countries[[cn]]$res)) {
+		# print(countries[[cn]]$res[[i]]$dista)
+		dista=countries[[cn]]$res[[i]]$dista # drop the age column here
+		ages=dista[,1]
+		dista=dista[,-1]
+		wh = 1:ncol(dista)
+		wh=which(apply(data.frame(dista[,wh]),2,FUN=function(x) max(x,na.rm=TRUE) ) > 0.70)
+		wh1=wh
+		wh=which(apply(data.frame(dista[,wh]),2,FUN=function(x) sum(!is.na(x)) )>4)
+		if (length(wh) == 0) {
+			print('made the youngness assumption')
+			# dista0=data.frame(dista[,max(wh1)])
+			# print(dista0)
+			wh = wh1
+		} else {
+		}
+
+		dista0=data.frame(dista[,max(wh)])
+		colnames(dista0)=colnames(dista)[max(wh)]
+		if (max(dista0,na.rm=TRUE) < 1) {
+			wh.na=min(which(is.na(dista0)))
+			dista0[wh.na,1]=1
+		}
+		# print(paste('selected',colnames(dista)[max(wh)],max(dista0,na.rm=TRUE)))
+		dista0=cbind(age=ages,dista0)
+
+		dista0=dista0[!is.na(dista0[,2]),]
+		countries[[cn]]$res[[i]]$dista0=dista0
+	}
+}
+
 # save
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))
 save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.Rdata"))
@@ -454,7 +490,7 @@ spec.list$country.sex$pch.dim = 'Sex'
 
 spec.list$country.bloodgr = list()
 spec.list$country.bloodgr$dim.keep = c('country','BloodGroup')
-spec.list$country.bloodgr$pch = function(x) { pchs=list(); pchs[['-O-']]=10; pchs[['O-']]=1;  return(pchs[[x]])}
+spec.list$country.bloodgr$pch = function(x) { pchs=list(); pchs[['-O-']]=4; pchs[['O-']]=1;  return(pchs[[x]])}
 spec.list$country.bloodgr$colours = colours
 spec.list$country.bloodgr$col.dim = 'country'
 spec.list$country.bloodgr$pch.dim = 'BloodGroup'

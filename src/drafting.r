@@ -25,7 +25,17 @@ plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
 rv=getGroupEstimates2(et,spec.list$country.bloodgr,plot='curve',try.nls=FALSE)
 plotCoeffData(rv$coeff,spec.list$country.bloodgr,rv$grps,phase,dparam,vfun,TRUE)
 
-### --- ennustekäyrät
+# contours
+b = seq(0.3,0.75,len=50)
+for (u in c(5,10,15,20,25,30)) {
+	# u = a·50^b -> a=u/50^b, log(u)=log(a)+b·log(50) -> b=(log(u)-log(a))/log(50)
+	a = u/50^b
+	lines(b,a,lty='dotted')
+	b0=1.2
+	text((log(u)-log(b0))/log(50),y=b0,labels=u)
+}
+
+### --- ennustekäyrät: tuotetaan kuvat vertailua varten
 for (rw in rv$grps$rw) {
 	filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
 	resolution=150
@@ -84,6 +94,13 @@ plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 
 	arrows(df$est.x,df$lo.y,df$est.x,df$hi.y,length=0.05,angle=90,code=3,col=col)
 	arrows(df$lo.x,df$est.y,df$hi.x,df$est.y,length=0.05,angle=90,code=3,col=col)
+
+	# x ~ exponent
+	# y ~ multiplier
+	u=50
+	df$lo.u=df$lo.y*u^df$lo.x
+	df$hi.u=df$hi.y*u^df$hi.x
+	df$est.u=df$est.y*u^df$est.x
 
 	return(df)
 }
@@ -198,3 +215,39 @@ tt[10,]-tt[15,]
 t.lwr=fit.table
 t.upr=fit.table
 
+#####
+# iterate over countries and groups; check dista's a pilot example
+for (cn in names(countries)) {
+	print(paste('*********',cn))
+	for (i in 1:length(countries[[cn]]$res)) {
+		# print(countries[[cn]]$res[[i]]$dista)
+		dista=countries[[cn]]$res[[i]]$dista # drop the age column here
+		ages=dista[,1]
+		dista=dista[,-1]
+		wh = 1:ncol(dista)
+		wh=which(apply(data.frame(dista[,wh]),2,FUN=function(x) max(x,na.rm=TRUE) ) > 0.70)
+		wh1=wh
+		wh=which(apply(data.frame(dista[,wh]),2,FUN=function(x) sum(!is.na(x)) )>4)
+		if (length(wh) == 0) {
+			print('made the youngness assumption')
+			# dista0=data.frame(dista[,max(wh1)])
+			# print(dista0)
+			wh = wh1
+		} else {
+		}
+
+		dista0=data.frame(dista[,max(wh)])
+		colnames(dista0)=colnames(dista)[max(wh)]
+		if (max(dista0,na.rm=TRUE) < 1) {
+			wh.na=min(which(is.na(dista0)))
+			dista0[wh.na,1]=1
+		}
+		print(paste('selected',colnames(dista)[max(wh)],max(dista0,na.rm=TRUE)))
+		dista0=cbind(age=ages,dista0)
+
+		dista0=dista0[!is.na(dista0[,2]),]
+		countries[[cn]]$res[[i]]$dista0=dista0
+	}
+}
+
+dim(dista)

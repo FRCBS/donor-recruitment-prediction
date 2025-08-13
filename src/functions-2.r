@@ -164,7 +164,7 @@ print(paste(grps[rw,],collapse=', '))
 		m=lm(formula(frml.char),data=data)
 		sm=summary(m)
 		coeff = rbind(coeff,sm.extract(m,'cdon-sqrt-x'))
-		# prdct = rbind(prdct,m.predict(m,'cdon-sqrt-x'))
+		prdct = rbind(prdct,m.predict(m,'cdon-sqrt-x'))
 
 		# the surely outdated exponential model
 		if (try.nls) {
@@ -187,15 +187,6 @@ print(paste(grps[rw,],collapse=', '))
 
 		# estimate a trend for the year-based constant terms - not yet used
 		# todo: these should be included in the results as well
-
-if (FALSE) {
-		y0=(sm$coeff[grepl('^year0',rownames(sm$coeff)),'Estimate'])
-		x0=as.integer(sub('year0','',names(y0)))
-		y0.num=as.numeric(y0)
-		m2=lm(y0.num~x0)
-		summary(m2)
-		sp.m.year0[[rw]]=m2
-}
 
 		for (ci in colnames(grps)) {
 			data[[ci]] = grps[rw,ci]
@@ -699,124 +690,102 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
   print(p)
 }
 
+# names(countries$fi$res[[1]])
+# [1] "sizes" "distm" "dista" "index" "m"     "m.nls" "all"  
+# Täällä on tarvittavia tietoja
 computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2023,is.existing=FALSE,by.age=FALSE,total.donations=0,print.debug=FALSE) {
-  if (is.existing) {
-    cdata=cbind(gr=1,resl[[1]]$data[,c('numid','date')])
-    for (i in 2:length(resl)) {
-      cdata=rbind(cdata,cbind(gr=i,resl[[i]]$data[,c('numid','date')]))
-    }
-    
-    last.group = cdata %>%
-      group_by(numid) %>%
-      summarise(date=max(date),.groups='drop') %>%
-      inner_join(cdata,join_by(numid,date))
-  }
-  
-  data.sum = 0
-  for (k in 1:length(resl)) {
-    # cf. countries$nl$res[[1]]$sizes
-    # data.sum = data.sum + table(year(resl[[k]]$data$date))[as.character(first.predicted.year-1)]
-    # 2024-12-08 New version using presaved sizes
-    data.sum = data.sum + resl[[k]]$sizes[as.character(first.predicted.year-1),'n']
-  }
-  
-  for (k in 1:length(resl)) {
-    group=resl[[k]]
-    
-    max.age=gtl[k,'MaximumAge']
-    m=group$m
-    new=data.frame(x=1:years.ahead, sqrt.x=(1:years.ahead)^0.5)
-    pred = predict(m, new, interval = "prediction")
-    pv = as.vector(pred[,1])
-    
-    # There are the expected numbers of donations per year
-    # This includes conversion from cumulative values to densities; could use the function as well
-    # pp ~ per person
-    pred.donations.pp=(c(pv,0)-c(0,pv))[1:length(pv)]
-    
-    # 2024-08-09 The predictions may become negative, so set them to 0 here
-    pred.donations.pp[pred.donations.pp<0] = 0
-    
-    group$dista[is.na(group$dista)]=1
-    dista=group$dista[,'2020'] # nb hard coded
-    dista=cumulativeToDensity(dista)
-    
-    if (is.existing) {
-      # data.tmp = group$data[group$data$numid %in% last.group[last.group$gr==k,'numid'],]
-      data.tmp = group$data[group$data$numid %in% last.group$numid[last.group$gr==k],c('date','numid','ord')]
-      # Here the predictions are based on the last observation.
-      # Does this make sense? Any observation would seem to work.
-      dlast = data.tmp %>%
-        mutate(year=year(date)) %>%
-        filter(year<first.predicted.year) %>%
-        group_by(numid) %>%
-        summarise(ord = max(ord),.groups='drop') %>%
-        # nb! spair is used here
-        inner_join(spair[,c('numid','ord','age','date','year0')],join_by(numid,ord==ord)) %>%
-        mutate(year=year(date),age=as.integer(age)) %>%
-        group_by(year,year0,age) %>%
-        summarise(n=n(),.groups='drop')
-      # -> year, age, n (number of donors)
-    }
-    
-    sumn=0
-    # iterate over the initial ages in the group
-    donation.amounts = matrix(0,ncol=years.ahead,nrow=length(rownames(group$dista)))
-    colnames(donation.amounts)=1:years.ahead
-    rownames(donation.amounts)=rownames(group$dista)
-    for (i in 1:length(rownames(group$dista))) {
-      n=rownames(group$dista)[i]
-      years.active=max.age-as.integer(n)
-      
-      if (years.active < 0)
-        # This case occurs when the age group is over the maximum age and thus has no active years
-        break
-      
-      # in case of old donors, must start from a later position in pred.donations.pp
-      # but still place the first values in the beginning, eg. project them for 2024 etc.
-      # Need to compute the dlast table here
-      annual.donation.densities = pred.donations.pp
-      if ((years.active+1) <= years.ahead)
-        annual.donation.densities[(years.active+1):years.ahead]=0
-      
-      # nb! hard coded data again: use the number of donors from year 2003
-      if (is.existing) {
-        # ... contents has been removed from this version
-      } else {
-        # The case for new donors: simple and easy
-        vmult = 1
-        if (!is.null(total.donations) && total.donations > 0) 
-          vmult = as.numeric(total.donations) / as.numeric(data.sum)
-        
-        # donation amounts: rows ~ groups, columns ~ years.ahead
-        # Here the loop (i) is over the age distribution
-        
-        # 2025-04-30 debug code
-        if (print.debug) {
-          print(paste('vmult =',vmult))
-          print('annual.donation.densities')
-          print(annual.donation.densities)
-          print(paste('first.predicted.year =',first.predicted.year))
-          print('group$sizes column and row names')
-          print(colnames(group$sizes))
-          print(rownames(group$sizes))
-          print('dista')
-          print(dista)
-        }
-        
-        donation.amounts[i,] = vmult * annual.donation.densities *
-          as.integer(group$sizes[as.character(first.predicted.year-1),'n']) * dista[i]
-        # as.integer(table(year(group$data$date))[as.character(first.predicted.year-1)]) * dista[i]
-      }
-    } # for (i in 1:length(rownames(group$dista))) # groups
-    
-    if (by.age)
-      resl[[k]]$donation.amounts = donation.amounts
-    else
-      resl[[k]]$donation.amounts = colSums(donation.amounts)
-  }
-  
-  return(resl)
+	data.sum = 0
+	for (k in 1:length(resl)) {
+		# cf. countries$nl$res[[1]]$sizes
+		# data.sum = data.sum + table(year(resl[[k]]$data$date))[as.character(first.predicted.year-1)]
+		# 2024-12-08 New version using presaved sizes
+		data.sum = data.sum + resl[[k]]$sizes[as.character(first.predicted.year-1),'n']
+	}
+	
+	for (k in 1:length(resl)) {
+		group=resl[[k]]
+		
+		max.age=gtl[k,'MaximumAge']
+
+		# 2025-08-13 This should be replaced with data frames produced outside this function
+		m=group$m
+		new=data.frame(x=1:years.ahead, sqrt.x=(1:years.ahead)^0.5)
+		pred = predict(m, new, interval = "prediction")
+		# pred tässä vastaa est-arvoja
+
+		pv = as.vector(pred[,1])
+		
+		# There are the expected numbers of donations per year
+		# This includes conversion from cumulative values to densities; could use the function as well
+		# pp ~ per person
+		pred.donations.pp=(c(pv,0)-c(0,pv))[1:length(pv)]
+		
+		# 2024-08-09 The predictions may become negative, so set them to 0 here
+		# 2025-08-13 This won't be needed with the current values
+		pred.donations.pp[pred.donations.pp<0] = 0
+		
+		group$dista[is.na(group$dista)]=1
+		dista=group$dista[,'2020'] # nb hard coded
+		dista=cumulativeToDensity(dista)
+				
+		sumn=0
+		# iterate over the initial ages in the group
+		donation.amounts = matrix(0,ncol=years.ahead,nrow=length(rownames(group$dista)))
+		colnames(donation.amounts)=1:years.ahead
+		rownames(donation.amounts)=rownames(group$dista)
+		for (i in 1:length(rownames(group$dista))) {
+			n=rownames(group$dista)[i]
+			years.active=max.age-as.integer(n)
+			
+			if (years.active < 0)
+				# This case occurs when the age group is over the maximum age and thus has no active years
+				break
+			
+			# in case of old donors, must start from a later position in pred.donations.pp
+			# but still place the first values in the beginning, eg. project them for 2024 etc.
+			# Need to compute the dlast table here
+			annual.donation.densities = pred.donations.pp
+			if ((years.active+1) <= years.ahead)
+				annual.donation.densities[(years.active+1):years.ahead]=0
+			
+			# nb! hard coded data again: use the number of donors from year 2003
+			if (is.existing) {
+				# ... contents has been removed from this version
+			} else {
+				# The case for new donors: simple and easy
+				vmult = 1
+				if (!is.null(total.donations) && total.donations > 0) 
+					vmult = as.numeric(total.donations) / as.numeric(data.sum)
+				
+				# donation amounts: rows ~ groups, columns ~ years.ahead
+				# Here the loop (i) is over the age distribution
+				
+				# 2025-04-30 debug code
+				if (print.debug) {
+					print(paste('vmult =',vmult))
+					print('annual.donation.densities')
+					print(annual.donation.densities)
+					print(paste('first.predicted.year =',first.predicted.year))
+					print('group$sizes column and row names')
+					print(colnames(group$sizes))
+					print(rownames(group$sizes))
+					print('dista')
+					print(dista)
+				}
+				
+				donation.amounts[i,] = vmult * annual.donation.densities *
+					as.integer(group$sizes[as.character(first.predicted.year-1),'n']) * dista[i]
+				# as.integer(table(year(group$data$date))[as.character(first.predicted.year-1)]) * dista[i]
+			}
+		} # for (i in 1:length(rownames(group$dista))) # groups
+		
+		if (by.age)
+			resl[[k]]$donation.amounts = donation.amounts
+		else
+			resl[[k]]$donation.amounts = colSums(donation.amounts)
+	}
+	
+	return(resl)
 }
 
 plotDelayBySex = function(activity.stats.sex,country) {
