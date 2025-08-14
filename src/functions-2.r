@@ -6,12 +6,11 @@
 # TODO
 # year0 should be added to the spec
 # similarly for year to use maybe reference year +/- offset
-getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE) { # skip.start
+getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE,agedist=NULL) { # skip.start
 	# reference.years.local=reference.years
 	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
-		# inner_join(reference.years.local,join_by(x$year0==y$year,country)) %>%
 		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
 		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
 		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
@@ -246,7 +245,44 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		}
 	}
 
-	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct))
+	if (!is.null(agedist) && 'country' %in% colnames(et.test)) {
+		cols2=c('age',setdiff(colnames(et),c('don','cdon')))
+		et.age.int = et %>%
+			filter(et$ord==1) %>%
+			dplyr::select(!!!syms(c('country','Name','n','year0',spec$dim.keep))) %>% # (-cdon,-don) 
+			# filter(!is.na(cdon),!is.na(don)) %>%
+			inner_join(agedist,join_by(country,x$Name==y$name),relationship = "many-to-many") %>%
+# filter(age==20,country=='au') %>%
+			mutate(n.age=n*density)
+
+		dens= et.age.int %>%
+			group_by(!!!syms(c('age',spec$dim.keep))) %>%
+			summarise(n.age2=sum(n.age),.groups='drop')
+		sums= et.age.int %>%
+			group_by(!!!syms(c(spec$dim.keep))) %>%
+			summarise(n2=sum(n.age),.groups='drop') %>%
+			inner_join(dens,join_by(!!!syms(spec$dim.keep))) %>% mutate(density=n.age2/n2)
+		# final %>% group_by(country) %>% summarise(two=sum(density))
+		
+		if (FALSE) {
+			dens %>% group_by(country) %>% summarise(pah=sum(n.dens))
+			str(et.age.int)
+
+			inner_join(et.age,et.test,join_by(!!!syms(spec$dim.keep)))
+			et.age %>% group_by(country) %>% summarise(one=sum(density2))
+
+			group_by(!!!syms(setdiff(cols2,setdiff(dim.cols,spec$dim.keep)))) %>%
+			# summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
+			summarise(age.n=sum(n*density),.groups='drop') %>% 
+			group_by(!!!syms(c(spec$dim.keep,'year0','ord','year','age'))) %>%
+			summarise(n2=sum(n),density=age.n/n2,.groups='drop') %>%
+			# 		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop')
+			data.frame()
+		}
+	}
+
+	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),
+		coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct))
 }
 
 getAgeDistributionMatrix = function(data) {

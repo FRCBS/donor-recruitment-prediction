@@ -374,6 +374,7 @@ for (cn in names(countries)) {
 # 2025-08-13
 # select and normalize (no NA's, maximum value 1) the age distributions
 # Selecting the most recent year with an age distribution of reasonable length
+agedist=data.frame(country=character(),gr.name=character(),age=integer(),density=numeric())
 for (cn in names(countries)) {
 	# print(paste('*********',cn))
 	for (i in 1:length(countries[[cn]]$res)) {
@@ -387,14 +388,12 @@ for (cn in names(countries)) {
 		wh=which(apply(data.frame(dista[,wh]),2,FUN=function(x) sum(!is.na(x)) )>4)
 		if (length(wh) == 0) {
 			print('made the youngness assumption')
-			# dista0=data.frame(dista[,max(wh1)])
-			# print(dista0)
 			wh = wh1
 		} else {
 		}
 
 		dista0=data.frame(dista[,max(wh)])
-		colnames(dista0)=colnames(dista)[max(wh)]
+		colnames(dista0)='density' # colnames(dista)[max(wh)]
 		if (max(dista0,na.rm=TRUE) < 1) {
 			wh.na=min(which(is.na(dista0)))
 			dista0[wh.na,1]=1
@@ -403,8 +402,11 @@ for (cn in names(countries)) {
 		dista0=cbind(age=ages,dista0)
 
 		dista0=dista0[!is.na(dista0[,2]),]
+		dista0[,2]=cumulativeToDensity(dista0[,2])
 		countries[[cn]]$res[[i]]$dista0=dista0
+		agedist=rbind(agedist,data.frame(country=cn,name=countries[[cn]]$gt[[i,'Name']],dista0))
 	}
+	# countries[[cn]]$agedist=agedist
 }
 
 # save
