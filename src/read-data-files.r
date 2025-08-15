@@ -428,8 +428,14 @@ et.noage$Name=sub(' [0-9].+','',et.noage$Name)
 et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
 
-# %%% define structures, configurations etc. for analysis
-# 2025-06-28 new things
+# Cut out the last, incomplete year; these might be complete ones as well
+et.ord.max = et %>%
+	group_by(year0,country) %>%
+	summarise(ord.max=max(ord),.groups='drop') 
+
+et = et %>%
+	inner_join(et.ord.max,join_by(year0,country,x$ord<y$ord.max)) %>%
+	dplyr::select(-ord.max)
 
 ## ----echo=FALSE---------------------------------------------------------------
 # These values are experimental in the data, so quick-fix them here
@@ -496,9 +502,8 @@ spec.list$country.bloodgr$pch = function(x) { pchs=list(); pchs[['-O-']]=4; pchs
 spec.list$country.bloodgr$colours = colours
 spec.list$country.bloodgr$col.dim = 'country'
 spec.list$country.bloodgr$pch.dim = 'BloodGroup'
-
-# 2025-07-18 main computations
 spec=spec.list$country
+
 # initialise the (x,sqrt.x) plotting area
 plot(x=NULL,
 	xlim=c(-0.4,0.0),ylim=c(1,6),

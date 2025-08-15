@@ -17,6 +17,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop')
 
 	grps=data.frame(unique(et.test[,spec$dim.keep]))
+
 	res.all=list
 	simple.data=NULL
 	sp.data=NULL
@@ -77,10 +78,11 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		data$year0.int=data$year0
 		
 		year.start = min(data$year0.int)
-		# year0.ord = 3:100
 		data = data %>% filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
 		# compute the max year to cut the final years out
-		if (skip.last) {
+		if (skip.last && FALSE) {
+			# nb! This is not working: country is not considered
+			# Should of course be group based, but no need to fix here
 			data.ord.max = data %>%
 				group_by(year0.int) %>%
 				summarise(ord.max=max(ord),.groups='drop') 
@@ -218,9 +220,9 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			points(x.half,y.max,
 				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
 		}
-		if ('curve' %in% plot) {
-			lines(x.m,y.m,col=col0,lwd=lwd)
-		}
+#		if ('curve' %in% plot) {
+#			lines(x.m,y.m,col=col0,lwd=lwd)
+#		}
 
 		dev.off()
 
@@ -245,44 +247,30 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		}
 	}
 
+	agedist.local=NULL
 	if (!is.null(agedist) && 'country' %in% colnames(et.test)) {
-		cols2=c('age',setdiff(colnames(et),c('don','cdon')))
-		et.age.int = et %>%
+		# cols2=c('age',setdiff(colnames(et),c('don','cdon')))
+		agedist.int = et %>%
 			filter(et$ord==1) %>%
 			dplyr::select(!!!syms(c('country','Name','n','year0',spec$dim.keep))) %>% # (-cdon,-don) 
 			# filter(!is.na(cdon),!is.na(don)) %>%
 			inner_join(agedist,join_by(country,x$Name==y$name),relationship = "many-to-many") %>%
-# filter(age==20,country=='au') %>%
 			mutate(n.age=n*density)
 
-		dens= et.age.int %>%
+		dens= agedist.int %>%
 			group_by(!!!syms(c('age',spec$dim.keep))) %>%
 			summarise(n.age2=sum(n.age),.groups='drop')
-		sums= et.age.int %>%
+		agedist.local = agedist.int %>%
 			group_by(!!!syms(c(spec$dim.keep))) %>%
 			summarise(n2=sum(n.age),.groups='drop') %>%
-			inner_join(dens,join_by(!!!syms(spec$dim.keep))) %>% mutate(density=n.age2/n2)
-		# final %>% group_by(country) %>% summarise(two=sum(density))
-		
-		if (FALSE) {
-			dens %>% group_by(country) %>% summarise(pah=sum(n.dens))
-			str(et.age.int)
-
-			inner_join(et.age,et.test,join_by(!!!syms(spec$dim.keep)))
-			et.age %>% group_by(country) %>% summarise(one=sum(density2))
-
-			group_by(!!!syms(setdiff(cols2,setdiff(dim.cols,spec$dim.keep)))) %>%
-			# summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
-			summarise(age.n=sum(n*density),.groups='drop') %>% 
-			group_by(!!!syms(c(spec$dim.keep,'year0','ord','year','age'))) %>%
-			summarise(n2=sum(n),density=age.n/n2,.groups='drop') %>%
-			# 		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop')
-			data.frame()
-		}
+			inner_join(dens,join_by(!!!syms(spec$dim.keep))) %>% 
+			mutate(density=n.age2/n2) %>%
+			inner_join(data.frame(grps,rw=1:nrow(grps)),join_by(!!!syms(spec$dim.keep)))
 	}
 
 	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),
-		coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct))
+		coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct,
+		agedist=agedist.local))
 }
 
 getAgeDistributionMatrix = function(data) {
@@ -431,6 +419,7 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,yea
 		# nb! assuming a fixed year here
 		simple.data$year0=min(data$year0)
 
+if (FALSE) {
 		x.m=1:years.ahead
 		y.m=coeff['(Intercept)','Estimate']+x.m*coeff['x','Estimate']+sqrt(x.m)*coeff['sqrt.x','Estimate']
 		y.max=max(y.m)
@@ -440,6 +429,7 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,yea
 		y0=y.m[x0]
 		y1=y.m[x1]
 		x.half=(y.star-y0)/(y1-y0)+x0
+}
 
 		col.start=spec$colours[[grps[rw,spec$col.dim]]]
 		colfunc <- colorRampPalette(c(col.start, "white"))
@@ -463,6 +453,11 @@ getGroupEstimates = function(et,spec,lwd=3,plot='orig',index=1,year.offset=0,yea
 	}
 
 	return(list(et.data=et.test,data=sp.data))
+}
+
+prd.cumulative2density = function(pah) {
+	dpah=(rbind(pah[,1:3],0*pah[1,1:3])-rbind(0*pah[1,1:3],pah[,1:3]))[1:nrow(pah),] # nämä siis saa vähentämällä
+	return(cbind(dpah,pah[,4:ncol(pah)]))
 }
 
 getAgeDistributionMatrix = function(data) {

@@ -2,24 +2,59 @@ source('functions-2.r')
 
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='coefficient')
 
-rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1)
-rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2)
-rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100)
+rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
+rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
+rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=predictDonations2))
-str(estimates)
 
-predictDonations2(rv.3p) %>%
+data.frame(rv.1$agedist)
+
+# toteutuneet luovutusmäärät
+actual.don = et %>%
+	filter(!is.na(cdon),!is.na(don)) %>%
+	group_by(!!!syms(c('year',spec$dim.keep))) %>%
+	summarise(don2=sum(n*don),.groups='drop') %>%
+	arrange(country,year)
+
+data.frame(actual.don)
+str(actual.don)
+df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country')))
+df.ad = df.ad %>% arrange(year)
+rownames(df.ad)=as.character(df.ad$year)
+# df.ad=df.ad[,-1]
+matplot(df.ad,type='l')
+
+dev.off()
+tst=predictDonations2(rv.1) %>%
 	arrange(rw,prd.year,year0)
 
 pah=estimates %>% 
 	group_by(rw,prd.year) %>%
-	summarise(est=sum(est),.groups='drop') %>% 
+	summarise(est=sum(est),est.trnc=sum(est.trnc),.groups='drop') %>% 
+	rename(year=prd.year) %>%
 	inner_join(rv.1$grps,join_by(rw)) %>%
 	data.frame()
 
-df3=data.frame(pivot_wider(pah,values_from='est',names_from=c('country','rw')))
-matplot(df3,type='l')
+df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est')],values_from='est.trnc',names_from=c('country')))
+# df3 =df3[,-1]
+
+dev.off()
+plot(NULL,xlim=c(2000,2035),ylim=c(0,3e6))
+countries=grep('..',colnames(df3),value=TRUE)
+for (cn in countries) {
+	lines(df3$year,df3[[cn]],type='l',lwd=2,lty='solid',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
+	points(df.ad$year,df.ad[[cn]],type='p',col=colfun(cn))
+}
+# points(x=1:20,y=rep(3e5,20)) # ok, this works
+
+# todo 
+
+# plotting the age distribution (by country) - roughly makes sense
+pah5=pivot_wider(agedist.local[,c('age','density','country')],values_from='density',names_from=c('age'))
+pah5
+matplot(t(pah5),type='l')
+legend(x='top',fill=1:5,legend=pah5$country)
 
 tmp=by(rv.1$prdct,rv.1$prdct[,c('phase','rw')],FUN=prd.cumulative2density)
 pred.d=array2DF(tmp)
@@ -39,14 +74,27 @@ prd.data=pred.d
 str(prd.data)
 str(rv.1$data)
 
-predictDonations2 = function(rv) {
+predictDonations2 = function(rv,prd.start=2000,prd.len=55) {
 	tmp=by(rv$prdct,rv$prdct[,c('phase','rw')],FUN=prd.cumulative2density)
 	pred.d=array2DF(tmp)
 	pred.d=pred.d[,3:ncol(pred.d)]
-	prd.years=data.frame(prd.year=2024:(2024+10)) # nb! hard-coded parameters
+	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
 	prd.data=pred.d
 
+	agedist.local=rv$agedist
+
+	# rw year0     n2
+	# nb! agedist-data should be augmented with rw-numbers to facilitate things
 	sizes.data = rv$data[rv$data$ord==1,c('rw','year0','n2')] 
+
+	# str(rv.1$agedist)
+	# tibble [255 × 5] (S3: tbl_df/tbl/data.frame)
+	# $ country: chr [1:255] "au" "au" "au" "au" ...
+	# $ n2     : num [1:255] 1470840 1470840 1470840 1470840 1470840 ...
+	# $ age    : num [1:255] 14 15 16 17 18 19 20 21 22 23 ...
+	# $ n.age2 : num [1:255] 1.77 2779.44 68503.52 53050.87 70472.53 ...
+	# $ density: num [1:255] 1.20e-06 1.89e-03 4.66e-02 3.61e-02 4.79e-02 ...
+
 	# nb! should probably cut the sizes as well earlier, not just for predictions (skip.last)
 	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=function(x) {
 			year.max=max(x$year0)
@@ -56,49 +104,34 @@ predictDonations2 = function(rv) {
 		})
 	sizes.data=array2DF(tmp)[,-1]
 
-	pah=cross_join(prd.years,sizes.data) %>% # ennustevuodet, ryhmän koko ryhmän koko
-		inner_join(prd.data[prd.data$phase=='cdon.a-x',],join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
+	# 2025-08-14 tähän pitää lisätä agedist, jos saatavilla
+	# liitettävä rw-perusteella oikeastaan missä tahansa vaiheessa mukaan
+	# laskettava ikä vuonna prd.year=year0+x(+1) ja sovellettava tähän ehtoja between(17,65)
+	# 2025-08-15 Tähän olisi lisättävä niin, että vuosiin ei varmasti jää aukkoja
+	# tiheysjakaumaan voi lisätä nollat näille paikoille
+	pah=cross_join(prd.years,sizes.data) %>%
+		inner_join(prd.data[prd.data$phase=='cdon.a-x',],
+			join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
 		mutate(year=year0+x-1) %>%
 		filter(year==prd.year) %>%
 		mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
-	return(pah)
+
+	tmp=by(agedist.local,agedist.local[,c('rw')],FUN=function(x) {
+		x$cumulative=cumsum(x$density)
+		x
+	})
+
+	agedist.cum=array2DF(tmp,simplify=TRUE)[,-1]
+	pah2=pah %>%
+		# 66: jos täytti vuonna year0=2010 esim. 50 vuotta, ja x rivillä on esim. 15, kyse on 
+		# vuoden 2024 ennusteesta, jolloin täyttää 64 vuotta. Mukaan otetaan se vuosi, jolloin täyttää 65
+		# vuotta mutta ei enää seuraavaa. Eli tämä lienee oikein.
+		mutate(age0.max=66-x) %>%
+		inner_join(agedist.cum[,c('rw','age','cumulative')],join_by(rw,x$age0.max==y$age)) %>%
+		mutate(est.trnc=est*cumulative,est.lo=est.lo*cumulative,est.hi=est.hi*cumulative)
+
+	return(pah2)
 }
-
-str(pah)
-
-pah$estimate
-
-str(prd.data)
-unique(prd.data[,c('rw','year0.lo','year0.hi')])
-
-,join_by(x$prd.year==y$year)
-
-unique(pah$rw)
-
-pah
-pah[1:50,]
-str(prd.data[prd.data$phase=='cdon.a-x',])
-?between
-
-data.frame(rv.1$data)
-
-pah %>% filter(rw==1,year0==2015)
-
-)) 
-%>%
-	inner_join(prd.data)
-
-prd.data[prd.data$phase=='cdon.a-x',],join_by(x$prd.year==y$year)
-
-# cumulative to density
-# pah=prd.data[prd.data$phase=='cdon.a-x',][1:20,]
-
-prd.cumulative2density = function(pah) {
-	dpah=(rbind(pah[,1:3],0*pah[1,1:3])-rbind(0*pah[1,1:3],pah[,1:3]))[1:nrow(pah),] # nämä siis saa vähentämällä
-	return(cbind(dpah,pah[,4:ncol(pah)]))
-}
-
-str(rv$prdct)
 
 # Miten tämä siis pitäisi tehdä?
 
