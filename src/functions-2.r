@@ -2,6 +2,70 @@
 # compute.csm below is fixed for counties are the grouping variable
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
+predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x') {
+	tmp=by(rv$prdct,rv$prdct[,c('phase','rw')],FUN=prd.cumulative2density)
+	pred.d=array2DF(tmp)
+	pred.d=pred.d[,3:ncol(pred.d)]
+	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
+	prd.data=pred.d[pred.d$phase==model,]
+
+	agedist.local=rv$agedist
+
+	# rw year0     n2
+	# nb! agedist-data should be augmented with rw-numbers to facilitate things
+	sizes.data = rv$data[rv$data$ord==1,c('rw','year0','n2')] 
+
+	# str(rv.1$agedist)
+	# tibble [255 × 5] (S3: tbl_df/tbl/data.frame)
+	# $ country: chr [1:255] "au" "au" "au" "au" ...
+	# $ n2     : num [1:255] 1470840 1470840 1470840 1470840 1470840 ...
+	# $ age    : num [1:255] 14 15 16 17 18 19 20 21 22 23 ...
+	# $ n.age2 : num [1:255] 1.77 2779.44 68503.52 53050.87 70472.53 ...
+	# $ density: num [1:255] 1.20e-06 1.89e-03 4.66e-02 3.61e-02 4.79e-02 ...
+
+	# nb! should probably cut the sizes as well earlier, not just for predictions (skip.last)
+	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=function(x) {
+			year.max=max(x$year0)
+			n2.max=x[x$year0==year.max,'n2']
+			df.new=data.frame(rw=max(x$rw),year0=(year.max+1):max(prd.years$prd.year),n2.max)
+			return(rbind(x,df.new))
+		})
+	sizes.data=array2DF(tmp)[,-1]
+
+bsAssign('rv')
+	if (all(is.na((rv.1$prdct$year0)))) {
+		pah=cross_join(prd.years,sizes.data) %>%
+			inner_join(prd.data[,colnames(prd.data) != 'year0'],
+				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
+			mutate(year=year0+x-1) %>%
+			filter(year==prd.year) %>%
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
+	} else {
+		pah=cross_join(prd.years,sizes.data) %>%
+			inner_join(prd.data[prd.data$phase=='cdon.a-x',],
+				join_by(year0)) %>%
+			mutate(year=year0+x-1) %>%
+			filter(year==prd.year) %>%
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
+
+	}
+
+	tmp=by(agedist.local,agedist.local[,c('rw')],FUN=function(x) {
+		x$cumulative=cumsum(x$density)
+		x
+	})
+	agedist.cum=array2DF(tmp,simplify=TRUE)[,-1]
+
+	pah2=pah %>%
+		# 66: jos täytti vuonna year0=2010 esim. 50 vuotta, ja x rivillä on esim. 15, kyse on 
+		# vuoden 2024 ennusteesta, jolloin täyttää 64 vuotta. Mukaan otetaan se vuosi, jolloin täyttää 65
+		# vuotta mutta ei enää seuraavaa. Eli tämä lienee oikein.
+		mutate(age0.max=66-x) %>%
+		inner_join(agedist.cum[,c('rw','age','cumulative')],join_by(rw,x$age0.max==y$age)) %>%
+		mutate(est.trnc=est*cumulative,est.lo=est.lo*cumulative,est.hi=est.hi*cumulative)
+
+	return(pah2)
+}
 
 # TODO
 # year0 should be added to the spec
@@ -289,6 +353,78 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),
 		coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct,
 		agedist=agedist.local))
+}
+
+### --- ennustekäyrät: tuotetaan kuvat vertailua varten
+plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25)) {
+	for (rw in rv$grps$rw) {
+		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
+		resolution=150
+		png(filename,res=resolution,width=9*resolution,height=7*resolution)
+		plot(x=NULL,xlim=xlim,ylim=ylim)
+		phases=unique(rv$prdct$phase)
+		
+		col=1
+		for (ph in phases) {
+			data5=rv$prdct[rv$prdct$phase==ph&rv$prdct$rw==rw,]
+			lines(data5$x,data5$fit,lty='solid',lwd=3,col=col)
+			lines(data5$x,data5$lwr,lty='dashed',lwd=1.5,col=col)
+			lines(data5$x,data5$upr,lty='dashed',lwd=1.5,col=col)
+			col=col+1
+		}
+		legend(x='bottom',fill=1:length(phases),legend=phases)
+		dev.off()
+	}
+}
+
+plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
+	data0=data[data$phase==phase,]
+
+	wh.x=which(grepl(dparam[1],data0$parameter))
+	wh.y=which(grepl(dparam[2],data0$parameter))
+	est.x=data0[wh.x,'Estimate']
+	est.y=data0[wh.y,'Estimate']
+
+	lo.x=est.x+qnorm(0.025)*data0[wh.x,'Std..Error']
+	hi.x=est.x+qnorm(0.975)*data0[wh.x,'Std..Error']
+	if (!is.na(vfun[1])) {
+		est.x=vfun[[1]](est.x)
+		lo.x=vfun[[1]](lo.x)
+		hi.x=vfun[[1]](hi.x)
+	}
+
+	lo.y=est.y+qnorm(0.025)*data0[wh.y,'Std..Error']
+	hi.y=est.y+qnorm(0.975)*data0[wh.y,'Std..Error']
+	if (!is.na(vfun[2])) {
+		est.y=vfun[[2]](est.y)
+		lo.y=vfun[[2]](lo.y)
+		hi.y=vfun[[2]](hi.y)
+	}
+
+	df.x=data.frame(est.x,lo.x,hi.x,rw=data0[wh.x,'rw'])
+	df.y=data.frame(est.y,lo.y,hi.y,rw=data0[wh.y,'rw'])
+
+	df=full_join(df.x,df.y,join_by(rw)) %>%
+		inner_join(grps,join_by(rw))
+
+	col=unlist(spec$colours[df[,spec$col.dim]])
+	pch=sapply(df[,spec$pch.dim],spec$pch ) # spec$pch(df[,spec$pch.dim])
+	points(df$est.x,df$est.y,col=col,pch=pch)
+
+	if (!error.bars)
+		return()
+
+	arrows(df$est.x,df$lo.y,df$est.x,df$hi.y,length=0.05,angle=90,code=3,col=col)
+	arrows(df$lo.x,df$est.y,df$hi.x,df$est.y,length=0.05,angle=90,code=3,col=col)
+
+	# x ~ exponent
+	# y ~ multiplier
+	u=50
+	df$lo.u=df$lo.y*u^df$lo.x
+	df$hi.u=df$hi.y*u^df$hi.x
+	df$est.u=df$est.y*u^df$est.x
+
+	return(df)
 }
 
 getAgeDistributionMatrix = function(data) {
