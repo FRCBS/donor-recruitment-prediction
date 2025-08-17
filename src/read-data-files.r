@@ -403,11 +403,19 @@ for (cn in names(countries)) {
 
 		dista0=dista0[!is.na(dista0[,2]),]
 		dista0[,2]=cumulativeToDensity(dista0[,2])
+
+		dista0= dista0 %>% 
+			right_join(expand.grid(age=17:70,density0=0),join_by(age)) %>%
+			# filter(is.na(density)) %>%
+			mutate(density=max(density,density0,na.rm=TRUE))
+	
 		countries[[cn]]$res[[i]]$dista0=dista0
 		agedist=rbind(agedist,data.frame(country=cn,name=countries[[cn]]$gt[[i,'Name']],dista0))
 	}
 	# countries[[cn]]$agedist=agedist
 }
+
+agedist %>% group_by(country) %>% summarise(age.max=max(age))
 
 # save
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))
@@ -430,12 +438,18 @@ save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noa
 
 # Cut out the last, incomplete year; these might be complete ones as well
 et.ord.max = et %>%
+	filter(!is.na(cdon)) %>%
 	group_by(year0,country) %>%
 	summarise(ord.max=max(ord),.groups='drop') 
 
 et = et %>%
 	inner_join(et.ord.max,join_by(year0,country,x$ord<y$ord.max)) %>%
 	dplyr::select(-ord.max)
+
+et %>%
+	filter(Name=='Male Office 0-25',country=='au') %>%
+	arrange(year0,ord) %>%
+	top_n(50)
 
 ## ----echo=FALSE---------------------------------------------------------------
 # These values are experimental in the data, so quick-fix them here

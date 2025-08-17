@@ -8,8 +8,6 @@ rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,aged
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=predictDonations2))
 
-data.frame(rv.1$agedist)
-
 # toteutuneet luovutusmäärät
 actual.don = et %>%
 	filter(!is.na(cdon),!is.na(don)) %>%
@@ -18,29 +16,27 @@ actual.don = et %>%
 	arrange(country,year)
 
 data.frame(actual.don)
-str(actual.don)
 df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country')))
 df.ad = df.ad %>% arrange(year)
 rownames(df.ad)=as.character(df.ad$year)
 # df.ad=df.ad[,-1]
-matplot(df.ad,type='l')
+# matplot(df.ad,type='l')
 
-dev.off()
-tst=predictDonations2(rv.1) %>%
-	arrange(rw,prd.year,year0)
+# tst=predictDonations2(rv.1) %>%
+# 	arrange(rw,prd.year,year0)
 
 pah=estimates %>% 
 	group_by(rw,prd.year) %>%
 	summarise(est=sum(est),est.trnc=sum(est.trnc),.groups='drop') %>% 
 	rename(year=prd.year) %>%
-	inner_join(rv.1$grps,join_by(rw)) %>%
-	data.frame()
+	inner_join(rv.1$grps,join_by(rw))
 
 df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est')],values_from='est.trnc',names_from=c('country')))
+df3=df3 %>% arrange(year)
 # df3 =df3[,-1]
 
-dev.off()
-plot(NULL,xlim=c(2000,2035),ylim=c(0,3e6))
+# dev.off()
+plot(NULL,xlim=c(2000,2035),ylim=c(0,3e6),ylab='number of donations',xlab='year')
 countries=grep('..',colnames(df3),value=TRUE)
 for (cn in countries) {
 	lines(df3$year,df3[[cn]],type='l',lwd=2,lty='solid',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
@@ -120,9 +116,9 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55) {
 		x$cumulative=cumsum(x$density)
 		x
 	})
-
 	agedist.cum=array2DF(tmp,simplify=TRUE)[,-1]
-	pah2=pah %>%
+
+	pah2=pah0 %>%
 		# 66: jos täytti vuonna year0=2010 esim. 50 vuotta, ja x rivillä on esim. 15, kyse on 
 		# vuoden 2024 ennusteesta, jolloin täyttää 64 vuotta. Mukaan otetaan se vuosi, jolloin täyttää 65
 		# vuotta mutta ei enää seuraavaa. Eli tämä lienee oikein.
