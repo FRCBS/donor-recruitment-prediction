@@ -3,10 +3,28 @@
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
 predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x') {
-	tmp=by(rv$prdct,rv$prdct[,c('phase','rw')],FUN=prd.cumulative2density)
-	pred.d=array2DF(tmp)
-	pred.d=pred.d[,3:ncol(pred.d)]
+bsAssign('rv')
+	# alright, so the model is not included there because yearx0 is not set
+	# as there is only a single year there and the model is not even estimated
+	# dummy=rv$prdct[1,]
+	rv$prdct[is.na(rv$prdct$year0),'year0']=0
+	# rv$prdct$year0=as.integer(rv$prdct$year0)
+	tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
+	# unlist(lapply(tmp,FUN=is.null))
+	# tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=function(x) {print(is.null(x)); print(dim(x)); print(summary(x$year0)); x})
+	pred.d=do.call(rbind,tmp[lengths(tmp)!=0]) # array2DF(tmp,simplify=TRUE)
+	# pred.d=pred.d[,3:ncol(pred.d)]
+
+	pred.d[pred.d$year0==0,'year0']=NA
+
 	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
+
+	# This applies to cases where only one year is selected and the model is estimated
+	# with no year0 term (multi.year==FALSE)
+	if (all(pred.d$year0.lo==pred.d$year0.hi)) {
+		model=sub('.year0','',model)
+	}
+
 	prd.data=pred.d[pred.d$phase==model,]
 
 	agedist.local=rv$agedist
@@ -32,8 +50,11 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x') {
 		})
 	sizes.data=array2DF(tmp)[,-1]
 
-bsAssign('rv')
-	if (all(is.na((rv.1$prdct$year0)))) {
+bsAssign('prd.data')
+# prd.data %>%
+# 	filter(rw==2,year0==2002)
+
+	if (all(is.na(prd.data$year0))) {
 		pah=cross_join(prd.years,sizes.data) %>%
 			inner_join(prd.data[,colnames(prd.data) != 'year0'],
 				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
@@ -41,13 +62,23 @@ bsAssign('rv')
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
 	} else {
-		pah=cross_join(prd.years,sizes.data) %>%
-			inner_join(prd.data[prd.data$phase=='cdon.a-x',],
-				join_by(year0)) %>%
+		pah.has.year0=cross_join(prd.years,sizes.data) %>%
+			inner_join(prd.data,join_by(rw,year0)) %>%
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
 
+		pah=cross_join(prd.years,sizes.data) %>%
+			left_join(prd.data,join_by(rw,year0)) %>%
+			filter(is.na(fit)) %>%
+			dplyr::select(prd.year,rw,year0,n2) %>%
+			# copied part
+			inner_join(pred.d[pred.d$phase==sub('.year0','',model),colnames(prd.data) != 'year0'],
+				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
+			mutate(year=year0+x-1) %>%
+			filter(year==prd.year) %>%
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr) %>%
+			rbind(pah.has.year0)
 	}
 
 	tmp=by(agedist.local,agedist.local[,c('rw')],FUN=function(x) {
@@ -55,6 +86,8 @@ bsAssign('rv')
 		x
 	})
 	agedist.cum=array2DF(tmp,simplify=TRUE)[,-1]
+
+	# return(pah)
 
 	pah2=pah %>%
 		# 66: jos täytti vuonna year0=2010 esim. 50 vuotta, ja x rivillä on esim. 15, kyse on 
@@ -103,12 +136,22 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			# as.integer(sub('year0','',grep('year0',rownames(coeff),value=TRUE)))
 		}
 
+bsAssign('m')
+
 		# frml=as.character(m$call)[2]
 		new.data=data.frame(x=1:55)
 		if ('sq.x' %in% names(m$model))
 			new.data$sq.x=new.data$x^2
 		if ('sqrt.x' %in% names(m$model))
 			new.data$sqrt.x=new.data$x^0.5
+		if ('x.pwr' %in% names(m$model))
+			new.data$x.pwr=new.data$x^power.term
+
+print(paste('***',phase))
+if (phase == 'cdon-x.a+year0') {
+	print(summary(m))
+#	error(777)
+}
 
 		year0.col=NULL
 		if (!is.null(years)) {
@@ -122,7 +165,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		if (grepl('^log',names(m$model[1]))) {
 			# print(paste(phase,'exp applied'))
 			esq=exp(esq[,1:3])
-		} else if (!is.null(power.term)) {
+		} else if (!is.null(power.term) && !('x.pwr' %in% names(m$model))) {
 			esq=esq[,1:3]^power.term
 		}
 
@@ -135,13 +178,16 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		esq$x=new.data[,1]
 		esq$phase=phase
 
+if (phase == 'cdon-x.a+year0')
+print(esq[1:10,])
+
 		return(esq)
 	}
 
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
-		print(paste(grps[rw,],collapse=', '))
+		print(paste('*************',grps[rw,],collapse=', '))
 
 		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
@@ -198,12 +244,19 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 
 		# the power-conversion happens here
 		data2$y=data2$cdon^(1/power.term)
+
 		plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
 		for(yr in unique(data2$year0)) {
 			data3=data2[data2$year0==yr,]
 			lines(data3$x,data3$y,col=as.integer(yr))
 		}
 		dev.off()
+
+		# 2025-08-17 model with x converted to a power with the exponent found previously
+		data$x.pwr=data$x^power.term
+		m=lm(cdon~x.pwr,data=data)
+		coeff = rbind(coeff,sm.extract(m,'cdon-x.a'))
+		prdct = rbind(prdct,m.predict(m,'cdon-x.a',power.term=power.term)) # power.term converts the predictions
 
 		# model with year0-based slopes (b_i)
 		multi.year = (length(year0.ord) > 1)
@@ -221,6 +274,10 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			# print(sm)
 			coeff = rbind(coeff,sm.extract(m,'cdon.a-x-year0'))
 			prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
+
+			m=lm(cdon~x.pwr+year0+0,data=data)
+			coeff = rbind(coeff,sm.extract(m,'cdon-x.a+year0'))
+			prdct = rbind(prdct,m.predict(m,'cdon-x.a+year0',power.term=power.term)) # power.term converts the predictions
 		}
 
 		# linear model converted response variable, no year0
@@ -356,7 +413,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 }
 
 ### --- ennustekäyrät: tuotetaan kuvat vertailua varten
-plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25)) {
+plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdon-x.a')) {
 	for (rw in rv$grps$rw) {
 		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
 		resolution=150
@@ -364,13 +421,16 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25)) {
 		plot(x=NULL,xlim=xlim,ylim=ylim)
 		phases=unique(rv$prdct$phase)
 		
-		col=1
+		col=0
 		for (ph in phases) {
+			col=col+1
+			if (!ph %in% models)
+				next
+
 			data5=rv$prdct[rv$prdct$phase==ph&rv$prdct$rw==rw,]
 			lines(data5$x,data5$fit,lty='solid',lwd=3,col=col)
 			lines(data5$x,data5$lwr,lty='dashed',lwd=1.5,col=col)
 			lines(data5$x,data5$upr,lty='dashed',lwd=1.5,col=col)
-			col=col+1
 		}
 		legend(x='bottom',fill=1:length(phases),legend=phases)
 		dev.off()

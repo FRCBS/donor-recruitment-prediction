@@ -6,7 +6,18 @@ rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=a
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
-estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon.a-x-year0')))
+estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon-x.a+year0'))) # cdon.a-x-year0
+dim(estimates)
+
+tst=predictDonations2(rv.1,model='cdon-x.a+year0')
+tst
+
+unique(rv.3p$prdct$phase)
+
+plotPredictions(rv.3p)
+
+estimates
+# [1] 6206   18
 
 # toteutuneet luovutusmäärät
 actual.don = et %>%
@@ -20,13 +31,14 @@ rownames(df.ad)=as.character(df.ad$year)
 
 pah=estimates %>% 
 	group_by(rw,prd.year) %>%
-	summarise(est=sum(est),est.trnc=sum(est.trnc),.groups='drop') %>% 
+	summarise(est=sum(est),est=sum(est),.groups='drop') %>% 
 	rename(year=prd.year) %>%
 	inner_join(rv.1$grps,join_by(rw))
 
-df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.trnc')],values_from='est',names_from=c('country'))) %>%
+df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw')],values_from='est',names_from=c('country'))) %>%
 	arrange(year)
 
+# plot predictions
 plot(NULL,xlim=c(2000,2035),ylim=c(0,3e6),ylab='number of donations',xlab='year')
 cns=grep('..',colnames(df3),value=TRUE)
 for (cn in cns) {
@@ -86,80 +98,6 @@ for (u in c(5,10,15,20,25,30)) {
 	b0=1.2
 	text((log(u)-log(b0))/log(50),y=b0,labels=u)
 }
-
-### --- ennustekäyrät: tuotetaan kuvat vertailua varten
-plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25)) {
-	for (rw in rv$grps$rw) {
-		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
-		resolution=150
-		png(filename,res=resolution,width=9*resolution,height=7*resolution)
-		plot(x=NULL,xlim=xlim,ylim=ylim)
-		phases=unique(rv$prdct$phase)
-		
-		col=1
-		for (ph in phases) {
-			data5=rv$prdct[rv$prdct$phase==ph&rv$prdct$rw==rw,]
-			lines(data5$x,data5$fit,lty='solid',lwd=3,col=col)
-			lines(data5$x,data5$lwr,lty='dashed',lwd=1.5,col=col)
-			lines(data5$x,data5$upr,lty='dashed',lwd=1.5,col=col)
-			col=col+1
-		}
-		legend(x='bottom',fill=1:length(phases),legend=phases)
-		dev.off()
-	}
-}
-
-plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
-	data0=data[data$phase==phase,]
-
-	wh.x=which(grepl(dparam[1],data0$parameter))
-	wh.y=which(grepl(dparam[2],data0$parameter))
-	est.x=data0[wh.x,'Estimate']
-	est.y=data0[wh.y,'Estimate']
-
-	lo.x=est.x+qnorm(0.025)*data0[wh.x,'Std..Error']
-	hi.x=est.x+qnorm(0.975)*data0[wh.x,'Std..Error']
-	if (!is.na(vfun[1])) {
-		est.x=vfun[[1]](est.x)
-		lo.x=vfun[[1]](lo.x)
-		hi.x=vfun[[1]](hi.x)
-	}
-
-	lo.y=est.y+qnorm(0.025)*data0[wh.y,'Std..Error']
-	hi.y=est.y+qnorm(0.975)*data0[wh.y,'Std..Error']
-	if (!is.na(vfun[2])) {
-		est.y=vfun[[2]](est.y)
-		lo.y=vfun[[2]](lo.y)
-		hi.y=vfun[[2]](hi.y)
-	}
-
-	df.x=data.frame(est.x,lo.x,hi.x,rw=data0[wh.x,'rw'])
-	df.y=data.frame(est.y,lo.y,hi.y,rw=data0[wh.y,'rw'])
-
-	df=full_join(df.x,df.y,join_by(rw)) %>%
-		inner_join(grps,join_by(rw))
-
-	col=unlist(spec$colours[df[,spec$col.dim]])
-	pch=sapply(df[,spec$pch.dim],spec$pch ) # spec$pch(df[,spec$pch.dim])
-	points(df$est.x,df$est.y,col=col,pch=pch)
-
-	if (!error.bars)
-		return()
-
-	arrows(df$est.x,df$lo.y,df$est.x,df$hi.y,length=0.05,angle=90,code=3,col=col)
-	arrows(df$lo.x,df$est.y,df$hi.x,df$est.y,length=0.05,angle=90,code=3,col=col)
-
-	# x ~ exponent
-	# y ~ multiplier
-	u=50
-	df$lo.u=df$lo.y*u^df$lo.x
-	df$hi.u=df$hi.y*u^df$hi.x
-	df$est.u=df$est.y*u^df$est.x
-
-	return(df)
-}
-
-#### 
 
 # arrows(x, avg-sdev, x, avg+sdev, length=0.05, angle=90, code=3)
 param.log.intercept=rv$coeff[grepl('^log',rv$coeff$phase)&rv$coeff$param!='log(x)',]
