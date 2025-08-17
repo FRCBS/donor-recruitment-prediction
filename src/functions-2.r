@@ -31,12 +31,26 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	}
 
 	m.predict = function(m,phase,power.term=NULL) {
+		years=NULL
+		if ('year0' %in% names(m$model)) {
+			# summary(m)
+			coeff=summary(m)$coeff
+			years=sub('year0','',grep('year0',rownames(coeff),value=TRUE))
+			# as.integer(sub('year0','',grep('year0',rownames(coeff),value=TRUE)))
+		}
+
 		# frml=as.character(m$call)[2]
 		new.data=data.frame(x=1:55)
 		if ('sq.x' %in% names(m$model))
 			new.data$sq.x=new.data$x^2
 		if ('sqrt.x' %in% names(m$model))
 			new.data$sqrt.x=new.data$x^0.5
+
+		year0.col=NULL
+		if (!is.null(years)) {
+			new.data=cross_join(new.data,data.frame(year0=years))
+			year0.col=ncol(new.data)
+		}
 
 		esq=data.frame(predict(m,newdata=new.data,interval='confidence')) %>%
 			cbind(new.data)
@@ -48,7 +62,12 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			esq=esq[,1:3]^power.term
 		}
 
+		# esq=esq[,c(1:3,if(!is.null(year0.col)) ncol(esq) else NULL)]
 		esq=esq[,1:3]
+		if (!is.null(year0.col)) 
+			esq=cbind(esq,year0=as.integer(new.data$year0))
+		else 
+			esq$year0=as.integer(NA)
 		esq$x=new.data[,1]
 		esq$phase=phase
 
@@ -98,7 +117,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		# The model with a common intercept/multiplier
 		m=lm(log(cdon)~log(x),data=data)
 		sm=summary(m)
-		# print(sm)
 		power.term=summary(m)$coeff[2,1]
 		intercept=summary(m)$coeff[1,1]
 		b=exp(intercept)
@@ -130,7 +148,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			sm=summary(m)
 			# print(sm)
 			coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
-			# prdct = rbind(prdct,m.predict(m,'log-year0-log'))
+			prdct = rbind(prdct,m.predict(m,'log-year0-log'))
 
 			# linear model with converted response variable
 			data2$sq.x=data2$x^2
@@ -138,7 +156,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			sm=summary(m)
 			# print(sm)
 			coeff = rbind(coeff,sm.extract(m,'cdon.a-x-year0'))
-			# prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
+			prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
 		}
 
 		# linear model converted response variable, no year0
