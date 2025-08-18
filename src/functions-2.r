@@ -509,6 +509,10 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 	data0=data[data$phase==phase,]
 
+	if (!'year0' %in% colnames(data0)) {
+		data0$year0=0
+	}
+
 	wh.x=which(grepl(dparam[1],data0$parameter))
 	wh.y=which(grepl(dparam[2],data0$parameter))
 	est.x=data0[wh.x,'Estimate']
@@ -530,15 +534,41 @@ plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 		hi.y=vfun[[2]](hi.y)
 	}
 
-	df.x=data.frame(est.x,lo.x,hi.x,rw=data0[wh.x,'rw'])
-	df.y=data.frame(est.y,lo.y,hi.y,rw=data0[wh.y,'rw'])
+	df.x=data.frame(est.x,lo.x,hi.x,rw=data0[wh.x,'rw'],year0=data0[wh.x,'year0'])
+	df.y=data.frame(est.y,lo.y,hi.y,rw=data0[wh.y,'rw'],year0=data0[wh.y,'year0'])
 
-	df=full_join(df.x,df.y,join_by(rw)) %>%
+	df=full_join(df.x,df.y,join_by(rw,year0)) %>%
 		inner_join(grps,join_by(rw))
 
+	df = df %>%
+		arrange(rw,desc(year0))
+
+	vd=by(df,df[,c('rw')],FUN=function(x) {
+			if (dim(x)[1] <= 1) {
+				return(NULL)
+			}
+			lines(x$est.x,x$est.y,lty='dashed',col=spec$colours[[unique(x[[spec$col.dim]])]])
+			points(x$est.x[1],x$est.y[1])
+			return(x)
+		})
+
 	col=unlist(spec$colours[df[,spec$col.dim]])
-	pch=sapply(df[,spec$pch.dim],spec$pch ) # spec$pch(df[,spec$pch.dim])
+	pch=sapply(df[,spec$pch.dim],spec$pch ) 
 	points(df$est.x,df$est.y,col=col,pch=pch)
+
+	vd=by(df,df[,c('rw')],FUN=function(x) {
+			if (dim(x)[1] <= 1) {
+				return(NULL)
+			}
+
+			col.start=spec$colours[[unique(x[[spec$col.dim]])]]
+			colfunc.a = colorRampPalette(c(col.start, "white"))
+			colfun.a = colfunc.a(nrow(x)+3)
+			lines(x$est.x,x$est.y,lty='dashed',col=)
+			points(x$est.x,x$est.y,col=colfun.a[1:nrow(x)],pch=pch)
+			return(x)
+		})
+
 
 	if (!error.bars)
 		return()

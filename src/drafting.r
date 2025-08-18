@@ -3,9 +3,12 @@ source('functions-2.r')
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
 tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5)
 tst=rlist[lengths(rlist)!=0]
+# extract coefficients
+coeff.year0.models=do.call(rbind,lapply(tst,FUN=function(x) cbind(x$coeff,year0=min(x$prdct$year0.lo))))
+
 estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model='cdon-x.a')))
 estimates.tail=predictDonations2(tst2,model='cdon-x.a')
-estimates=rbind(estimates0,estimates.tail)
+estimates.year0.models=rbind(estimates0,estimates.tail)
 
 tst2$prdct %>%
 	filter(phase=='cdon-x.a') %>%
@@ -67,6 +70,8 @@ phase='log-log'
 dparam=c('log.x.','.Intercept.')
 vfun=c(NA,exp)
 plotCoeffData(rv$coeff,spec,rv$grps,phase,dparam,vfun)
+
+plotCoeffData(rv,spec,rv.1$grps,phase,dparam,vfun,error.bars=FALSE)
 
 # points by year
 # TODO The years could also be estimated separately, one line of distm per each round
