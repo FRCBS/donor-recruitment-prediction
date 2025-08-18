@@ -21,44 +21,22 @@ estimates %>%
 	arrange(rw,year0) %>%
 	data.frame()
 
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with year0-specific models (5-year tail)')
+
 rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon-x.a+year0'))) # cdon.a-x-year0
 
+# These are written to files by default
 plotPredictions(rv.3p)
+
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with year0-factor')
+
 
 estimates
 # [1] 6206   18
-
-# toteutuneet luovutusmäärät
-actual.don = et %>%
-	filter(!is.na(cdon),!is.na(don)) %>%
-	group_by(!!!syms(c('year',spec$dim.keep))) %>%
-	summarise(don2=sum(n*don),.groups='drop') %>%
-	arrange(country,year)
-
-df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
-rownames(df.ad)=as.character(df.ad$year)
-
-pah=estimates %>% 
-	group_by(rw,prd.year) %>%
-	summarise(est=sum(est),est=sum(est),.groups='drop') %>% 
-	rename(year=prd.year) %>%
-	inner_join(rv.1$grps,join_by(rw))
-
-df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw')],values_from='est',names_from=c('country'))) %>%
-	arrange(year)
-
-# plot predictions
-plot(NULL,xlim=c(2000,2035),ylim=c(0,3e3),ylab='number of donations (in 1,000)',xlab='year')
-cns=grep('..',colnames(df3),value=TRUE)
-for (cn in cns) {
-	multiplier = (if (cn=='nc') 100 else 1)
-	lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
-	points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
-}
 
 # plotting the age distribution (by country) - roughly makes sense
 pah5=pivot_wider(agedist.local[,c('age','density','country')],values_from='density',names_from=c('age'))

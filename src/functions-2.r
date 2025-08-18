@@ -3,18 +3,9 @@
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
 predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x') {
-bsAssign('rv')
-	# alright, so the model is not included there because yearx0 is not set
-	# as there is only a single year there and the model is not even estimated
-	# dummy=rv$prdct[1,]
 	rv$prdct[is.na(rv$prdct$year0),'year0']=0
-	# rv$prdct$year0=as.integer(rv$prdct$year0)
 	tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
-	# unlist(lapply(tmp,FUN=is.null))
-	# tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=function(x) {print(is.null(x)); print(dim(x)); print(summary(x$year0)); x})
 	pred.d=do.call(rbind,tmp[lengths(tmp)!=0]) # array2DF(tmp,simplify=TRUE)
-	# pred.d=pred.d[,3:ncol(pred.d)]
-
 	pred.d[pred.d$year0==0,'year0']=NA
 
 	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
@@ -29,8 +20,6 @@ bsAssign('rv')
 
 	agedist.local=rv$agedist
 
-	# rw year0     n2
-	# nb! agedist-data should be augmented with rw-numbers to facilitate things
 	sizes.data = rv$data[rv$data$ord==1,c('rw','year0','n2')] 
 
 	repeatLastYear = function(x) {
@@ -262,21 +251,24 @@ bsAssign('m')
 		coeff = sm.extract(m,'log-log')
 		prdct = m.predict(m,'log-log')
 
-		resolution=150
-		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-fund-plot.png')
-		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		# data2=data[as.integer(as.character(data$year0))>=2012,]
 		data2=data
 
 		# the power-conversion happens here
 		data2$y=data2$cdon^(1/power.term)
 
-		plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
-		for(yr in unique(data2$year0)) {
-			data3=data2[data2$year0==yr,]
-			lines(data3$x,data3$y,col=as.integer(yr))
+		plot.FALSE=FALSE
+		if (plot.FALSE) {
+			resolution=150
+			filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-fund-plot.png')
+			png(filename,res=resolution,width=9*resolution,height=7*resolution)
+			plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
+			for(yr in unique(data2$year0)) {
+				data3=data2[data2$year0==yr,]
+				lines(data3$x,data3$y,col=as.integer(yr))
+			}
+			dev.off()
 		}
-		dev.off()
 
 		# 2025-08-17 model with x converted to a power with the exponent found previously
 		data$x.pwr=data$x^power.term
@@ -381,25 +373,27 @@ bsAssign('data0')
 		colfun=colfunc(20)
 		col0=colfun[rw] # 2025-08-06 -> index
 
-		resolution=150
-		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-sqrt-multiple-new.png')
-		# if (plot=='all') {
-			png(filename,res=resolution,width=9*resolution,height=7*resolution)
-			plot(x=NULL,ylim=c(0,50),xlim=c(0,55))
+		if (plot.FALSE) {
+			resolution=150
+			filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-sqrt-multiple-new.png')
+			# if (plot=='all') {
+				png(filename,res=resolution,width=9*resolution,height=7*resolution)
+				plot(x=NULL,ylim=c(0,50),xlim=c(0,55))
 
-		# plot.terms=c('lambda','y0')
-		plot.terms=c('x','sqrt.x') # These are kind of obsolete
-		if ('orig' %in% plot) {
-			points(coeff[plot.terms[1],'Estimate'],coeff[plot.terms[2],'Estimate'],
-				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
+			# plot.terms=c('lambda','y0')
+			plot.terms=c('x','sqrt.x') # These are kind of obsolete
+			if ('orig' %in% plot) {
+				points(coeff[plot.terms[1],'Estimate'],coeff[plot.terms[2],'Estimate'],
+					col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
+			}
+			if ('alt' %in% plot) {
+				points(x.half,y.max,
+					col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
+			}
+
+			dev.off()
 		}
-		if ('alt' %in% plot) {
-			points(x.half,y.max,
-				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
-		}
-
-		dev.off()
-
+		
 		coeff$rw=rw
 		prdct$rw=rw
 
@@ -473,6 +467,43 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 		legend(x='bottom',fill=1:length(phases),legend=phases)
 		dev.off()
 	}
+}
+
+plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main='') {
+	# toteutuneet luovutusmäärät
+	actual.don = et %>%
+		filter(!is.na(cdon),!is.na(don)) %>%
+		group_by(!!!syms(c('year',spec$dim.keep))) %>%
+		summarise(don2=sum(n*don),.groups='drop') %>%
+		arrange(country,year)
+
+	df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
+	rownames(df.ad)=as.character(df.ad$year)
+
+	pah=estimates %>% 
+		group_by(rw,prd.year) %>%
+		summarise(est=sum(est),est=sum(est),.groups='drop') %>% 
+		rename(year=prd.year) %>%
+		inner_join(rv.1$grps,join_by(rw))
+
+	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw')],values_from='est',names_from=c('country'))) %>%
+		arrange(year)
+
+	# plot predictions
+	if (!is.null(filename)) {
+		png(filename,width=9*resolution,height=7*resolution)
+	}
+
+	plot(NULL,xlim=c(2000,2035),ylim=c(0,3e3),ylab='number of donations (in 1,000)',xlab='year',main=main)
+	cns=grep('..',colnames(df3),value=TRUE)
+	for (cn in cns) {
+		multiplier = (if (cn=='nc') 100 else 1)
+		lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
+		points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
+	}
+
+	if (!is.null(filename))
+		dev.off()
 }
 
 plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
