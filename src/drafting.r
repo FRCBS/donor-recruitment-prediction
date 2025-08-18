@@ -1,19 +1,25 @@
 source('functions-2.r')
 
-plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='coefficient')
-
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
+tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5)
 tst=rlist[lengths(rlist)!=0]
-estimates=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model='cdon-x.a')))
+estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model='cdon-x.a')))
+estimates.tail=predictDonations2(tst2,model='cdon-x.a')
+estimates=rbind(estimates0,estimates.tail)
 
-grps
+tst2$prdct %>%
+	filter(phase=='cdon-x.a') %>%
+	arrange(rw)
+
+estimates.tail[,1:15] %>%
+	arrange(rw,year) %>%
+	top_n(50)
+
 estimates %>%
 	group_by(rw,year0) %>%
-	summarise(n=n(),.groups='drop') %>%
+	summarise(n=n(),max(year0),.groups='drop') %>%
 	arrange(rw,year0) %>%
 	data.frame()
-
-str(estimates)
 
 rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
@@ -46,12 +52,12 @@ df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw')],values_from='est',n
 	arrange(year)
 
 # plot predictions
-plot(NULL,xlim=c(2000,2035),ylim=c(0,3e6),ylab='number of donations',xlab='year')
+plot(NULL,xlim=c(2000,2035),ylim=c(0,3e3),ylab='number of donations (in 1,000)',xlab='year')
 cns=grep('..',colnames(df3),value=TRUE)
 for (cn in cns) {
 	multiplier = (if (cn=='nc') 100 else 1)
-	lines(df3$year,multiplier*df3[[cn]],type='l',lwd=2,lty='solid',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
-	points(df.ad$year,multiplier*df.ad[[cn]],type='p',col=colfun(cn))
+	lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
+	points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
 }
 
 # plotting the age distribution (by country) - roughly makes sense
@@ -75,7 +81,9 @@ sizes = rv.1$data %>%
 prd.years=data.frame(prd.year=2024:(2024+10))
 prd.data=pred.d
 
+#### Kertoimien piirtäminen kuvaajaan
 # Miten tämä siis pitäisi tehdä?
+plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='coefficient')
 
 phase='log-log'
 dparam=c('log.x.','.Intercept.')

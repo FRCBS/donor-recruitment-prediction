@@ -206,13 +206,26 @@ if (phase == 'cdon-x.a+year0') {
 		data$year0.int=data$year0
 		
 		year.start = min(data$year0.int)
-		data = data %>% filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
 
-print(paste(max(data$year0.int,na.rm=TRUE),min(year0.ord),save.years.from.end,length(year0.ord)))
+		if (save.years.from.end >= 0) {
+			data = data %>% 
+				filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
+		} else if (save.years.from.end < 0) {
+# bsAssign('data')
+			data = data %>% 
+				filter(year0.int-save.years.from.end>max(year0.int))
+			year.start=min(data$year0.int) # needed to override the computation
+# print(paste('%%%%%%%%%%',dim(data2)))
+# bsAssign('data2')
+# error(61)
+				# esim. max == 10; viisi vuotta mukaan -> 6:10; 6+5=11
+		}
+
+# print(paste(max(data$year0.int,na.rm=TRUE),min(year0.ord),save.years.from.end,length(year0.ord)))
 # bsAssign('year0.ord')
 		# esim. max.ord==9, 5 jäätävä -> 4; nelonen on vielä ok
 		# if (dim(data)[1] == 0 || (max(data$ord) - save.years.from.end < min(year0.ord) && length(year0.ord) == 1)) {
-		if (dim(data)[1] == 0 || (max(data$year) - save.years.from.end < min(data$year0.int) && length(year0.ord) == 1)) {
+		if (dim(data)[1] == 0 || (save.years.from.end > 0 && max(data$year) - save.years.from.end < min(data$year0.int) && length(year0.ord) == 1)) {
 bsAssign('data')
 # if (rw==2) error(1010)
 			print('skipping due to lack of sufficient data')
