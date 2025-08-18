@@ -2,17 +2,24 @@ source('functions-2.r')
 
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='coefficient')
 
+rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
+tst=rlist[lengths(rlist)!=0]
+estimates=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model='cdon-x.a')))
+
+grps
+estimates %>%
+	group_by(rw,year0) %>%
+	summarise(n=n(),.groups='drop') %>%
+	arrange(rw,year0) %>%
+	data.frame()
+
+str(estimates)
+
 rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon-x.a+year0'))) # cdon.a-x-year0
-dim(estimates)
-
-tst=predictDonations2(rv.1,model='cdon-x.a+year0')
-tst
-
-unique(rv.3p$prdct$phase)
 
 plotPredictions(rv.3p)
 

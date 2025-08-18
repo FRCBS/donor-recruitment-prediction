@@ -33,26 +33,27 @@ bsAssign('rv')
 	# nb! agedist-data should be augmented with rw-numbers to facilitate things
 	sizes.data = rv$data[rv$data$ord==1,c('rw','year0','n2')] 
 
-	# str(rv.1$agedist)
-	# tibble [255 × 5] (S3: tbl_df/tbl/data.frame)
-	# $ country: chr [1:255] "au" "au" "au" "au" ...
-	# $ n2     : num [1:255] 1470840 1470840 1470840 1470840 1470840 ...
-	# $ age    : num [1:255] 14 15 16 17 18 19 20 21 22 23 ...
-	# $ n.age2 : num [1:255] 1.77 2779.44 68503.52 53050.87 70472.53 ...
-	# $ density: num [1:255] 1.20e-06 1.89e-03 4.66e-02 3.61e-02 4.79e-02 ...
+	repeatLastYear = function(x) {
+		year.max=max(x$year0)
+		n2.max=x[x$year0==year.max,'n2']
+		df.new=data.frame(rw=max(x$rw),year0=(year.max+1):max(prd.years$prd.year),n2.max)
+		return(rbind(x,df.new))
+	}
+
+	estimateLinearTrend = function(x) {
+		m=lm(n2~year0,data=x[(nrow(x)-5):nrow(x),])
+		year.max=max(x$year0)
+		new.data=data.frame(year0=(year.max+1):max(prd.years$prd.year))
+		ndf=predict(m,newdata=new.data)
+		df.new=data.frame(rw=max(x$rw),year0=new.data$year0,n2=ndf)
+		
+		return(rbind(x,df.new))
+	}
+
 
 	# nb! should probably cut the sizes as well earlier, not just for predictions (skip.last)
-	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=function(x) {
-			year.max=max(x$year0)
-			n2.max=x[x$year0==year.max,'n2']
-			df.new=data.frame(rw=max(x$rw),year0=(year.max+1):max(prd.years$prd.year),n2.max)
-			return(rbind(x,df.new))
-		})
+	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=estimateLinearTrend)
 	sizes.data=array2DF(tmp)[,-1]
-
-bsAssign('prd.data')
-# prd.data %>%
-# 	filter(rw==2,year0==2002)
 
 	if (all(is.na(prd.data$year0))) {
 		pah=cross_join(prd.years,sizes.data) %>%
@@ -72,7 +73,7 @@ bsAssign('prd.data')
 			left_join(prd.data,join_by(rw,year0)) %>%
 			filter(is.na(fit)) %>%
 			dplyr::select(prd.year,rw,year0,n2) %>%
-			# copied part
+			# copied part: roughly the same as above
 			inner_join(pred.d[pred.d$phase==sub('.year0','',model),colnames(prd.data) != 'year0'],
 				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
 			mutate(year=year0+x-1) %>%
@@ -103,7 +104,8 @@ bsAssign('prd.data')
 # TODO
 # year0 should be added to the spec
 # similarly for year to use maybe reference year +/- offset
-getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE,agedist=NULL) { # skip.start
+getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE,
+	agedist=NULL,save.years.from.end=0) {
 	# reference.years.local=reference.years
 	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
@@ -169,7 +171,6 @@ if (phase == 'cdon-x.a+year0') {
 			esq=esq[,1:3]^power.term
 		}
 
-		# esq=esq[,c(1:3,if(!is.null(year0.col)) ncol(esq) else NULL)]
 		esq=esq[,1:3]
 		if (!is.null(year0.col)) 
 			esq=cbind(esq,year0=as.integer(new.data$year0))
@@ -178,12 +179,10 @@ if (phase == 'cdon-x.a+year0') {
 		esq$x=new.data[,1]
 		esq$phase=phase
 
-if (phase == 'cdon-x.a+year0')
-print(esq[1:10,])
-
 		return(esq)
 	}
 
+	dftot=NULL
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
@@ -208,6 +207,19 @@ print(esq[1:10,])
 		
 		year.start = min(data$year0.int)
 		data = data %>% filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
+
+print(paste(max(data$year0.int,na.rm=TRUE),min(year0.ord),save.years.from.end,length(year0.ord)))
+# bsAssign('year0.ord')
+		# esim. max.ord==9, 5 jäätävä -> 4; nelonen on vielä ok
+		# if (dim(data)[1] == 0 || (max(data$ord) - save.years.from.end < min(year0.ord) && length(year0.ord) == 1)) {
+		if (dim(data)[1] == 0 || (max(data$year) - save.years.from.end < min(data$year0.int) && length(year0.ord) == 1)) {
+bsAssign('data')
+# if (rw==2) error(1010)
+			print('skipping due to lack of sufficient data')
+			print(paste(length(unique(data$year0)),year0.ord))
+			next
+		}
+
 		# compute the max year to cut the final years out
 		if (skip.last && FALSE) {
 			# nb! This is not working: country is not considered
@@ -222,11 +234,12 @@ print(esq[1:10,])
 		}
 
 		data$year0=as.factor(data$year0)
-		bsAssign('data')
 
 		# The model with a common intercept/multiplier
 		m=lm(log(cdon)~log(x),data=data)
 		sm=summary(m)
+bsAssign('data')
+bsAssign('m')
 		power.term=summary(m)$coeff[2,1]
 		intercept=summary(m)$coeff[1,1]
 		b=exp(intercept)
@@ -257,6 +270,18 @@ print(esq[1:10,])
 		m=lm(cdon~x.pwr,data=data)
 		coeff = rbind(coeff,sm.extract(m,'cdon-x.a'))
 		prdct = rbind(prdct,m.predict(m,'cdon-x.a',power.term=power.term)) # power.term converts the predictions
+
+# This is not the way to do this
+# Instead, it is better to estimate the single-year models individually similarly as for rv.1 etc.
+if (FALSE) {
+data0=data
+bsAssign('data0')
+		by(data,data$year0,FUN=function(x) {
+				m=lm(cdon~x.pwr,data=x)
+				coeff = rbind(coeff,sm.extract(m,'cdon-x.a-single'))
+				prdct = rbind(prdct,m.predict(m,'cdon-x.a-si',power.term=power.term)) # power.term converts the predictions	
+			})
+}
 
 		# model with year0-based slopes (b_i)
 		multi.year = (length(year0.ord) > 1)
@@ -359,15 +384,11 @@ print(esq[1:10,])
 			points(x.half,y.max,
 				col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
 		}
-#		if ('curve' %in% plot) {
-#			lines(x.m,y.m,col=col0,lwd=lwd)
-#		}
 
 		dev.off()
 
 		coeff$rw=rw
 		prdct$rw=rw
-		# coeff=coeff[5:7,1:4)]
 
 		# Add these to enable joining with forecasted years
 		prdct$year0.lo=year.start+min(year0.ord)-1
@@ -385,6 +406,10 @@ print(esq[1:10,])
 			sp.prdct=rbind(sp.prdct,prdct)
 		}
 	}
+
+	if (is.null(dftot))
+		# All the groups were skipped
+		return(NULL)
 
 	agedist.local=NULL
 	if (!is.null(agedist) && 'country' %in% colnames(et.test)) {
