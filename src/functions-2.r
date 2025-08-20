@@ -2,7 +2,7 @@
 # compute.csm below is fixed for counties are the grouping variable
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
-predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x') {
+predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5) {
 	rv$prdct[is.na(rv$prdct$year0),'year0']=0
 	tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
 	pred.d=do.call(rbind,tmp[lengths(tmp)!=0]) # array2DF(tmp,simplify=TRUE)
@@ -22,15 +22,22 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x') {
 
 	sizes.data = rv$data[rv$data$ord==1,c('rw','year0','n2')] 
 
+	# 2025-08-19 These should probably be moved out and parameterised
+	# so that they can (with parameters other than x preset)
+	# by used as arguments.
+	# repeatLastYear: add multiplier, could be 0.99 or 0 (to show the effect of existing donors)
 	repeatLastYear = function(x) {
 		year.max=max(x$year0)
 		n2.max=x[x$year0==year.max,'n2']
-		df.new=data.frame(rw=max(x$rw),year0=(year.max+1):max(prd.years$prd.year),n2.max)
+		year0.v=(year.max+1):max(prd.years$prd.year)
+		mult.v=multiplier^seq(1,by=1,along=year0.v)
+		df.new=data.frame(rw=max(x$rw),year0=year0.v,n2.max*mult.v)
+print(df.new)
 		return(rbind(x,df.new))
 	}
 
 	estimateLinearTrend = function(x) {
-		m=lm(n2~year0,data=x[(nrow(x)-5):nrow(x),])
+		m=lm(n2~year0,data=x[(nrow(x)-trend.years):nrow(x),])
 		year.max=max(x$year0)
 		new.data=data.frame(year0=(year.max+1):max(prd.years$prd.year))
 		ndf=predict(m,newdata=new.data)
@@ -39,9 +46,14 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x') {
 		return(rbind(x,df.new))
 	}
 
+	forecast.n2.fun=estimateLinearTrend
+	if (!is.null(multiplier)) {
+print(paste('using multiplier',multiplier))
+		forecast.n2.fun=repeatLastYear
+	}
 
 	# nb! should probably cut the sizes as well earlier, not just for predictions (skip.last)
-	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=estimateLinearTrend)
+	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=forecast.n2.fun)
 	sizes.data=array2DF(tmp)[,-1]
 
 	if (all(is.na(prd.data$year0))) {
@@ -127,8 +139,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			# as.integer(sub('year0','',grep('year0',rownames(coeff),value=TRUE)))
 		}
 
-bsAssign('m')
-
 		# frml=as.character(m$call)[2]
 		new.data=data.frame(x=1:55)
 		if ('sq.x' %in% names(m$model))
@@ -137,12 +147,6 @@ bsAssign('m')
 			new.data$sqrt.x=new.data$x^0.5
 		if ('x.pwr' %in% names(m$model))
 			new.data$x.pwr=new.data$x^power.term
-
-print(paste('***',phase))
-if (phase == 'cdon-x.a+year0') {
-	print(summary(m))
-#	error(777)
-}
 
 		year0.col=NULL
 		if (!is.null(years)) {
@@ -204,19 +208,12 @@ if (phase == 'cdon-x.a+year0') {
 			data = data %>% 
 				filter(year0.int-save.years.from.end>max(year0.int))
 			year.start=min(data$year0.int) # needed to override the computation
-# print(paste('%%%%%%%%%%',dim(data2)))
-# bsAssign('data2')
-# error(61)
 				# esim. max == 10; viisi vuotta mukaan -> 6:10; 6+5=11
 		}
 
-# print(paste(max(data$year0.int,na.rm=TRUE),min(year0.ord),save.years.from.end,length(year0.ord)))
-# bsAssign('year0.ord')
 		# esim. max.ord==9, 5 jäätävä -> 4; nelonen on vielä ok
 		# if (dim(data)[1] == 0 || (max(data$ord) - save.years.from.end < min(year0.ord) && length(year0.ord) == 1)) {
 		if (dim(data)[1] == 0 || (save.years.from.end > 0 && max(data$year) - save.years.from.end < min(data$year0.int) && length(year0.ord) == 1)) {
-bsAssign('data')
-# if (rw==2) error(1010)
 			print('skipping due to lack of sufficient data')
 			print(paste(length(unique(data$year0)),year0.ord))
 			next
@@ -240,8 +237,6 @@ bsAssign('data')
 		# The model with a common intercept/multiplier
 		m=lm(log(cdon)~log(x),data=data)
 		sm=summary(m)
-bsAssign('data')
-bsAssign('m')
 		power.term=summary(m)$coeff[2,1]
 		intercept=summary(m)$coeff[1,1]
 		b=exp(intercept)
@@ -275,18 +270,6 @@ bsAssign('m')
 		m=lm(cdon~x.pwr,data=data)
 		coeff = rbind(coeff,sm.extract(m,'cdon-x.a'))
 		prdct = rbind(prdct,m.predict(m,'cdon-x.a',power.term=power.term)) # power.term converts the predictions
-
-# This is not the way to do this
-# Instead, it is better to estimate the single-year models individually similarly as for rv.1 etc.
-if (FALSE) {
-data0=data
-bsAssign('data0')
-		by(data,data$year0,FUN=function(x) {
-				m=lm(cdon~x.pwr,data=x)
-				coeff = rbind(coeff,sm.extract(m,'cdon-x.a-single'))
-				prdct = rbind(prdct,m.predict(m,'cdon-x.a-si',power.term=power.term)) # power.term converts the predictions	
-			})
-}
 
 		# model with year0-based slopes (b_i)
 		multi.year = (length(year0.ord) > 1)
@@ -406,11 +389,13 @@ bsAssign('data0')
 			sp.coeff=coeff
 			sp.dftot=dftot
 			sp.prdct=prdct
+			et.data=data
 		} else {
 			sp.data=rbind(sp.data,export.data)
 			sp.coeff=rbind(sp.coeff,coeff)
 			sp.dftot=rbind(sp.dftot,dftot)
 			sp.prdct=rbind(sp.prdct,prdct)
+			et.data=rbind(et.data,data)
 		}
 	}
 
@@ -439,7 +424,7 @@ bsAssign('data0')
 			inner_join(data.frame(grps,rw=1:nrow(grps)),join_by(!!!syms(spec$dim.keep)))
 	}
 
-	return(list(et.data=et.test,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),
+	return(list(et.data=et.data,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),
 		coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct,
 		agedist=agedist.local))
 }
@@ -450,9 +435,14 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
 		resolution=150
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
-		plot(x=NULL,xlim=xlim,ylim=ylim)
+		plot(x=NULL,xlim=xlim,ylim=ylim,
+			xlab='years since first donation',ylab='cumulative donations per donor',
+			main=paste(rv$grps[rw,setdiff(colnames(rv$grps),'rw')]))
 		phases=unique(rv$prdct$phase)
 		
+		if ('all' %in% models)
+			models=phases[!grepl('year0',phases)]
+
 		col=0
 		for (ph in phases) {
 			col=col+1
@@ -464,12 +454,18 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 			lines(data5$x,data5$lwr,lty='dashed',lwd=1.5,col=col)
 			lines(data5$x,data5$upr,lty='dashed',lwd=1.5,col=col)
 		}
-		legend(x='bottom',fill=1:length(phases),legend=phases)
+
+		# observed data
+		rw0=rw
+		pt.data=rv$et.data %>% filter(rw==rw0)
+		points(pt.data$ord,pt.data$cdon)
+
+		legend(x='topleft',fill=1:length(phases),legend=phases)
 		dev.off()
 	}
 }
 
-plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main='') {
+plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main='',lty='solid') {
 	# toteutuneet luovutusmäärät
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
@@ -491,14 +487,15 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 
 	# plot predictions
 	if (!is.null(filename)) {
-		png(filename,width=9*resolution,height=7*resolution)
+		png.res=100
+		png(filename,width=9*png.res,height=7*png.res)
 	}
 
 	plot(NULL,xlim=c(2000,2035),ylim=c(0,3e3),ylab='number of donations (in 1,000)',xlab='year',main=main)
 	cns=grep('..',colnames(df3),value=TRUE)
 	for (cn in cns) {
 		multiplier = (if (cn=='nc') 100 else 1)
-		lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
+		lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty=lty,col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
 		points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
 	}
 
