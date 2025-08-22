@@ -487,8 +487,8 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 
 	# plot predictions
 	if (!is.null(filename)) {
-		png.res=100
-		png(filename,width=9*png.res,height=7*png.res)
+		png.res=150
+		png(filename,width=9*png.res,height=7*png.res,res=png.res)
 	}
 
 	plot(NULL,xlim=c(2000,2035),ylim=c(0,3e3),ylab='number of donations (in 1,000)',xlab='year',main=main)

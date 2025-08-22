@@ -46,7 +46,7 @@ prd.data=pred.d
 # Miten tämä siis pitäisi tehdä?
 filename=paste0('../fig/estimates-2d.png')
 png.res=100
-png(filename,width=png.res*9,height=png.res*6)
+png(filename,width=1080,height=1080,res=150) # ,width=png.res*9,height=png.res*6)
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='multiplier')
 
 # trajectories
@@ -55,7 +55,8 @@ plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='multiplier')
 phase='log-log'
 dparam=c('log.x.','.Intercept.')
 vfun=c(NA,exp)
-plotCoeffData(rv$coeff,spec,rv$grps,phase,dparam,vfun)
+rv=getGroupEstimates2(et,spec.list$country,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
+plotCoeffData(rv$coeff,spec.list$country,rv$grps,phase,dparam,vfun)
 
 # plotCoeffData(rv,spec,rv.1$grps,phase,dparam,vfun,error.bars=FALSE)
 
@@ -84,7 +85,7 @@ for (u in c(5,7.5,10,15,20,25,30)) {
 }
 
 # legends
-legend('topright',pch=c(15,2,6,4,1),legend=c('all','female','male','O-','other than O-'))
+legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=rv.3p$grps$country)
 dev.off()
 #####
@@ -96,7 +97,7 @@ png.res=100
 png(filename,width=1080,height=1080,res=150) # ,width=png.res*9,height=png.res*6)
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='multiplier')
 plotCoeffData(coeff.year0.models,spec.list$country,rv.3p$grps,phase,dparam,vfun,FALSE)
-legend('topright',pch=c(15,2,6,4,1),legend=c('all','female','male','O-','other than O-'))
+legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=rv.3p$grps$country)
 dev.off()
 
