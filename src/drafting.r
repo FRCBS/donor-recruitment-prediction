@@ -1,29 +1,5 @@
 source('functions-2.r')
 
-#######
-# Each year separately
-#######
-rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
-tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5)
-tst=rlist[lengths(rlist)!=0]
-coeff.year0.models=do.call(rbind,lapply(tst,FUN=function(x) cbind(x$coeff,year0=min(x$prdct$year0.lo))))
-
-estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model='cdon-x.a')))
-estimates.tail=predictDonations2(tst2,model='cdon-x.a',multiplier=1)
-estimates.year0.models=rbind(estimates0,estimates.tail)
-
-plotEstimatesVsActual(et,estimates.year0.models,spec)
-plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',filename=paste0('../fig/estimate-vs-actual-lump.png'))
-
-#######
-# All years (after 2nd) as a lump
-#######
-rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
-rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
-rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
-rvs=list(rv.1,rv.2,rv.3p)
-estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon-x.a+year0'))) # cdon.a-x-year0
-
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
 # aggregated, must add an extra step for this
 # These are written to files by default; just used for reference
@@ -34,8 +10,50 @@ estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cd
 # Possibly extensions: 
 #  - time series plots of cdon50; more readable
 #  - average ord of donations: the first year will cause a problem, so this is bound to be distorted
-plotPredictions(rv.3p,models='all')
+# Must do:
+#  - some confidence intervals needed
 
+#######
+# Each year separately
+#######
+# What are the parameters here?
+#  - 
+model='don-x.a'
+cumulative=FALSE
+rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
+tst=rlist[lengths(rlist)!=0]
+estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
+tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5)
+estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
+estimates.year0.models=rbind(estimates0,estimates.tail)
+
+coeff.year0.models=do.call(rbind,lapply(tst,FUN=function(x) cbind(x$coeff,year0=min(x$prdct$year0.lo)))) 
+
+# estimates = estimates.year0.models
+plotEstimatesVsActual(et,estimates.year0.models,spec)
+
+plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',filename=paste0('../fig/estimate-vs-actual-lump.png'))
+
+#######
+# All years (after 2nd) as a lump
+#######
+rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
+rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
+rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
+rvs=list(rv.1,rv.2,rv.3p)
+estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon-x.a+year0'))) # cdon.a-x-year0
+estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='don-x.a+year0',cumulative=FALSE))) # cdon.a-x-year0
+
+#
+predictDonations2(rv.2,model='cdon-x.a+year0')
+which(rv.2$prdct$lrw>rv.2$prdct$upr)
+which(rv.3p$prdct$lrw>rv.3p$prdct$upr)
+which(estimates$est.lo>estimates$est.hi)
+estimates[1:10,]
+# drafting ends
+
+plotPredictions(rv.3p,models='all')
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump')
 plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump',filename=paste0('../fig/estimate-vs-actual-discrete.png'))
 
 #### Plotting the coefficients

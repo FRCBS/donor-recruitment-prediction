@@ -2,11 +2,26 @@
 # compute.csm below is fixed for counties are the grouping variable
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
-predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5) {
-	rv$prdct[is.na(rv$prdct$year0),'year0']=0
-	tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
-	pred.d=do.call(rbind,tmp[lengths(tmp)!=0]) # array2DF(tmp,simplify=TRUE)
-	pred.d[pred.d$year0==0,'year0']=NA
+
+prd.cumulative2density = function(pah) {
+        dpah=(rbind(pah[,1:3],0*pah[1,1:3])-rbind(0*pah[1,1:3],pah[,1:3]))[1:nrow(pah),] # nämä siis saa vähentämällä
+        return(cbind(dpah,pah[,4:ncol(pah)]))
+}
+
+
+predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5,cumulative=TRUE) {
+	if (cumulative) {
+		rv$prdct[is.na(rv$prdct$year0),'year0']=0
+		tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
+		pred.d=do.call(rbind,tmp[lengths(tmp)!=0]) # array2DF(tmp,simplify=TRUE)
+		pred.d[pred.d$year0==0,'year0']=NA
+	} else {
+		pred.d=rv$prdct
+		neg.lwr=which(pred.d$lwr<0)
+		neg.upr=which(pred.d$upr<0)
+		pred.d$lwr[neg.lwr]=0
+		pred.d$upr[neg.upr]=0
+	}
 
 	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
 
@@ -54,6 +69,13 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=forecast.n2.fun)
 	sizes.data=array2DF(tmp)[,-1]
 
+	pph=prd.data %>%
+		filter(lwr>upr)
+	if (nrow(pph) > 0) {
+		print(pph)
+	} else 
+		print('nothing to report')
+
 	if (all(is.na(prd.data$year0))) {
 		pah=cross_join(prd.years,sizes.data) %>%
 			inner_join(prd.data[,colnames(prd.data) != 'year0'],
@@ -95,7 +117,7 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 		# vuotta mutta ei enää seuraavaa. Eli tämä lienee oikein.
 		mutate(age0.max=66-x) %>%
 		inner_join(agedist.cum[,c('rw','age','cumulative')],join_by(rw,x$age0.max==y$age)) %>%
-		mutate(est.trnc=est*cumulative,est.lo=est.lo*cumulative,est.hi=est.hi*cumulative)
+		mutate(est.trnc=est*cumulative,est.trnc.lo=est.lo*cumulative,est.trnc.hi=est.hi*cumulative)
 
 	return(pah2)
 }
@@ -211,8 +233,8 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		# esim. max.ord==9, 5 jäätävä -> 4; nelonen on vielä ok
 		# if (dim(data)[1] == 0 || (max(data$ord) - save.years.from.end < min(year0.ord) && length(year0.ord) == 1)) {
 		if (dim(data)[1] == 0 || (save.years.from.end > 0 && max(data$year) - save.years.from.end < min(data$year0.int) && length(year0.ord) == 1)) {
-			print('skipping due to lack of sufficient data')
-			print(paste(length(unique(data$year0)),year0.ord))
+			# print('skipping due to lack of sufficient data')
+			# print(paste(length(unique(data$year0)),year0.ord))
 			next
 		}
 
@@ -233,15 +255,27 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 
 		# The model with a common intercept/multiplier
 		m=lm(log(cdon)~log(x),data=data)
-		sm=summary(m)
+		# sm=summary(m)
 		power.term=summary(m)$coeff[2,1]
 		intercept=summary(m)$coeff[1,1]
 		b=exp(intercept)
 
 		# initialise the coeff-structure
-		# coeff=data.frame(sm$coeff,phase='log-log')
 		coeff = sm.extract(m,'log-log')
 		prdct = m.predict(m,'log-log')
+
+		# experimental: use don to estimate the models
+		m=lm(log(don)~log(x),data=data)
+		power.term.d=summary(m)$coeff[2,1]
+		intercept=summary(m)$coeff[1,1]
+		bd=exp(intercept)
+		coeff = rbind(coeff,sm.extract(m,'log(don)-log'))
+		prdct = rbind(prdct,m.predict(m,'log(don)-log'))
+
+		data$x.pwr=data$x^power.term.d
+		m=lm(don~x.pwr,data=data)
+		coeff = rbind(coeff,sm.extract(m,'don-x.a'))
+		prdct = rbind(prdct,m.predict(m,'don-x.a',power.term=power.term.d))
 
 		# data2=data[as.integer(as.character(data$year0))>=2012,]
 		data2=data
@@ -277,6 +311,24 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
 			prdct = rbind(prdct,m.predict(m,'log-year0-log'))
 
+			m=lm(cdon~x.pwr+year0+0,data=data)
+			coeff = rbind(coeff,sm.extract(m,'cdon-x.a+year0'))
+			prdct = rbind(prdct,m.predict(m,'cdon-x.a+year0',power.term=power.term)) # power.term converts the predictions
+
+			###3 2025-08-22 newly added things
+			data$x.pwr=data$x^power.term.d
+			m=lm(log(don)~0+year0+log(x),data=data)
+			sm=summary(m)
+			# print(sm)
+			coeff = rbind(coeff,sm.extract(m,'log(don)-year0-log'))
+			prdct = rbind(prdct,m.predict(m,'log(don)-year0-log'))
+
+			m=lm(don~x.pwr+year0+0,data=data)
+			coeff = rbind(coeff,sm.extract(m,'don-x.a+year0'))
+			prdct = rbind(prdct,m.predict(m,'don-x.a+year0',power.term=power.term.d)) # power.term converts the predictions
+			data$x.pwr=data$x^power.term
+			###
+
 			# linear model with converted response variable
 			data2$sq.x=data2$x^2
 			m=lm(y~x+year0+0,data=data2)
@@ -284,17 +336,12 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			# print(sm)
 			coeff = rbind(coeff,sm.extract(m,'cdon.a-x-year0'))
 			prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
-
-			m=lm(cdon~x.pwr+year0+0,data=data)
-			coeff = rbind(coeff,sm.extract(m,'cdon-x.a+year0'))
-			prdct = rbind(prdct,m.predict(m,'cdon-x.a+year0',power.term=power.term)) # power.term converts the predictions
 		}
 
 		# linear model converted response variable, no year0
 		data2$sq.x=data2$x^2
 		m=lm(y~x,data=data2)
 		sm=summary(m)
-		# print(sm)
 		coeff = rbind(coeff,sm.extract(m,'cdon.a-x'))
 		prdct = rbind(prdct,m.predict(m,'cdon.a-x',power.term=power.term))
 
@@ -330,7 +377,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			try(m.nls <- nls(cdon~c1*exp(-lambda*(x))+c0,data=data,
                      start=list(c1=-(max(data$cdon)-min(data$cdon)),lambda=0.2,c0=0)))
 			if (!is.null(m.nls))
-				print(summary(m.nls))
+				1 # print(summary(m.nls))
 		}
 
 		# copied from the newRegression procedure
@@ -462,7 +509,7 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 	}
 }
 
-plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main='',lty='solid') {
+plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main='',lty='solid',xlim=NULL,ylim=NULL) {
 	# toteutuneet luovutusmäärät
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
@@ -475,12 +522,17 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 
 	pah=estimates %>% 
 		group_by(rw,prd.year) %>%
-		summarise(est=sum(est),est=sum(est),.groups='drop') %>% 
+		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),.groups='drop') %>% 
 		rename(year=prd.year) %>%
 		inner_join(rv.1$grps,join_by(rw))
 
-	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw')],values_from='est',names_from=c('country'))) %>%
+	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi')],values_from='est',names_from=c('country'))) %>%
 		arrange(year)
+	df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi')],values_from='est.lo',names_from=c('country'))) %>%
+		arrange(year)
+	df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est')],values_from='est.hi',names_from=c('country'))) %>%
+		arrange(year)
+
 
 	# plot predictions
 	if (!is.null(filename)) {
@@ -488,11 +540,20 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		png(filename,width=9*png.res,height=7*png.res,res=png.res)
 	}
 
-	plot(NULL,xlim=c(2000,2035),ylim=c(0,3e3),ylab='number of donations (in 1,000)',xlab='year',main=main)
+	# TODO There is significant hard-coding here: nc multiplier and using countries instead of groups
+	# But groups in general would be hard to plot
+	if (is.null(xlim)) 
+		xlim=c(2000,2035)
+	if (is.null(ylim)) 
+		ylim=c(0,2.5e3)
+	
+	plot(NULL,xlim=xlim,ylim=ylim,ylab='number of donations (in 1,000)',xlab='year',main=main)
 	cns=grep('..',colnames(df3),value=TRUE)
 	for (cn in cns) {
-		multiplier = (if (cn=='nc') 100 else 1)
+		multiplier = (if (cn=='nc') 100 else 1) # nb! Navarre hard-coded thing
 		lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty=lty,col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
+		lines(df3.lo$year,multiplier*df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
+		lines(df3.hi$year,multiplier*df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
 		points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
 	}
 
@@ -583,70 +644,70 @@ plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 # The remaining parts are legacy functions that may still be useful
 # Obsolete functions deleted in dev branch on 2025-08-22 (cut locally to removed-parts.r)
 plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
-  if (!diff) {
-    colfunc <- colorRampPalette(c("white","green"))
-    cut.lower  = min(distm,na.rm=TRUE)-0.1
-    cut.higher = max(distm,na.rm=TRUE)+0.1
-  } else {
-    colfunc <- colorRampPalette(c('red','white','blue'))
-    abs.extreme = max(abs(distm),na.rm=TRUE) + 0.1
-    cut.lower = -abs.extreme
-    cut.higher = abs.extreme
-  }
-  
-  # fill.cut=cut(value,seq(min(distm,na.rm=TRUE)-0.1,max(distm,na.rm=TRUE)+0.1,length.out=50))
-  fill.seq = seq(cut.lower, cut.higher, length.out = 51)
-  # indexing: the skip.years first lines are removed to counter for the effect of pre-2000 donors
-  p=ggplot(melt(t(distm[(1+skip.years):dim(distm)[1],])), aes(Var1, Var2, fill=value, label=round(value, 1))) + # cut(value,fill.seq)
-    geom_tile()
-  if (diff)
-    p = p + scale_fill_gradient2(midpoint = 0, low = "red", mid = "white", high = "blue") 
-  else
-    p = p + scale_fill_gradient2(low = "white", high='green')
-  p = p + geom_text(color="black") + 
-    guides(fill="none") +
-    xlab('time since first donation') +
-    ylab('year of first donation') + 
-    labs(title=main) + 
-    scale_y_reverse()
-  print(p)
+	if (!diff) {
+		colfunc <- colorRampPalette(c("white","green"))
+		cut.lower	= min(distm,na.rm=TRUE)-0.1
+		cut.higher = max(distm,na.rm=TRUE)+0.1
+	} else {
+		colfunc <- colorRampPalette(c('red','white','blue'))
+		abs.extreme = max(abs(distm),na.rm=TRUE) + 0.1
+		cut.lower = -abs.extreme
+		cut.higher = abs.extreme
+	}
+	
+	# fill.cut=cut(value,seq(min(distm,na.rm=TRUE)-0.1,max(distm,na.rm=TRUE)+0.1,length.out=50))
+	fill.seq = seq(cut.lower, cut.higher, length.out = 51)
+	# indexing: the skip.years first lines are removed to counter for the effect of pre-2000 donors
+	p=ggplot(melt(t(distm[(1+skip.years):dim(distm)[1],])), aes(Var1, Var2, fill=value, label=round(value, 1))) + # cut(value,fill.seq)
+		geom_tile()
+	if (diff)
+		p = p + scale_fill_gradient2(midpoint = 0, low = "red", mid = "white", high = "blue") 
+	else
+		p = p + scale_fill_gradient2(low = "white", high='green')
+	p = p + geom_text(color="black") + 
+		guides(fill="none") +
+		xlab('time since first donation') +
+		ylab('year of first donation') + 
+		labs(title=main) + 
+		scale_y_reverse()
+	print(p)
 }
 
 plotDelayBySex = function(activity.stats.sex,country) {
-  # plot(activity.stats$ord,activity.stats$delay,
-  #      xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3,main=country)
-  
-  plot(NULL,xlab='number of previous donations',ylab='delay until next donation',
-       type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$delay)),main=country)
-  if (is.factor(activity.stats.sex$Sex)) {
-    sexes = levels(activity.stats.sex$Sex)
-  } else
-    sexes = unique(activity.stats.sex$Sex)
-  for (i in 1:length(sexes)) {
-    sx = sexes[i]
-    data = activity.stats.sex[activity.stats.sex$Sex==sx,]
-    lines(data$ord,data$delay,col=i+1,lwd=2)
-  }
-  legend('bottomright',legend=sexes,fill=1+1:length(sexes))
+	# plot(activity.stats$ord,activity.stats$delay,
+	#			xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3,main=country)
+	
+	plot(NULL,xlab='number of previous donations',ylab='delay until next donation',
+			 type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$delay)),main=country)
+	if (is.factor(activity.stats.sex$Sex)) {
+		sexes = levels(activity.stats.sex$Sex)
+	} else
+		sexes = unique(activity.stats.sex$Sex)
+	for (i in 1:length(sexes)) {
+		sx = sexes[i]
+		data = activity.stats.sex[activity.stats.sex$Sex==sx,]
+		lines(data$ord,data$delay,col=i+1,lwd=2)
+	}
+	legend('bottomright',legend=sexes,fill=1+1:length(sexes))
 }
 
 plotPropBySex = function(activity.stats.sex,country) {
-  # plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),ylim=c(0,100*max(activity.stats$prop)),
-  # type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)',main=country)
-  
-  plot(NULL,xlab='number of previous donations',ylab='probability of next donation (%)',
-       type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$prop)),main=country)
-  
-  if (is.factor(activity.stats.sex$Sex)) {
-    sexes = levels(activity.stats.sex$Sex)
-  } else
-    sexes = unique(activity.stats.sex$Sex)
-  for (i in 1:length(sexes)) {
-    sx = sexes[i]
-    data = activity.stats.sex[activity.stats.sex$Sex==sx,]
-    lines(data$ord,data$prop,col=i+1,lwd=2)
-  }
-  legend('bottomright',legend=sexes,fill=1+1:length(sexes))
+	# plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),ylim=c(0,100*max(activity.stats$prop)),
+	# type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)',main=country)
+	
+	plot(NULL,xlab='number of previous donations',ylab='probability of next donation (%)',
+			 type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$prop)),main=country)
+	
+	if (is.factor(activity.stats.sex$Sex)) {
+		sexes = levels(activity.stats.sex$Sex)
+	} else
+		sexes = unique(activity.stats.sex$Sex)
+	for (i in 1:length(sexes)) {
+		sx = sexes[i]
+		data = activity.stats.sex[activity.stats.sex$Sex==sx,]
+		lines(data$ord,data$prop,col=i+1,lwd=2)
+	}
+	legend('bottomright',legend=sexes,fill=1+1:length(sexes))
 }
 
 # utility functions
