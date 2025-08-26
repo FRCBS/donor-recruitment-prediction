@@ -42,7 +42,7 @@ rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=a
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon-x.a+year0'))) # cdon.a-x-year0
-estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='don-x.a+year0',cumulative=FALSE))) # cdon.a-x-year0
+estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='don-x.a+year0+x1',cumulative=FALSE))) # cdon.a-x-year0
 
 #
 predictDonations2(rv.2,model='cdon-x.a+year0')
@@ -52,8 +52,8 @@ which(estimates$est.lo>estimates$est.hi)
 estimates[1:10,]
 # drafting ends
 
-plotPredictions(rv.3p,models='all')
-plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump')
+plotPredictions(rv.3p,models='don-x.a')
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump (no-x1)')
 plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump',filename=paste0('../fig/estimate-vs-actual-discrete.png'))
 
 #### Plotting the coefficients

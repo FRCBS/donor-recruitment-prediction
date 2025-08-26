@@ -17,10 +17,12 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 		pred.d[pred.d$year0==0,'year0']=NA
 	} else {
 		pred.d=rv$prdct
-		neg.lwr=which(pred.d$lwr<0)
-		neg.upr=which(pred.d$upr<0)
-		pred.d$lwr[neg.lwr]=0
-		pred.d$upr[neg.upr]=0
+		for (col.index in 1:3) 
+			pred.d[,col.index]=pmax(pred.d[,col.index],0)
+		# neg.lwr=which(pred.d$lwr<0)
+		# neg.upr=which(pred.d$upr<0)
+		# pred.d$lwr[neg.lwr]=0
+		# pred.d$upr[neg.upr]=0
 	}
 
 	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
@@ -167,6 +169,10 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			new.data$sqrt.x=new.data$x^0.5
 		if ('x.pwr' %in% names(m$model))
 			new.data$x.pwr=new.data$x^power.term
+		if ('x1' %in% names(m$model)) {
+			new.data$x1=0
+			new.data$x1[new.data$x==1]=1
+		}
 
 		year0.col=NULL
 		if (!is.null(years)) {
@@ -277,6 +283,27 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		coeff = rbind(coeff,sm.extract(m,'don-x.a'))
 		prdct = rbind(prdct,m.predict(m,'don-x.a',power.term=power.term.d))
 
+		# 2025-08-25
+		m=lm(don~x.pwr,data=data[data$x>1,])
+		coeff = rbind(coeff,sm.extract(m,'don-x.a+x1'))
+		prdct0=m.predict(m,'don-x.a+x1',power.term=power.term.d)
+prdct0[1,1:3]=prdct0[1,1:3]+as.numeric((data[1,'don']-prdct0[1,1])) # this doesn't work too well with multiple years
+m=lm(don~x.pwr,data=data)
+prdct2=m.predict(m,'don-x.a+x1',power.term=power.term.d)
+
+# bsAssign('power.term.d')
+# bsAssign('data')
+# bsAssign('prdct0')
+# bsAssign('prdct2')
+print(paste('cut','original','cut-original'))
+print(paste(
+sum((prdct0$fit[1:length(data$don)]-data$don)^2),
+sum((prdct2$fit[1:length(data$don)]-data$don)^2),
+sum((prdct0$fit[1:length(data$don)]-data$don)^2)-
+sum((prdct2$fit[1:length(data$don)]-data$don)^2)))
+
+		prdct = rbind(prdct,prdct0)
+
 		# data2=data[as.integer(as.character(data$year0))>=2012,]
 		data2=data
 
@@ -315,11 +342,12 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			coeff = rbind(coeff,sm.extract(m,'cdon-x.a+year0'))
 			prdct = rbind(prdct,m.predict(m,'cdon-x.a+year0',power.term=power.term)) # power.term converts the predictions
 
-			###3 2025-08-22 newly added things
+			### 2025-08-22 newly added things
+# bsAssign('data')
+# bsAssign('power.term.d')
 			data$x.pwr=data$x^power.term.d
 			m=lm(log(don)~0+year0+log(x),data=data)
 			sm=summary(m)
-			# print(sm)
 			coeff = rbind(coeff,sm.extract(m,'log(don)-year0-log'))
 			prdct = rbind(prdct,m.predict(m,'log(don)-year0-log'))
 
@@ -327,6 +355,12 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			coeff = rbind(coeff,sm.extract(m,'don-x.a+year0'))
 			prdct = rbind(prdct,m.predict(m,'don-x.a+year0',power.term=power.term.d)) # power.term converts the predictions
 			data$x.pwr=data$x^power.term
+
+			data$x1=0
+			data$x1[data$ord==1]=1
+			m=lm(cdon~x.pwr+year0+0+x1,data=data)
+			coeff = rbind(coeff,sm.extract(m,'don-x.a+year0+x1'))
+			prdct = rbind(prdct,m.predict(m,'don-x.a+year0+x1',power.term=power.term.d))
 			###
 
 			# linear model with converted response variable

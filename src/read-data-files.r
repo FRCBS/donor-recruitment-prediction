@@ -269,6 +269,13 @@ colours$fr='red3'
 colours$au='#007F3B' # 'green3'
 colours$nc='black'
 
+cn.names=list()
+cn.names$fi='Finland'
+cn.names$nl='Netherlands'
+cn.names$fr='France'
+cn.names$au='Australia'
+cn.names$nc='Navarre'
+
 colfun = function(x) {
 	colours[[x]]
 }
