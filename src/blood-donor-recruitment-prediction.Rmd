@@ -48,23 +48,25 @@ if (grepl('[/\\]src[/\\]?',param$wd)) {
    param$wd = sub('[/\\]src(data)?([/\\]?)$','\\2',param$wd)
 }
 
-param$data.file = file.path(param$wd,'donationdata.Rdata')
+param$data.file = file.path('c:/git_repot/data/','navarra.Rdata')
 # param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata" # fi
 
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
 # These parameters do not affect the exported distribution matrix (distm) but
 # are exported as part of the xlsx file for information
-param$reference.year=2003
+param$reference.year=2007
 param$last.data.year=2023
 
 # This should not be modified: the intent is to use the classification Office/Mobile for donation place types
 param$useOfficeMobile = TRUE
 
+param$country = 'nv'
+
 # This limit is applied to each group and year combination: if the number of (first-time) donors
 # is below the limit, no size data will be exported and the rows will be omitted from the distribution matrix (distm).
 # The data will still be included in the age distribution (dista): this data is aggregated in groups of five years.
-param$min.group.year.size=30
+param$min.group.year.size=5
 ```
 
 ```{r group-definitions}
@@ -906,9 +908,36 @@ exportSummary = function(gt, res, filename) {
 
 ```{r export-summary-data}
 exportSummary(nd,res.nd,param$result.file)
+# write.xlsx(list(fal=res.nd[[16]]$distm),'test.xlsx',rowNames=TRUE)
+# str(res.nd[[16]]$dism)
+
+res.nd[[16]]$distm
+conv
+
+conv=res.nd[[16]]$distm %>%
+  t() %>%
+  as_tibble() %>%
+  tidyr::fill(everything(), .direction = "downup") %>%
+  t() %>%
+  as_tibble() %>%
+  set_names(names(as_tibble(res.nd[[16]]$distm)))
+rownames(conv)=rownames(res.nd[[16]]$distm)
 ```
 
 Plotting the results
+
+```{r}
+if (FALSE) {
+  res.nd=countries$au$res
+  nd=countries$au$gt
+  activity.stats=countries$au$activity.stats
+  activity.stats.sex=countries$au$activity.stats.sex
+  param$reference.year=2012
+  param$last.data.year=2024
+  param$country = 'au'
+}
+```
+
 
 ```{r plot-groups}
 # 2024-08-08 This draws the plot for each group of both new and existing donors
@@ -930,8 +959,6 @@ nd.cad.multiplier = max(colSums(dona.nd)) / nd.annual
 
 # dona.ed = sumDonationAmounts(res.ed,ed,TRUE)
 ```
-
-
 
 ```{r}
 # 2024-08-08
@@ -988,12 +1015,12 @@ plotPropBySex = function(activity.stats.sex,country) {
 
 
 ```{r}
-plotDelayBySex(activity.stats.sex,'nl')
+plotDelayBySex(activity.stats.sex,param$country)
 ```
 
 
 ```{r}
-plotPropBySex(activity.stats.sex,'fi')
+plotPropBySex(activity.stats.sex,param$country)
 ```
 
 ```{r}
