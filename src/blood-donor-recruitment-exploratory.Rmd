@@ -81,7 +81,7 @@ summary(et)
 
 ```{r fake-data}
 
-if (TRUE) {
+if (FALSE) {
 set.seed(2030)
 et <- et %>% filter(country == 'fi') %>% 
   mutate(
@@ -182,7 +182,7 @@ summary(activity.stats.sex)
 
 ```{r fake-data-2}
 
-if (TRUE) {
+if (FALSE) {
 set.seed(2030)
 activity.stats.sex <- activity.stats.sex %>% filter(country == 'fi') %>% 
   mutate(
@@ -363,6 +363,7 @@ p <- p + geom_ribbon(aes(x = ord, ymin = ciplower,ymax=cipupper,fill=country), a
 p <- p + facet_grid(.~Sex)
 p <- p + xlab("Number of consecutive donation event") + ylab("Probability of next donation")
 p <- p + scale_x_log10(limits=c(1,40)) # # how to take into account variable length of data by country?
+p <- p + scale_y_continuous(limits=c(0.3,1))
 p <- p + guides(
   color = guide_legend(title = "Country")
   )
@@ -377,6 +378,7 @@ p <- ggplot(activity.stats.sex)
 p <- p + geom_ribbon(aes(x = ord, ymin = cidelower,ymax=cideupper,fill=country))
 p <- p + facet_grid(.~Sex)
 p <- p + scale_y_log10()
+p <- p + scale_x_continuous(limits = c(0,75))
 p <- p + xlab("Number of consecutive donation event") +  ylab("Delay in days to next donation")
 p
 ```
