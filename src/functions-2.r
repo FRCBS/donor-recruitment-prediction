@@ -10,6 +10,7 @@ prd.cumulative2density = function(pah) {
 
 
 predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5,cumulative=TRUE) {
+# bsAssign('rv')
 	if (cumulative) {
 		rv$prdct[is.na(rv$prdct$year0),'year0']=0
 		tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
@@ -19,10 +20,6 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 		pred.d=rv$prdct
 		for (col.index in 1:3) 
 			pred.d[,col.index]=pmax(pred.d[,col.index],0)
-		# neg.lwr=which(pred.d$lwr<0)
-		# neg.upr=which(pred.d$upr<0)
-		# pred.d$lwr[neg.lwr]=0
-		# pred.d$upr[neg.upr]=0
 	}
 
 	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
@@ -86,11 +83,16 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
 	} else {
+		# prd.years ~ yksinkertainen lista ennustettavista vuosista
+		# sizes.data ~ tunnetut uusien luovuttajien lukumäärät (jatkettu ennustevälille)
 		pah.has.year0=cross_join(prd.years,sizes.data) %>%
 			inner_join(prd.data,join_by(rw,year0)) %>%
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
+
+pah.has.year0 %>%
+	filter(rw==2,prd.year==2002)
 
 		pah=cross_join(prd.years,sizes.data) %>%
 			left_join(prd.data,join_by(rw,year0)) %>%
@@ -103,15 +105,20 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr) %>%
 			rbind(pah.has.year0)
+
+pah %>%
+	filter(rw==2,prd.year==2002)
+
 	}
 
+	return(pah)
+
+# print(agedist.local)
 	tmp=by(agedist.local,agedist.local[,c('rw')],FUN=function(x) {
 		x$cumulative=cumsum(x$density)
 		x
 	})
 	agedist.cum=array2DF(tmp,simplify=TRUE)[,-1]
-
-	# return(pah)
 
 	pah2=pah %>%
 		# 66: jos täytti vuonna year0=2010 esim. 50 vuotta, ja x rivillä on esim. 15, kyse on 
@@ -287,24 +294,22 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		m=lm(don~x.pwr,data=data[data$x>1,])
 		coeff = rbind(coeff,sm.extract(m,'don-x.a+x1'))
 		prdct0=m.predict(m,'don-x.a+x1',power.term=power.term.d)
-prdct0[1,1:3]=prdct0[1,1:3]+as.numeric((data[1,'don']-prdct0[1,1])) # this doesn't work too well with multiple years
-m=lm(don~x.pwr,data=data)
-prdct2=m.predict(m,'don-x.a+x1',power.term=power.term.d)
+		prdct0[1,1:3]=prdct0[1,1:3]+as.numeric((data[1,'don']-prdct0[1,1])) # this doesn't work too well with multiple years
+		# m=lm(don~x.pwr,data=data)
+		# prdct2=m.predict(m,'don-x.a+x1',power.term=power.term.d)
 
-# bsAssign('power.term.d')
-# bsAssign('data')
-# bsAssign('prdct0')
-# bsAssign('prdct2')
-print(paste('cut','original','cut-original'))
-print(paste(
-sum((prdct0$fit[1:length(data$don)]-data$don)^2),
-sum((prdct2$fit[1:length(data$don)]-data$don)^2),
-sum((prdct0$fit[1:length(data$don)]-data$don)^2)-
-sum((prdct2$fit[1:length(data$don)]-data$don)^2)))
+		if (FALSE) {
+			# comparing the squared error between the alternate models
+			print(paste('cut','original','cut-original'))
+			print(paste(
+				sum((prdct0$fit[1:length(data$don)]-data$don)^2),
+				sum((prdct2$fit[1:length(data$don)]-data$don)^2),
+				sum((prdct0$fit[1:length(data$don)]-data$don)^2)-
+				sum((prdct2$fit[1:length(data$don)]-data$don)^2)))
+		}
 
 		prdct = rbind(prdct,prdct0)
 
-		# data2=data[as.integer(as.character(data$year0))>=2012,]
 		data2=data
 
 		# the power-conversion happens here
@@ -343,8 +348,6 @@ sum((prdct2$fit[1:length(data$don)]-data$don)^2)))
 			prdct = rbind(prdct,m.predict(m,'cdon-x.a+year0',power.term=power.term)) # power.term converts the predictions
 
 			### 2025-08-22 newly added things
-# bsAssign('data')
-# bsAssign('power.term.d')
 			data$x.pwr=data$x^power.term.d
 			m=lm(log(don)~0+year0+log(x),data=data)
 			sm=summary(m)
@@ -356,9 +359,12 @@ sum((prdct2$fit[1:length(data$don)]-data$don)^2)))
 			prdct = rbind(prdct,m.predict(m,'don-x.a+year0',power.term=power.term.d)) # power.term converts the predictions
 			data$x.pwr=data$x^power.term
 
+bsAssign('data')
+bsAssign('power.term.d')
 			data$x1=0
 			data$x1[data$ord==1]=1
-			m=lm(cdon~x.pwr+year0+0+x1,data=data)
+			data$x.pwr=data$x^power.term.d
+			m=lm(don~x.pwr+year0+0+x1,data=data)
 			coeff = rbind(coeff,sm.extract(m,'don-x.a+year0+x1'))
 			prdct = rbind(prdct,m.predict(m,'don-x.a+year0+x1',power.term=power.term.d))
 			###
@@ -558,7 +564,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		group_by(rw,prd.year) %>%
 		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),.groups='drop') %>% 
 		rename(year=prd.year) %>%
-		inner_join(rv.1$grps,join_by(rw))
+		inner_join(grps,join_by(rw)) # nb! global variable
 
 	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi')],values_from='est',names_from=c('country'))) %>%
 		arrange(year)
@@ -566,7 +572,6 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		arrange(year)
 	df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est')],values_from='est.hi',names_from=c('country'))) %>%
 		arrange(year)
-
 
 	# plot predictions
 	if (!is.null(filename)) {
@@ -632,6 +637,7 @@ plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 	df = df %>%
 		arrange(rw,desc(year0))
 
+	# lines connecting the points (if multiple points/years are available)
 	vd=by(df,df[,c('rw')],FUN=function(x) {
 			if (dim(x)[1] <= 1) {
 				return(NULL)

@@ -24,6 +24,7 @@ file.paths = paste(param$data.directory,'/',file.names,sep='')
 countries = list()
 gt = NULL
 for (file in file.paths) {
+print(file)
 	identifier = sub('.+[/\\]([a-z]+)[^/\\]+$','\\1',file) # gsub('.*\\\\(..).*\\.xlsx$','\\1',file)
 	if (nchar(identifier) > 2) 
 		next
@@ -33,6 +34,7 @@ for (file in file.paths) {
 	
 	sheet.names = getSheetNames(file)
 	for (sn in sheet.names) {
+print(sn)
 		data = read.xlsx(file,colNames=TRUE,rowNames=TRUE,sheet = sn)
 		if (grepl(' def(inition)?$',sn)) {
 			if (is.null(gt)) {
@@ -84,6 +86,7 @@ et=NULL # main exploratory data set
 activity.stats=NULL # combined activity stats
 activity.stats.sex=NULL # combined activity stats + grouped by sex
 for (cn in names(countries)) {
+	print(cn)
 	country = countries[[cn]]
 	asincr = cbind(country=cn,country$activity.stats)
 	asincr.sex = cbind(country=cn,country$activity.stats.sex)
@@ -121,7 +124,14 @@ for (cn in names(countries)) {
 			cols = colnames(dista)[-1]
 		}
 		
-		dista[,cols] = apply(data.frame(dista[,cols]),2,FUN=cumulativeToDensity)
+
+		# 2025-09-03 the ct dista-data is broken, let's fix it with an artificial distribution
+		if (is.data.frame(dista)) {
+			dista[,cols] = apply(data.frame(dista[,cols]),2,FUN=cumulativeToDensity)
+		} else {
+			dista=data.frame(age=dista,"2012"=1/(1:length(dista)))
+			colnames(dista)[2]=2011
+		}
 		
 		# Add an extra column to make sure some distribution will be available when using the closest <= condition below
 		max.year = max(as.integer(colnames(dista[cols]),na.rm=FALSE))
@@ -158,11 +168,14 @@ for (cn in names(countries)) {
 	}
 }
 
+table(et$country)
+
 # 2025-08-13
 # select and normalize (no NA's, maximum value 1) the age distributions
 # Selecting the most recent year with an age distribution of reasonable length
 agedist=data.frame(country=character(),gr.name=character(),age=integer(),density=numeric())
 for (cn in names(countries)) {
+	break
 	# print(paste('*********',cn))
 	for (i in 1:length(countries[[cn]]$res)) {
 		# print(countries[[cn]]$res[[i]]$dista)
@@ -268,6 +281,8 @@ colours$nl='orange'
 colours$fr='red3'
 colours$au='#007F3B' # 'green3'
 colours$nc='black'
+colours$ct='purple'
+
 
 cn.names=list()
 cn.names$fi='Finland'
@@ -275,6 +290,7 @@ cn.names$nl='Netherlands'
 cn.names$fr='France'
 cn.names$au='Australia'
 cn.names$nc='Navarre'
+cn.names$ct='Catalonia'
 
 colfun = function(x) {
 	colours[[x]]

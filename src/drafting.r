@@ -18,7 +18,7 @@ source('functions-2.r')
 #######
 # What are the parameters here?
 #  - 
-model='don-x.a'
+model='don-x.a+x1'
 cumulative=FALSE
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
 tst=rlist[lengths(rlist)!=0]
@@ -30,9 +30,12 @@ estimates.year0.models=rbind(estimates0,estimates.tail)
 coeff.year0.models=do.call(rbind,lapply(tst,FUN=function(x) cbind(x$coeff,year0=min(x$prdct$year0.lo)))) 
 
 # estimates = estimates.year0.models
-plotEstimatesVsActual(et,estimates.year0.models,spec)
+plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,500))
+plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',
+	filename=paste0('../fig/estimate-vs-actual-discrete.png'))
 
-plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',filename=paste0('../fig/estimate-vs-actual-lump.png'))
+table(estimates.year0.models$rw)
+rv.1$grps
 
 #######
 # All years (after 2nd) as a lump
@@ -41,26 +44,30 @@ rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=a
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
-estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='cdon-x.a+year0'))) # cdon.a-x-year0
+# estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='log-year0-log'))) # cdon.a-x-year0
 estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='don-x.a+year0+x1',cumulative=FALSE))) # cdon.a-x-year0
 
-#
-predictDonations2(rv.2,model='cdon-x.a+year0')
-which(rv.2$prdct$lrw>rv.2$prdct$upr)
-which(rv.3p$prdct$lrw>rv.3p$prdct$upr)
-which(estimates$est.lo>estimates$est.hi)
-estimates[1:10,]
+# nb! todo Must pass grps as parameter
+# grps=rv.1$grps
+
+if (FALSE) {
+	predictDonations2(rv.2,model='cdon-x.a+year0')
+	which(rv.2$prdct$lrw>rv.2$prdct$upr)
+	which(rv.3p$prdct$lrw>rv.3p$prdct$upr)
+	which(estimates$est.lo>estimates$est.hi)
+	estimates[1:10,]
+}
 # drafting ends
 
-plotPredictions(rv.3p,models='don-x.a')
-plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump (no-x1)')
-plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump',filename=paste0('../fig/estimate-vs-actual-discrete.png'))
+# plotPredictions(rv.3p,models='cdon-x.a')
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1'),ylim=c(100,500))
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1',filename=paste0('../fig/estimate-vs-actual-lump.png'))
 
 #### Plotting the coefficients
 filename=paste0('../fig/estimates-2d.png')
 png.res=100
 png(filename,width=1080,height=1080,res=150) # ,width=png.res*9,height=png.res*6)
-plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='multiplier')
+plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.3),xlab='exponent',ylab='multiplier')
 
 phase='log-log'
 dparam=c('log.x.','.Intercept.')
@@ -83,6 +90,9 @@ plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
 rv=getGroupEstimates2(et,spec.list$country.bloodgr,plot='curve',try.nls=FALSE)
 plotCoeffData(rv$coeff,spec.list$country.bloodgr,rv$grps,phase,dparam,vfun,TRUE)
 
+rv$coeff[rv$coeff$phase=='log-log',]
+rv$coeff %>% filter(phase==phase)
+
 # contours
 b = seq(0.3,0.75,len=50)
 for (u in c(5,7.5,10,15,20,25,30)) {
@@ -104,8 +114,52 @@ dev.off()
 filename=paste0('../fig/estimates-2d-trajectories.png')
 png.res=100
 png(filename,width=1080,height=1080,res=150) # ,width=png.res*9,height=png.res*6)
-plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.1),xlab='exponent',ylab='multiplier')
+plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
 plotCoeffData(coeff.year0.models,spec.list$country,rv.3p$grps,phase,dparam,vfun,FALSE)
 legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
-legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=rv.3p$grps$country)
+legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]))
 dev.off()
+
+# Miksi Australian vuodet ovat 2000-2010, vaikka data on vuosilta 2010-2023?
+coeff.year0.models[coeff.year0.models$phase=='log-log'&coeff.year0.models$rw==1,]
+table(coeff.year0.models$rw)
+
+tst2$prdct[tst2$prdct$phase=='log-log'&tst2$prdct$rw==1,]
+
+coeff.year0.models %>%
+	group_by(rw) %>%
+	summarise(min.year0=min(year0),max.year0=max(year0))
+
+pt=getGroupEstimates2(et,spec,year0.ord=1,agedist=agedist,save.years.from.end=5)
+
+# getStuff = function(pt,rw) pt[pt$phase=='log-log'&pt$rw==1,]
+
+pt$prdct[pt$prdct$phase=='log-log'&pt$prdct$rw==1,]
+
+# The numbers here are not extraorbitant
+rv.3p$prdct[rv.3p$prdct$phase=='log-log'&rv.3p$prdct$rw==2,]
+
+rv=rv.3p
+
+options(warn=2)
+
+tuh=predictDonations2(rv.3p,model='don-x.a+year0+x1',cumulative=FALSE)
+str(tuh)
+tuh[tuh$rw==2&tuh$prd.year==2003,]
+
+tuh %>% filter(prd.year==2002)
+
+estimates[estimates$rw==2&estimates$prd.year==2002,]
+
+prd.data[prd.data$rw==2&prd.data$year0==2002,][1:10,]
+prd.data=prd.data[prd.data$rw==2,]
+
+str(rv.3p$prdct)
+rv.1$prdct %>% filter(rw==2,phase=='don-x.a+x1',x==1)
+rv.2$prdct %>% filter(rw==2,phase=='don-x.a+x1',x==1)
+rv.3p$prdct %>% filter(rw==3,phase=='don-x.a+year0',x<5)
+
+rv.3p$prdct %>% filter(rw==2,year0==2002,x<5)
+table(rv.3p$prdct)
+
+# ok, vika on siis lopulta ainakin 'don-x.a+year0+x1'-ennusteessa (olisikohan väärä power siellä)
