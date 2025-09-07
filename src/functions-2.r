@@ -91,9 +91,6 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
 
-pah.has.year0 %>%
-	filter(rw==2,prd.year==2002)
-
 		pah=cross_join(prd.years,sizes.data) %>%
 			left_join(prd.data,join_by(rw,year0)) %>%
 			filter(is.na(fit)) %>%
@@ -105,15 +102,10 @@ pah.has.year0 %>%
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr) %>%
 			rbind(pah.has.year0)
-
-pah %>%
-	filter(rw==2,prd.year==2002)
-
 	}
 
 	return(pah)
 
-# print(agedist.local)
 	tmp=by(agedist.local,agedist.local[,c('rw')],FUN=function(x) {
 		x$cumulative=cumsum(x$density)
 		x
@@ -155,7 +147,9 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	sp.m.year0=list()
 
 	sm.extract = function(m,phase) {
-		sm=summary(m)$coeff
+bsAssign('m')
+		sm=data.frame(summary(m)$coeff)
+		sm['r.squared','Estimate']=summary(m)$r.squared
 		data.frame(parameter=rownames(sm),sm,phase=phase)
 	}
 
@@ -549,7 +543,7 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 	}
 }
 
-plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main='',lty='solid',xlim=NULL,ylim=NULL) {
+plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',xlim=NULL,ylim=NULL) {
 	# toteutuneet luovutusmäärät
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
@@ -577,6 +571,12 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	if (!is.null(filename)) {
 		png.res=150
 		png(filename,width=9*png.res,height=7*png.res,res=png.res)
+			# par('mar')
+			# default: 5.1  4.1  4.1   2.1
+			#      bottom, left, top, right
+		if (is.null(main)) {
+			par(mar=c(2.2,4.1,0.5,0.6))
+		}
 	}
 
 	# TODO There is significant hard-coding here: nc multiplier and using countries instead of groups
@@ -584,7 +584,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	if (is.null(xlim)) 
 		xlim=c(2000,2035)
 	if (is.null(ylim)) 
-		ylim=c(0,2.5e3)
+		ylim=c(0,2e3)
 	
 	plot(NULL,xlim=xlim,ylim=ylim,ylab='number of donations (in 1,000)',xlab='year',main=main)
 	cns=grep('..',colnames(df3),value=TRUE)
@@ -595,6 +595,8 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		lines(df3.hi$year,multiplier*df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
 		points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
 	}
+
+	legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(x) cn.names[[x]]))
 
 	if (!is.null(filename))
 		dev.off()

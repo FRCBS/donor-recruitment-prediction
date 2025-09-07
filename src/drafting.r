@@ -1,5 +1,7 @@
 source('functions-2.r')
 
+library(xtable)
+
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
 # aggregated, must add an extra step for this
 # These are written to files by default; just used for reference
@@ -59,14 +61,14 @@ if (FALSE) {
 }
 # drafting ends
 
-# plotPredictions(rv.3p,models='cdon-x.a')
-plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1'),ylim=c(100,500))
-plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1',filename=paste0('../fig/estimate-vs-actual-lump.png'))
+# plotPredictions(rv.3p,models='all')
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1') # ,ylim=c(100,500))
+plotEstimatesVsActual(et,estimates,spec,filename=paste0('../submit/figure-d forecasted-donations.png'))
 
 #### Plotting the coefficients
-filename=paste0('../fig/estimates-2d.png')
-png.res=100
-png(filename,width=1080,height=1080,res=150) # ,width=png.res*9,height=png.res*6)
+filename=paste0('../submit/parameters.png')
+png.res=150
+png(filename,width=7*png.res,height=7*png.res,res=png.res)
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.3),xlab='exponent',ylab='multiplier')
 
 phase='log-log'
@@ -111,9 +113,9 @@ dev.off()
 
 #####
 # trajectories of parameters (from models estimated individually for each year)
-filename=paste0('../fig/estimates-2d-trajectories.png')
-png.res=100
-png(filename,width=1080,height=1080,res=150) # ,width=png.res*9,height=png.res*6)
+filename=paste0('../submit/parameter-trajectories.png')
+# png.res=100
+png(filename,width=7*png.res,height=7*png.res,res=png.res)
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
 plotCoeffData(coeff.year0.models,spec.list$country,rv.3p$grps,phase,dparam,vfun,FALSE)
 legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
@@ -163,3 +165,62 @@ rv.3p$prdct %>% filter(rw==2,year0==2002,x<5)
 table(rv.3p$prdct)
 
 # ok, vika on siis lopulta ainakin 'don-x.a+year0+x1'-ennusteessa (olisikohan väärä power siellä)
+# väärä selitettävä muuttuja, lisäksi x.pwr-arvot olivat pielessä
+
+###############
+### html-output
+# table of r2-values
+captions=list()
+
+r2.data=rv.3p$coeff %>% filter(parameter=='r.squared') %>% dplyr::select(Estimate,rw,phase)
+# pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
+r2.2=pivot_wider(r2.data,values_from='Estimate',names_from='rw')
+colnames(r2.2)=sapply(colnames(r2.2),FUN=function(x) cn.names[[grps[as.integer(x),'country']]])
+colnames(r2.2)[1]='Model'
+r2.2=cbind(r2.2,r2.mean=apply(r2.2[,2:ncol(r2.2)],1,mean))
+r2.2 = r2.2 %>% arrange(r2.mean)
+colnames(r2.2)[ncol(r2.2)]='Mean'
+
+html.template="<!DOCTYPE html>
+<html>
+<head>
+<style>
+html *
+{
+   font-size: 1em !important;
+   color: #000 !important;
+   font-family: Arial !important;
+}
+</style>
+</head>
+<body>
+¤table¤
+</body>
+</html>"
+html.table=paste(capture.output(print(xtable(r2.2,digits=5),type='html',include.rownames=FALSE)),collapse='\n')
+caption='<b>Table P</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
+html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
+cat(html.file)
+cat(html.file,file='../submit/table-c r2-values.html')
+
+# Parameter plots (these have been already written above to png files)
+# <td style='text-align:center; vertical-align:middle'></td> 
+
+html.table.parameters='<table><tr><td><img width=500 src="parameters.png"></td><td><img width=500 src="parameter-trajectories.png"></td></tr>
+<tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr></table>'
+
+captions$p='<b>Figure P </b>Estimated parameters for different blood services. (a) All the years taken together (3rd year onwards). 
+Significant differences between blood services and betweeen groups within blood services can be observed. The dashed lines 
+are contours of the estimated cumulative donations in 50 years. 
+(b) Parameters for blood services estimated separately for each year in data. Dark colours represent more recent years.'
+
+html.file=sub('¤table¤',html.table.parameters,html.template)
+cat(html.file)
+cat(html.file,file='../submit/figure-p parameters.html')
+
+captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations (test)'
+
+list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='<br><br>')
+html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='<p>')),html.template)
+cat(html.file)
+cat(html.file,file='../submit/list of legends.html')
