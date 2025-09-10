@@ -986,16 +986,6 @@ plotPropBySex = function(activity.stats.sex,country) {
 }
 ```
 
-
-```{r}
-plotDelayBySex(activity.stats.sex,'nl')
-```
-
-
-```{r}
-plotPropBySex(activity.stats.sex,'fi')
-```
-
 ```{r}
 knitr::knit_exit()
 ```
