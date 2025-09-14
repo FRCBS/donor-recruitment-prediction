@@ -180,6 +180,7 @@ colnames(r2.2)[1]='Model'
 r2.2=cbind(r2.2,r2.mean=apply(r2.2[,2:ncol(r2.2)],1,mean))
 r2.2 = r2.2 %>% arrange(r2.mean)
 colnames(r2.2)[ncol(r2.2)]='Mean'
+r2.2
 
 html.template="<!DOCTYPE html>
 <html>
@@ -224,3 +225,14 @@ list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]
 html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='<p>')),html.template)
 cat(html.file)
 cat(html.file,file='../submit/list of legends.html')
+
+# numbers of new donors
+data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
+plot(n2~year0,data=data,ylim=c(0,max(data$n2)))
+
+# table1
+# - luovuttajien ja luovutusten kokonaismäärät
+# - luovuttajien/luovutusten sukupuolijakauma
+# - office/mobile-jakauma
+# - veriryhmien osuudet luovuttajissa/luovutuksissa (vain O-/muut saatavilla)
+# - ikäjakaumastsa jotakin: ensiluovuttajien keskimääräinen ikä (ei haittaa,)
