@@ -1,7 +1,7 @@
 source('functions-2.r')
 
 # Must be moved to a better place
-plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(1,55),ylim=c(1,25)) {
+plotCountrySummaries(et,rv,estimates.year0.models,spec)
 
 # This should be changed
 shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
@@ -21,6 +21,8 @@ library(xtable)
 # Must do:
 #  - some confidence intervals needed
 
+agedist=NULL
+
 #######
 # Each year separately
 #######
@@ -29,6 +31,7 @@ library(xtable)
 model='don-x.a+x1'
 cumulative=FALSE
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
+grps=rlist[[1]]$grps
 tst=rlist[lengths(rlist)!=0]
 estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
 tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5)
@@ -38,12 +41,11 @@ estimates.year0.models=rbind(estimates0,estimates.tail)
 coeff.year0.models=do.call(rbind,lapply(tst,FUN=function(x) cbind(x$coeff,year0=min(x$prdct$year0.lo)))) 
 
 # estimates = estimates.year0.models
-plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,500))
+plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2000),grps=grps)
 plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',
 	filename=paste0('../fig/estimate-vs-actual-discrete.png'))
 
 table(estimates.year0.models$rw)
-rv.1$grps
 
 #######
 # All years (after 2nd) as a lump

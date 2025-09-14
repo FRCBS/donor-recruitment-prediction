@@ -10,15 +10,14 @@ prd.cumulative2density = function(pah) {
 
 # 2025-09-14 must add the computations for relative activity here (summing errors)
 predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5,cumulative=TRUE) {
-# bsAssign('rv')
 	if (cumulative) {
 		rv$prdct[is.na(rv$prdct$year0),'year0']=0
 		tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
-		pred.d=do.call(rbind,tmp[lengths(tmp)!=0]) # array2DF(tmp,simplify=TRUE)
+		pred.d=do.call(rbind,tmp[lengths(tmp)!=0])
 		pred.d[pred.d$year0==0,'year0']=NA
 	} else {
 		pred.d=rv$prdct
-		for (col.index in 1:3) 
+		for (col.index in 1:4) 
 			pred.d[,col.index]=pmax(pred.d[,col.index],0)
 	}
 
@@ -75,13 +74,15 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 	} else 
 		print('nothing to report')
 
+bsAssign('prd.data')
+
 	if (all(is.na(prd.data$year0))) {
 		pah=cross_join(prd.years,sizes.data) %>%
 			inner_join(prd.data[,colnames(prd.data) != 'year0'],
 				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
-			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
 	} else {
 		# prd.years ~ yksinkertainen lista ennustettavista vuosista
 		# sizes.data ~ tunnetut uusien luovuttajien lukumäärät (jatkettu ennustevälille)
@@ -89,7 +90,7 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 			inner_join(prd.data,join_by(rw,year0)) %>%
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
-			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr)
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
 
 		pah=cross_join(prd.years,sizes.data) %>%
 			left_join(prd.data,join_by(rw,year0)) %>%
@@ -100,7 +101,7 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
-			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr) %>%
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error) %>%
 			rbind(pah.has.year0)
 	}
 
@@ -532,13 +533,15 @@ bsAssign('power.term.d')
 			inner_join(data.frame(grps,rw=1:nrow(grps)),join_by(!!!syms(spec$dim.keep)))
 	}
 
+str(sp.prdct)
+
 	return(list(et.data=et.data,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),
 		coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct,
 		agedist=agedist.local))
 }
 
 # 2025-09-14
-plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(2000,2060),ylim=c(0,2e3)) {
+plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(2000,2035),ylim=c(0,2e3)) {
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
 		group_by(!!!syms(c('year',spec$dim.keep))) %>%
@@ -557,36 +560,52 @@ plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(2000,2060),ylim=c(0,
 
 	pah=estimates %>% 
 		group_by(rw,prd.year) %>%
-		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),.groups='drop') %>% 
+		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),error=sum(error,na.rm=TRUE),.groups='drop') %>% 
 		rename(year=prd.year) %>%
 		inner_join(grps,join_by(rw)) # nb! global variable
 
-	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi')],values_from='est',names_from=c('country'))) %>%
+	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','error')],values_from='est',names_from=c('country'))) %>%
 		arrange(year)
-	df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi')],values_from='est.lo',names_from=c('country'))) %>%
+	df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi','error')],values_from='est.lo',names_from=c('country'))) %>%
 		arrange(year)
-	df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est')],values_from='est.hi',names_from=c('country'))) %>%
+	df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est','error')],values_from='est.hi',names_from=c('country'))) %>%
 		arrange(year)
-
+	df3.err=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','est')],values_from='error',names_from=c('country'))) %>%
+		arrange(year)
+bsAssign('pah')
+bsAssign('df3.err')
 	for (rw in rv$grps$rw) {
 		cn=rv$grps$country[rw]
-		filename=paste0('../submit/',cn,'-summary.png')
+
+		wh.min=min(which(!is.na(df3[[cn]])))
+		y0=df3[[cn]][wh.min]
+		y.max=max(df3.hi[[cn]],na.rm=TRUE)
+
+		filename=paste0('../submit/summary-',cn,'.png')
 		resolution=150
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
-		plot(x=NULL,xlim=xlim,ylim=c(0,max(df3.hi[[cn]]/1000,na.rm=TRUE)),
-			xlab='year',ylab='indexed values'
-			#,main=paste(rv$grps[rw,setdiff(colnames(rv$grps),'rw')])
+		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
+		plot(x=NULL,xlim=xlim,ylim=c(0,100*y.max/y0),
+			xlab='year',ylab='indexed values()'
 		)
 
-		lines(df3$year,df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) 
-		lines(df3.lo$year,df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
-		lines(df3.hi$year,df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
+		lines(df3$year,100*df3[[cn]]/y0,type='l',lwd=2,lty='solid',col=colfun(cn)) 
+		lines(df3.lo$year,100*df3.lo[[cn]]/y0,type='l',lwd=1,lty='dotted',col=colfun(cn))
+		lines(df3.hi$year,100*df3.hi[[cn]]/y0,type='l',lwd=1,lty='dotted',col=colfun(cn))
 
-		points(df.ad$year,df.ad[[cn]]/1000,type='p',col=colfun(cn))
+		# actual donations
+		points(df.ad$year,100*df.ad[[cn]]/y0,type='p',col=colfun(cn))
 
+		# number of new donations
 		nd=new.donors %>% filter(country==cn)
-		rect(nd$year-0.3,0,nd$year+0.3,nd$n2/1000,col=colfun(cn))
+		rect(nd$year-0.3,0,nd$year+0.3,100*nd$n2/y0,col=colfun(cn))
+
+		# activity scales/errors
+		# nb! for some reason, there are values 
+		wh=which(abs(df3.err[[cn]])>1 & df3.err$year <= max(nd$year))
+		points(df3.err$year[wh],50+50*df3.err[[cn]][wh]/y0,col=colfun(cn),pch=2)
+		lines(min(df3.err$year[wh]),50,min(df3.err$year[50]),50,lty='dotted')
 
 		dev.off()
 	}
@@ -628,7 +647,7 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 	}
 }
 
-plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',xlim=NULL,ylim=NULL) {
+plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',xlim=NULL,ylim=NULL,grps=NULL) {
 	# actual donations
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
@@ -682,7 +701,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
 	}
 
-	legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(x) cn.names[[x]]))
+	legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(x) cn.names[[x]]))
 
 	if (!is.null(filename))
 		dev.off()
