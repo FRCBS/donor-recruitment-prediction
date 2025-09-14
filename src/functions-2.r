@@ -8,7 +8,7 @@ prd.cumulative2density = function(pah) {
         return(cbind(dpah,pah[,4:ncol(pah)]))
 }
 
-
+# 2025-09-14 must add the computations for relative activity here (summing errors)
 predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5,cumulative=TRUE) {
 # bsAssign('rv')
 	if (cumulative) {
@@ -147,7 +147,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	sp.m.year0=list()
 
 	sm.extract = function(m,phase) {
-bsAssign('m')
 		sm=data.frame(summary(m)$coeff)
 		sm['r.squared','Estimate']=summary(m)$r.squared
 		data.frame(parameter=rownames(sm),sm,phase=phase)
@@ -170,6 +169,8 @@ bsAssign('m')
 			new.data$sqrt.x=new.data$x^0.5
 		if ('x.pwr' %in% names(m$model))
 			new.data$x.pwr=new.data$x^power.term
+		if ('log(x)' %in% names(m$model))
+			new.data[['log(x)']]=log(new.data$x)
 		if ('x1' %in% names(m$model)) {
 			new.data$x1=0
 			new.data$x1[new.data$x==1]=1
@@ -184,20 +185,49 @@ bsAssign('m')
 		esq=data.frame(predict(m,newdata=new.data,interval='confidence')) %>%
 			cbind(new.data)
 		
-		if (grepl('^log',names(m$model[1]))) {
-			# print(paste(phase,'exp applied'))
-			esq=exp(esq[,1:3])
-		} else if (!is.null(power.term) && !('x.pwr' %in% names(m$model))) {
-			esq=esq[,1:3]^power.term
-		}
-
-		esq=esq[,1:3]
-		if (!is.null(year0.col)) 
+		# esq=esq[,1:3]
+		if (!is.null(year0.col) && !'year0' %in% colnames(esq)) {
 			esq=cbind(esq,year0=as.integer(new.data$year0))
-		else 
+		} else if (!is.null(year0.col) && 'year0' %in% colnames(esq)) {
+			esq$year0=as.integer(esq$year0)
+		} else {
 			esq$year0=as.integer(NA)
+		}
 		esq$x=new.data[,1]
 		esq$phase=phase
+
+# esq0=esq
+bsAssign('m')
+bsAssign('esq')
+
+		#  fit       lwr      upr year0  x   phase
+		mm=m$model
+		if ('year0' %in% colnames(mm))
+			mm$year0=as.integer(as.character(mm$year0))
+# str(esq)
+# str(mm)
+
+		# colnames(mm)=sub('(log.x.)|(x.pwr)','x',colnames(mm))
+		join.cols=grep('(log.x.)|(x.pwr)|(sqrt.x)|(sq.x)|(^x$)',colnames(esq),value=TRUE) %>%
+			intersect(colnames(mm))
+		nc=ncol(esq)
+		esq=left_join(esq,mm,join_by(!!!syms(c(join.cols,if('year0' %in% names(mm)) 'year0' else NULL))))
+
+		# columns to have fit, lwr, upr (1:3), year0.col
+		colnames(esq)[nc+1]='actual'
+		esq=esq[,c(1:3,nc+1,which(colnames(esq)=='year0'),which(colnames(esq)=='x'),which(colnames(esq)=='phase'))]
+
+		if (grepl('^log',names(m$model[1]))) {
+			# print(paste(phase,'exp applied'))
+			esq[,1:4]=exp(esq[,1:4])
+		} else if (!is.null(power.term) && !('x.pwr' %in% names(m$model))) {
+			esq[,1:4]=esq[,1:4]^power.term
+		}
+
+		esq$error=esq$fit-esq$actual
+
+cat(colnames(esq))
+cat('\n')
 
 		return(esq)
 	}
@@ -507,6 +537,61 @@ bsAssign('power.term.d')
 		agedist=agedist.local))
 }
 
+# 2025-09-14
+plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(2000,2060),ylim=c(0,2e3)) {
+	actual.don = et %>%
+		filter(!is.na(cdon),!is.na(don)) %>%
+		group_by(!!!syms(c('year',spec$dim.keep))) %>%
+		summarise(don2=sum(n*don),.groups='drop') %>%
+		arrange(country,year)
+
+	new.donors = et %>%
+		filter(!is.na(cdon),!is.na(don),ord==1) %>%
+		group_by(!!!syms(c('year',spec$dim.keep))) %>%
+		summarise(n2=sum(n),.groups='drop') %>%
+		arrange(country,year) 
+
+	# ... as a data frame
+	df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
+	rownames(df.ad)=as.character(df.ad$year)
+
+	pah=estimates %>% 
+		group_by(rw,prd.year) %>%
+		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),.groups='drop') %>% 
+		rename(year=prd.year) %>%
+		inner_join(grps,join_by(rw)) # nb! global variable
+
+	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi')],values_from='est',names_from=c('country'))) %>%
+		arrange(year)
+	df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi')],values_from='est.lo',names_from=c('country'))) %>%
+		arrange(year)
+	df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est')],values_from='est.hi',names_from=c('country'))) %>%
+		arrange(year)
+
+	for (rw in rv$grps$rw) {
+		cn=rv$grps$country[rw]
+		filename=paste0('../submit/',cn,'-summary.png')
+		resolution=150
+		png(filename,res=resolution,width=9*resolution,height=7*resolution)
+		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
+		plot(x=NULL,xlim=xlim,ylim=c(0,max(df3.hi[[cn]]/1000,na.rm=TRUE)),
+			xlab='year',ylab='indexed values'
+			#,main=paste(rv$grps[rw,setdiff(colnames(rv$grps),'rw')])
+		)
+
+		lines(df3$year,df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) 
+		lines(df3.lo$year,df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
+		lines(df3.hi$year,df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
+
+		points(df.ad$year,df.ad[[cn]]/1000,type='p',col=colfun(cn))
+
+		nd=new.donors %>% filter(country==cn)
+		rect(nd$year-0.3,0,nd$year+0.3,nd$n2/1000,col=colfun(cn))
+
+		dev.off()
+	}
+}
+
 ### --- ennustekäyrät: tuotetaan kuvat vertailua varten
 plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdon-x.a')) {
 	for (rw in rv$grps$rw) {
@@ -544,13 +629,14 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 }
 
 plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',xlim=NULL,ylim=NULL) {
-	# toteutuneet luovutusmäärät
+	# actual donations
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
 		group_by(!!!syms(c('year',spec$dim.keep))) %>%
 		summarise(don2=sum(n*don),.groups='drop') %>%
 		arrange(country,year)
 
+	# ... as a data frame
 	df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
 	rownames(df.ad)=as.character(df.ad$year)
 

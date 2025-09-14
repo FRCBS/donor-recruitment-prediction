@@ -1,5 +1,11 @@
 source('functions-2.r')
 
+# Must be moved to a better place
+plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(1,55),ylim=c(1,25)) {
+
+# This should be changed
+shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
+
 library(xtable)
 
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
@@ -63,10 +69,10 @@ if (FALSE) {
 
 # plotPredictions(rv.3p,models='all')
 plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1') # ,ylim=c(100,500))
-plotEstimatesVsActual(et,estimates,spec,filename=paste0('../submit/figure-d forecasted-donations.png'))
+plotEstimatesVsActual(et,estimates,spec,filename=paste0(shared.dir,'figure-d forecasted-donations.png'))
 
 #### Plotting the coefficients
-filename=paste0('../submit/parameters.png')
+filename=paste0(shared.dir,'parameters.png')
 png.res=150
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.3),xlab='exponent',ylab='multiplier')
@@ -113,7 +119,7 @@ dev.off()
 
 #####
 # trajectories of parameters (from models estimated individually for each year)
-filename=paste0('../submit/parameter-trajectories.png')
+filename=paste0(shared.dir,'parameter-trajectories.png')
 # png.res=100
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
 plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
@@ -202,7 +208,7 @@ html.table=paste(capture.output(print(xtable(r2.2,digits=5),type='html',include.
 caption='<b>Table P</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
 html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
 cat(html.file)
-cat(html.file,file='../submit/table-c r2-values.html')
+cat(html.file,file=paste0(shared.dir,'table-c r2-values.html'))
 
 # Parameter plots (these have been already written above to png files)
 # <td style='text-align:center; vertical-align:middle'></td> 
@@ -217,14 +223,14 @@ are contours of the estimated cumulative donations in 50 years.
 
 html.file=sub('¤table¤',html.table.parameters,html.template)
 cat(html.file)
-cat(html.file,file='../submit/figure-p parameters.html')
+cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
 
 captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations (test)'
 
 list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='<br><br>')
 html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='<p>')),html.template)
 cat(html.file)
-cat(html.file,file='../submit/list of legends.html')
+cat(html.file,file=paste0(shared.dir,'list of legends.html'))
 
 # numbers of new donors
 data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
