@@ -128,7 +128,7 @@ bsAssign('prd.data')
 # year0 should be added to the spec
 # similarly for year to use maybe reference year +/- offset
 getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE,
-	agedist=NULL,save.years.from.end=0) {
+	agedist=NULL,save.years.from.end=0,save.years.overlap=0) {
 	# reference.years.local=reference.years
 	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
@@ -197,14 +197,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		esq$x=new.data[,1]
 		esq$phase=phase
 
-# print('assignment')
-esq0=esq
-bsAssign('esq0')
-
-m$model
-esq
-dim(esq)
-
 		mm=m$model
 		if ('year0' %in% colnames(mm))
 			mm$year0=as.integer(as.character(mm$year0))
@@ -215,11 +207,6 @@ dim(esq)
 
 		# in case year0 is not present but there are multiple years, there may actually be
 		# multiple so let's average over them here (weights would be nice)
-#mm0=mm
-#mm=mm0
-# colnames(mm)=c('x','y')
-# join.cols=c('x')
-
 		st0=by(mm,mm[,join.cols],FUN=function(x) {
 				rv=x[1,]
 				rv[1,1]=mean(rv[,1])
@@ -229,12 +216,6 @@ dim(esq)
 
 		nc=ncol(esq)
 		esq=left_join(esq,mm,join_by(!!!syms(c(join.cols,if('year0' %in% names(mm)) 'year0' else NULL))))
-
-if (nrow(esq) > nrow(esq0)) {
-bsAssign('m')
-bsAssign('esq')
-error(0)
-}
 
 		# columns to have fit, lwr, upr (1:3), year0.col
 		colnames(esq)[nc+1]='actual'
@@ -256,7 +237,7 @@ error(0)
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
-		print(paste('*************',grps[rw,],collapse=', '))
+		# print(paste('*************',grps[rw,],collapse=', '))
 
 		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
@@ -277,35 +258,33 @@ error(0)
 		
 		year.start = min(data$year0.int)
 
+		# jere
+		cn.overlap=save.years.overlap
+		if ('country' %in% colnames(grps) && save.years.overlap != 0) {
+			cn.overlap=min(max.lookback[[grps[rw,'country']]],-save.years.from.end+save.years.overlap)
+			print(paste0("hit it! ",cn.overlap,' ',grps[rw,'country']))
+		}
+
 		if (save.years.from.end >= 0) {
 			data = data %>% 
 				filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
 		} else if (save.years.from.end < 0) {
+			# 2025-09-15
+			print('adjusting')
 			data = data %>% 
-				filter(year0.int-save.years.from.end>max(year0.int))
+				# +cn.overlap
+				filter(year0.int-save.years.from.end+save.years.overlap>max(year0.int))
 			year.start=min(data$year0.int) # needed to override the computation
-				# esim. max == 10; viisi vuotta mukaan -> 6:10; 6+5=11
+			# e.g. max == 10; save 5 years -> 6:10; 6+5=11
 		}
 
-		# esim. max.ord==9, 5 jäätävä -> 4; nelonen on vielä ok
-		# if (dim(data)[1] == 0 || (max(data$ord) - save.years.from.end < min(year0.ord) && length(year0.ord) == 1)) {
-		if (dim(data)[1] == 0 || (save.years.from.end > 0 && max(data$year) - save.years.from.end < min(data$year0.int) && length(year0.ord) == 1)) {
-			# print('skipping due to lack of sufficient data')
-			# print(paste(length(unique(data$year0)),year0.ord))
+		if (dim(data)[1] == 0 || 
+			(
+				save.years.from.end > 0 && 
+				max(data$year) - save.years.from.end < min(data$year0.int) 
+				&& length(year0.ord) == 1)
+			) {
 			next
-		}
-
-		# compute the max year to cut the final years out
-		if (skip.last && FALSE) {
-			# nb! This is not working: country is not considered
-			# Should of course be group based, but no need to fix here
-			data.ord.max = data %>%
-				group_by(year0.int) %>%
-				summarise(ord.max=max(ord),.groups='drop') 
-
-			data = data %>%
-				inner_join(data.ord.max,join_by(year0.int,x$ord<y$ord.max)) %>%
-				dplyr::select(-ord.max)
 		}
 
 		data$year0=as.factor(data$year0)
@@ -509,8 +488,17 @@ bsAssign('power.term.d')
 		prdct$rw=rw
 
 		# Add these to enable joining with forecasted years
-		prdct$year0.lo=year.start+min(year0.ord)-1
-		prdct$year0.hi=year.start+max(year0.ord)-1
+		# This is where to adjust for the extended/overlapping period
+		# 2025-09-15
+bsAssign('year.start')
+bsAssign('save.years.overlap')
+bsAssign('save.years.overlap')
+min0=min(year0.ord)
+bsAssign('min0')
+
+		# -save.years.from.end
+		prdct$year0.lo=year.start+min(year0.ord)+save.years.overlap-1
+		prdct$year0.hi=year.start+max(year0.ord)+save.years.overlap-1
 
 		if (is.null(sp.data)) {
 			sp.data=export.data 
@@ -628,10 +616,10 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 
 		# number of new donations
 		nd=new.donors %>% filter(country==cn)
-		plot(x=NULL,xlim=xlim,ylim=c(0,max(nd$n2)),
-			xlab='year',ylab='new donors'
+		plot(x=NULL,xlim=xlim,ylim=c(0,max(nd$n2)/1000),
+			xlab='year',ylab='new donors (in 1,000)'
 		)
-		rect(nd$year-0.3,0,nd$year+0.3,nd$n2,col=colfun(cn))
+		rect(nd$year-0.3,0,nd$year+0.3,nd$n2/1000,col=colfun(cn))
 
 		# activity scales/errors
 		# nb! for some reason, there are values 

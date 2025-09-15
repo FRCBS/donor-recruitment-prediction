@@ -34,11 +34,14 @@ rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist
 grps=rlist[[1]]$grps
 tst=rlist[lengths(rlist)!=0]
 estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
-tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5)
+tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
 estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
+table(estimates0$year0.hi)
+table(estimates.tail$year0.lo)
+table(estimates.tail$year0.hi)
 estimates.year0.models=rbind(estimates0,estimates.tail)
 
-estimates.tail %>% filter(rw==3)
+# estimates.tail %>% filter(rw==3)
 
 getCoeff = function(x) {
 	df.year0=x$prdct %>% group_by(rw) %>% summarise(year0=min(year0.lo))
@@ -50,6 +53,9 @@ coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
 
 # estimates = estimates.year0.models
 plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps)
+coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
+
+
 plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',
 	filename=paste0('../fig/estimate-vs-actual-discrete.png'))
 
@@ -233,6 +239,10 @@ cat(html.file,file=paste0(shared.dir,'list of legends.html'))
 # numbers of new donors
 data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
 plot(n2~year0,data=data,ylim=c(0,max(data$n2)))
+
+flist <- list.files("../submit/","summary*", full.names = TRUE)
+file.copy(flist,shared.dir,overwrite=TRUE)
+
 
 # table1
 # - luovuttajien ja luovutusten kokonaismäärät
