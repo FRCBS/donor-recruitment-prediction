@@ -261,7 +261,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		# jere
 		cn.overlap=save.years.overlap
 		if ('country' %in% colnames(grps) && save.years.overlap != 0) {
-			cn.overlap=min(max.lookback[[grps[rw,'country']]],-save.years.from.end+save.years.overlap)
+			cn.overlap=min(max.overlap[[grps[rw,'country']]],save.years.overlap) # -save.years.from.end+
 			print(paste0("hit it! ",cn.overlap,' ',grps[rw,'country']))
 		}
 
@@ -273,7 +273,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			print('adjusting')
 			data = data %>% 
 				# +cn.overlap
-				filter(year0.int-save.years.from.end+save.years.overlap>max(year0.int))
+				filter(year0.int-save.years.from.end+cn.overlap>max(year0.int))
 			year.start=min(data$year0.int) # needed to override the computation
 			# e.g. max == 10; save 5 years -> 6:10; 6+5=11
 		}
@@ -497,8 +497,8 @@ min0=min(year0.ord)
 bsAssign('min0')
 
 		# -save.years.from.end
-		prdct$year0.lo=year.start+min(year0.ord)+save.years.overlap-1
-		prdct$year0.hi=year.start+max(year0.ord)+save.years.overlap-1
+		prdct$year0.lo=year.start+min(year0.ord)+cn.overlap-1
+		prdct$year0.hi=year.start+max(year0.ord)+cn.overlap-1
 
 		if (is.null(sp.data)) {
 			sp.data=export.data 

@@ -283,13 +283,13 @@ colours$au='#007F3B' # 'green3'
 colours$nc='black'
 colours$ct='purple'
 
-max.lookback=list()
-max.lookback$fi=5+5
-max.lookback$nl=5+5
-max.lookback$fr=5+5
-max.lookback$au=5+5
-max.lookback$nc=5+5
-max.lookback$ct=5+5
+max.overlap=list()
+max.overlap$fi=5
+max.overlap$nl=3
+max.overlap$fr=1
+max.overlap$au=5
+max.overlap$nc=1
+max.overlap$ct=5
 
 cn.names=list()
 cn.names$fi='Finland'
