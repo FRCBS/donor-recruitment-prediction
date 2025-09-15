@@ -1,7 +1,7 @@
 source('functions-2.r')
 
 # Must be moved to a better place
-plotCountrySummaries(et,rv,estimates.year0.models,spec)
+plotCountrySummaries(et,grps,estimates.year0.models,spec,coeff.data)
 
 # This should be changed
 shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
@@ -38,14 +38,20 @@ tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.
 estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
 estimates.year0.models=rbind(estimates0,estimates.tail)
 
-coeff.year0.models=do.call(rbind,lapply(tst,FUN=function(x) cbind(x$coeff,year0=min(x$prdct$year0.lo)))) 
+estimates.tail %>% filter(rw==3)
+
+getCoeff = function(x) {
+	df.year0=x$prdct %>% group_by(rw) %>% summarise(year0=min(year0.lo))
+	inner_join(x$coeff,df.year0,join_by(rw)) 
+	}
+
+# These are used to plot the trajectories
+coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
 
 # estimates = estimates.year0.models
-plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2000),grps=grps)
+plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps)
 plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',
 	filename=paste0('../fig/estimate-vs-actual-discrete.png'))
-
-table(estimates.year0.models$rw)
 
 #######
 # All years (after 2nd) as a lump
@@ -54,30 +60,19 @@ rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=a
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
-# estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='log-year0-log'))) # cdon.a-x-year0
-estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='don-x.a+year0+x1',cumulative=FALSE))) # cdon.a-x-year0
-
-# nb! todo Must pass grps as parameter
-# grps=rv.1$grps
-
-if (FALSE) {
-	predictDonations2(rv.2,model='cdon-x.a+year0')
-	which(rv.2$prdct$lrw>rv.2$prdct$upr)
-	which(rv.3p$prdct$lrw>rv.3p$prdct$upr)
-	which(estimates$est.lo>estimates$est.hi)
-	estimates[1:10,]
-}
-# drafting ends
+estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='log-year0-log'))) # cdon.a-x-year0
+# estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='don-x.a+year0+x1',cumulative=FALSE))) # cdon.a-x-year0
 
 # plotPredictions(rv.3p,models='all')
-plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1') # ,ylim=c(100,500))
+plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1',grps=grps) # ,ylim=c(100,500))
 plotEstimatesVsActual(et,estimates,spec,filename=paste0(shared.dir,'figure-d forecasted-donations.png'))
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
 png.res=150
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
-plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,3.3),xlab='exponent',ylab='multiplier')
+par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
+plot(x=NULL,xlim=c(0.30,0.72),ylim=c(1.2,3.3),xlab='exponent',ylab='multiplier')
 
 phase='log-log'
 dparam=c('log.x.','.Intercept.')
@@ -124,9 +119,10 @@ dev.off()
 filename=paste0(shared.dir,'parameter-trajectories.png')
 # png.res=100
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
-plot(x=NULL,xlim=c(0.33,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
-plotCoeffData(coeff.year0.models,spec.list$country,rv.3p$grps,phase,dparam,vfun,FALSE)
-legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
+par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
+plot(x=NULL,xlim=c(0.3,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
+coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
+# legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]))
 dev.off()
 

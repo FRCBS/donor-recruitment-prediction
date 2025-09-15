@@ -197,22 +197,44 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		esq$x=new.data[,1]
 		esq$phase=phase
 
-# esq0=esq
-bsAssign('m')
-bsAssign('esq')
+# print('assignment')
+esq0=esq
+bsAssign('esq0')
 
-		#  fit       lwr      upr year0  x   phase
+m$model
+esq
+dim(esq)
+
 		mm=m$model
 		if ('year0' %in% colnames(mm))
 			mm$year0=as.integer(as.character(mm$year0))
-# str(esq)
-# str(mm)
 
 		# colnames(mm)=sub('(log.x.)|(x.pwr)','x',colnames(mm))
 		join.cols=grep('(log.x.)|(x.pwr)|(sqrt.x)|(sq.x)|(^x$)',colnames(esq),value=TRUE) %>%
 			intersect(colnames(mm))
+
+		# in case year0 is not present but there are multiple years, there may actually be
+		# multiple so let's average over them here (weights would be nice)
+#mm0=mm
+#mm=mm0
+# colnames(mm)=c('x','y')
+# join.cols=c('x')
+
+		st0=by(mm,mm[,join.cols],FUN=function(x) {
+				rv=x[1,]
+				rv[1,1]=mean(rv[,1])
+				return(rv)
+			})
+		mm=do.call(rbind,st0)
+
 		nc=ncol(esq)
 		esq=left_join(esq,mm,join_by(!!!syms(c(join.cols,if('year0' %in% names(mm)) 'year0' else NULL))))
+
+if (nrow(esq) > nrow(esq0)) {
+bsAssign('m')
+bsAssign('esq')
+error(0)
+}
 
 		# columns to have fit, lwr, upr (1:3), year0.col
 		colnames(esq)[nc+1]='actual'
@@ -226,9 +248,6 @@ bsAssign('esq')
 		}
 
 		esq$error=esq$fit-esq$actual
-
-cat(colnames(esq))
-cat('\n')
 
 		return(esq)
 	}
@@ -533,15 +552,13 @@ bsAssign('power.term.d')
 			inner_join(data.frame(grps,rw=1:nrow(grps)),join_by(!!!syms(spec$dim.keep)))
 	}
 
-str(sp.prdct)
-
 	return(list(et.data=et.data,data=sp.data,grps=data.frame(grps,rw=1:nrow(grps)),
 		coeff=sp.coeff,fit=dftot,m.year0=sp.m.year0,prdct=sp.prdct,
 		agedist=agedist.local))
 }
 
 # 2025-09-14
-plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(2000,2035),ylim=c(0,2e3)) {
+plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,2035),ylim=c(0,2e3)) {
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
 		group_by(!!!syms(c('year',spec$dim.keep))) %>%
@@ -572,10 +589,14 @@ plotCountrySummaries = function(et,rv,estimates,spec,xlim=c(2000,2035),ylim=c(0,
 		arrange(year)
 	df3.err=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','est')],values_from='error',names_from=c('country'))) %>%
 		arrange(year)
-bsAssign('pah')
-bsAssign('df3.err')
-	for (rw in rv$grps$rw) {
-		cn=rv$grps$country[rw]
+
+	coeff.data = coeff.data %>% arrange(rw,year0)
+	coeff.data$cdon50=with(coeff.data,est.y*50^est.x)
+	coeff.data$cdon50.lo=with(coeff.data,lo.y*50^lo.x)
+	coeff.data$cdon50.hi=with(coeff.data,hi.y*50^hi.x)
+
+	for (rw in grps$rw) {
+		cn=grps$country[rw]
 
 		wh.min=min(which(!is.na(df3[[cn]])))
 		y0=df3[[cn]][wh.min]
@@ -586,26 +607,55 @@ bsAssign('df3.err')
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
-		plot(x=NULL,xlim=xlim,ylim=c(0,100*y.max/y0),
-			xlab='year',ylab='indexed values()'
+
+
+		nf <- layout(
+			matrix(c(1,2,3,4),ncol=1,byrow=TRUE), 
+			# widths=c(3,1), 
+			heights=c(2,1,1,1)
 		)
 
-		lines(df3$year,100*df3[[cn]]/y0,type='l',lwd=2,lty='solid',col=colfun(cn)) 
-		lines(df3.lo$year,100*df3.lo[[cn]]/y0,type='l',lwd=1,lty='dotted',col=colfun(cn))
-		lines(df3.hi$year,100*df3.hi[[cn]]/y0,type='l',lwd=1,lty='dotted',col=colfun(cn))
+		plot(x=NULL,xlim=xlim,ylim=c(0,y.max)/1000,
+			xlab='year',ylab='donations (in 1,000)'
+		)
+
+		lines(df3$year,df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) 
+		lines(df3.lo$year,df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
+		lines(df3.hi$year,df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
 
 		# actual donations
-		points(df.ad$year,100*df.ad[[cn]]/y0,type='p',col=colfun(cn))
+		points(df.ad$year,df.ad[[cn]]/1000,type='p',col=colfun(cn))
 
 		# number of new donations
 		nd=new.donors %>% filter(country==cn)
-		rect(nd$year-0.3,0,nd$year+0.3,100*nd$n2/y0,col=colfun(cn))
+		plot(x=NULL,xlim=xlim,ylim=c(0,max(nd$n2)),
+			xlab='year',ylab='new donors'
+		)
+		rect(nd$year-0.3,0,nd$year+0.3,nd$n2,col=colfun(cn))
 
 		# activity scales/errors
 		# nb! for some reason, there are values 
 		wh=which(abs(df3.err[[cn]])>1 & df3.err$year <= max(nd$year))
-		points(df3.err$year[wh],50+50*df3.err[[cn]][wh]/y0,col=colfun(cn),pch=2)
-		lines(min(df3.err$year[wh]),50,min(df3.err$year[50]),50,lty='dotted')
+		# max.y=max(abs(df3.err[[cn]]),na.rm=TRUE)
+
+		err.data=data.frame(year=df3.err$year[wh],error=df3.err[[cn]][wh])
+		cmb.data=inner_join(err.data,df3[,c(cn,'year')],join_by(year))
+		cmb.data$perc=100*cmb.data$error/cmb.data[[cn]]
+
+		max.y=max(abs(cmb.data$perc),na.rm=TRUE)
+		plot(x=NULL,xlim=xlim,ylim=c(-max.y,max.y),xlab='year',ylab='error-%')
+
+		points(cmb.data$year,cmb.data$perc,col=colfun(cn),pch=2)
+		# points(df3.err$year[wh],df3.err[[cn]][wh],col=colfun(cn),pch=2)
+		# lines(min(df3.err$year[wh]),50,min(df3.err$year[50]),50,lty='dotted')
+		abline(h=0,lty='dotted')
+
+		ced=coeff.data[coeff.data$rw==rw,]
+		plot(x=NULL,xlim=xlim,ylim=c(0,max(ced$cdon50.hi)),xlab='year',ylab='cdon50')
+
+		lines(ced$year,ced$cdon50,col=colfun(cn),lwd=2)
+		lines(ced$year,ced$cdon50.lo,lty='dashed',col=colfun(cn))
+		lines(ced$year,ced$cdon50.hi,lty='dashed',col=colfun(cn))
 
 		dev.off()
 	}
@@ -659,6 +709,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
 	rownames(df.ad)=as.character(df.ad$year)
 
+bsAssign('estimates')
 	pah=estimates %>% 
 		group_by(rw,prd.year) %>%
 		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),.groups='drop') %>% 
@@ -773,7 +824,7 @@ plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 
 
 	if (!error.bars)
-		return()
+		return(df)
 
 	arrows(df$est.x,df$lo.y,df$est.x,df$hi.y,length=0.05,angle=90,code=3,col=col)
 	arrows(df$lo.x,df$est.y,df$hi.x,df$est.y,length=0.05,angle=90,code=3,col=col)
