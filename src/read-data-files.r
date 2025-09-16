@@ -24,7 +24,6 @@ file.paths = paste(param$data.directory,'/',file.names,sep='')
 countries = list()
 gt = NULL
 for (file in file.paths) {
-print(file)
 	identifier = sub('.+[/\\]([a-z]+)[^/\\]+$','\\1',file) # gsub('.*\\\\(..).*\\.xlsx$','\\1',file)
 	if (nchar(identifier) > 2) 
 		next
@@ -175,7 +174,6 @@ table(et$country)
 agedist=data.frame(country=character(),gr.name=character(),age=integer(),density=numeric())
 for (cn in names(countries)) {
 	break
-	# print(paste('*********',cn))
 	for (i in 1:length(countries[[cn]]$res)) {
 		# print(countries[[cn]]$res[[i]]$dista)
 		dista=countries[[cn]]$res[[i]]$dista # drop the age column here
@@ -205,7 +203,6 @@ for (cn in names(countries)) {
 
 		dista0= dista0 %>% 
 			right_join(expand.grid(age=17:70,density0=0),join_by(age)) %>%
-			# filter(is.na(density)) %>%
 			mutate(density=max(density,density0,na.rm=TRUE))
 	
 		countries[[cn]]$res[[i]]$dista0=dista0
@@ -214,7 +211,7 @@ for (cn in names(countries)) {
 	# countries[[cn]]$agedist=agedist
 }
 
-agedist %>% group_by(country) %>% summarise(age.max=max(age))
+et0=et
 
 # save
 save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))

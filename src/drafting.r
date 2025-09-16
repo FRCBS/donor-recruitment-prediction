@@ -210,15 +210,16 @@ html *
 ¤table¤
 </body>
 </html>"
+
 html.table=paste(capture.output(print(xtable(r2.2,digits=5),type='html',include.rownames=FALSE)),collapse='\n')
 caption='<b>Table P</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
 html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
 cat(html.file)
 cat(html.file,file=paste0(shared.dir,'table-c r2-values.html'))
 
+###
 # Parameter plots (these have been already written above to png files)
 # <td style='text-align:center; vertical-align:middle'></td> 
-
 html.table.parameters='<table><tr><td><img width=500 src="parameters.png"></td><td><img width=500 src="parameter-trajectories.png"></td></tr>
 <tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr></table>'
 
@@ -230,6 +231,7 @@ are contours of the estimated cumulative donations in 50 years.
 html.file=sub('¤table¤',html.table.parameters,html.template)
 cat(html.file)
 cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
+###
 
 captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations'
 captions$e='<b>Figure E</b> An example of a distribution matrix at the top, and at the bottom, models fitted (lines) to the 
@@ -308,3 +310,95 @@ dev.off()
 # - office/mobile-jakauma
 # - veriryhmien osuudet luovuttajissa/luovutuksissa (vain O-/muut saatavilla)
 # - ikäjakaumastsa jotakin: ensiluovuttajien keskimääräinen ikä (ei haittaa,)
+
+donors= et0 %>%
+	filter(ord==1) %>%
+	group_by(country) %>%
+	summarise(donors=sum(n))
+
+donors.oneg= et0 %>%
+	filter(ord==1,BloodGroup=='O-') %>%
+	group_by(country) %>%
+	summarise(donors=sum(n))
+
+donors.female= et0 %>%
+	filter(ord==1,Sex=='Female') %>%
+	group_by(country) %>%
+	summarise(donors=sum(n))
+
+donors.young= et0 %>%
+	filter(ord==1,age.lower==0) %>%
+	group_by(country) %>%
+	summarise(donors=sum(n))
+
+donors.middle= et0 %>%
+	filter(ord==1,age.lower==25) %>%
+	group_by(country) %>%
+	summarise(donors=sum(n))
+
+donations= et0 %>%
+	filter() %>%
+	group_by(country) %>%
+	summarise(donations=sum(n*don,na.rm=TRUE))
+
+donations.oneg= et0 %>%
+	filter(BloodGroup=='O-') %>%
+	group_by(country) %>%
+	summarise(donations=sum(n*don,na.rm=TRUE))
+
+donations.female= et0 %>%
+	filter(Sex=='Female') %>%
+	group_by(country) %>%
+	summarise(donations=sum(n*don,na.rm=TRUE))
+
+donations.young= et0 %>%
+	filter(age.lower==0) %>%
+	group_by(country) %>%
+	summarise(donations=sum(n*don,na.rm=TRUE))
+
+donations.middle= et0 %>%
+	filter(age.lower==25) %>%
+	group_by(country) %>%
+	summarise(donations=sum(n*don,na.rm=TRUE))
+
+processNumbers=function(category) {
+	suffix=c('','.oneg','.female','.young','.middle')
+	tmp=lapply(suffix,FUN=function(s) {
+			data=get(paste0(category,s))
+			cbind(col=paste0(category,s),pivot_wider(data,names_from='country',values_from=category))
+		})
+	df=do.call(rbind,tmp)
+	for (rw in 2:nrow(df))
+		df[rw,-1]=df[rw,-1]/df[1,-1]
+	df
+}
+
+category=c('donors','donations')
+tmp=lapply(category,FUN=processNumbers)
+df=do.call(rbind,tmp)
+df
+
+perc.rows=which(grepl('\\.',df$col))
+df[perc.rows,-1]=df[perc.rows,-1]*100
+df[-perc.rows,-1]=df[-perc.rows,-1]/1000
+
+df$col[-perc.rows]=firstUp(df$col[-perc.rows])
+df$col[-perc.rows]=paste(df$col[-perc.rows],' (1,000)')
+df$col[perc.rows]=sub('^',paste0(rep('&nbsp;',5),collapse=''),df$col[perc.rows])
+df[perc.rows,2:ncol(df)]=apply(df[perc.rows,2:ncol(df)],2,FUN=function(x) sprintf('%.1f%%',x))
+repl=list(oneg='O-',female='Female',young='age < 25',middle='25 <= age < 40')
+for (rp in names(repl)) {
+	df$col[perc.rows]=sub(paste0(';[^;]+',rp),paste0(';',repl[rp]),df$col[perc.rows])
+}
+
+colnames(df)[2:ncol(df)]=sapply(colnames(df)[2:ncol(df)],FUN=function(x) cn.names[[x]])
+colnames(df)[1]=' '
+###
+
+html.table=paste(capture.output(print(xtable(df,align=c('l','l',rep('r',ncol(df)-1))),type='html',include.rownames=FALSE)),collapse='\n')
+html.table=gsub('&amp;','&',html.table)
+cat(html.table)
+caption='<b>Table 1</b> Summary statistics of donors and donations'
+html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
+cat(html.file)
+cat(html.file,file=paste0(shared.dir,'table-1.html'))
