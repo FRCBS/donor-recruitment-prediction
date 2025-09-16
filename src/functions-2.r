@@ -563,20 +563,30 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 	df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
 	rownames(df.ad)=as.character(df.ad$year)
 
-	pah=estimates %>% 
-		group_by(rw,prd.year) %>%
-		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),error=sum(error,na.rm=TRUE),.groups='drop') %>% 
-		rename(year=prd.year) %>%
-		inner_join(grps,join_by(rw)) # nb! global variable
+	processEstimates = function(estimates) {
+		pah=estimates %>% 
+			group_by(rw,prd.year) %>%
+			summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),error=sum(error,na.rm=TRUE),.groups='drop') %>% 
+			rename(year=prd.year) %>%
+			inner_join(grps,join_by(rw))
 
-	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','error')],values_from='est',names_from=c('country'))) %>%
-		arrange(year)
-	df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi','error')],values_from='est.lo',names_from=c('country'))) %>%
-		arrange(year)
-	df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est','error')],values_from='est.hi',names_from=c('country'))) %>%
-		arrange(year)
-	df3.err=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','est')],values_from='error',names_from=c('country'))) %>%
-		arrange(year)
+		df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','error')],values_from='est',names_from=c('country'))) %>%
+			arrange(year)
+		df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi','error')],values_from='est.lo',names_from=c('country'))) %>%
+			arrange(year)
+		df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est','error')],values_from='est.hi',names_from=c('country'))) %>%
+			arrange(year)
+		df3.err=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','est')],values_from='error',names_from=c('country'))) %>%
+			arrange(year)
+		return(list(est=df3,lo=df3.lo,hi=df3.hi,error=df3.err,lty='dashed'))
+	}
+
+bsAssign('estimates')
+	if (is.list(estimates)) {
+		estimates.list=lapply(estimates,processEstimates)
+	} else 
+		estimates.list=list(sole=processEstimates(estimates))
+	estimates.list[[1]]$lty='solid'
 
 	coeff.data = coeff.data %>% arrange(rw,year0)
 	coeff.data$cdon50=with(coeff.data,est.y*50^est.x)
@@ -588,14 +598,13 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 
 		wh.min=min(which(!is.na(df3[[cn]])))
 		y0=df3[[cn]][wh.min]
-		y.max=max(df3.hi[[cn]],na.rm=TRUE)
+		y.max=max(estimates.list[[1]]$hi[[cn]],na.rm=TRUE)
 
 		filename=paste0('../submit/summary-',cn,'.png')
 		resolution=150
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
-
 
 		nf <- layout(
 			matrix(c(1,2,3,4),ncol=1,byrow=TRUE), 
@@ -607,9 +616,11 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 			xlab='year',ylab='donations (in 1,000)'
 		)
 
-		lines(df3$year,df3[[cn]]/1000,type='l',lwd=2,lty='solid',col=colfun(cn)) 
-		lines(df3.lo$year,df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
-		lines(df3.hi$year,df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
+		lapply(estimates.list,FUN=function(x) {
+				lines(x$est$year,x$est[[cn]]/1000,type='l',lwd=2,lty=x$lty,col=colfun(cn)) 
+				lines(x$lo$year,x$lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
+				lines(x$hi$year,x$hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn))
+			})
 
 		# actual donations
 		points(df.ad$year,df.ad[[cn]]/1000,type='p',col=colfun(cn))
@@ -622,12 +633,12 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 		rect(nd$year-0.3,0,nd$year+0.3,nd$n2/1000,col=colfun(cn))
 
 		# activity scales/errors
-		# nb! for some reason, there are values 
-		wh=which(abs(df3.err[[cn]])>1 & df3.err$year <= max(nd$year))
-		# max.y=max(abs(df3.err[[cn]]),na.rm=TRUE)
+		# nb! These will be the same for all estimates anyhow
+		err=estimates.list[[1]]$error
+		wh=which(abs(err[[cn]])>1 & err$year <= max(nd$year))
 
-		err.data=data.frame(year=df3.err$year[wh],error=df3.err[[cn]][wh])
-		cmb.data=inner_join(err.data,df3[,c(cn,'year')],join_by(year))
+		err.data=data.frame(year=err$year[wh],error=err[[cn]][wh])
+		cmb.data=inner_join(err.data,estimates.list[[1]]$est[,c(cn,'year')],join_by(year))
 		cmb.data$perc=100*cmb.data$error/cmb.data[[cn]]
 
 		max.y=max(abs(cmb.data$perc),na.rm=TRUE)
@@ -915,3 +926,9 @@ cdm2pdm = function(distm) {
 	colnames(pdm)=colnames(distm)
 	return(pdm)
 }
+
+
+	firstUp <- function(x) {
+		substr(x,1,1) <- toupper(substr(x,1,1))
+		return(x)
+	}

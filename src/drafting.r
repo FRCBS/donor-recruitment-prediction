@@ -1,9 +1,8 @@
 source('functions-2.r')
-tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
-
+# tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
 
 # Must be moved to a better place
-plotCountrySummaries(et,grps,estimates.year0.models,spec,coeff.data)
+plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
 
 # This should be changed
 shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
@@ -38,12 +37,10 @@ tst=rlist[lengths(rlist)!=0]
 estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
 tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
 estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
-table(estimates0$year0.hi)
-table(estimates.tail$year0.lo)
-table(estimates.tail$year0.hi)
+estimates.tail.nofuture=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=0)
 estimates.year0.models=rbind(estimates0,estimates.tail)
+estimates.year0.models.nofuture=rbind(estimates0,estimates.tail.nofuture)
 
-# estimates.tail %>% filter(rw==3)
 
 getCoeff = function(x) {
 	df.year0=x$prdct %>% group_by(rw) %>% summarise(year0=min(year0.lo))
@@ -73,7 +70,7 @@ estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='lo
 
 # plotPredictions(rv.3p,models='all')
 plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1',grps=grps) # ,ylim=c(100,500))
-plotEstimatesVsActual(et,estimates,spec,filename=paste0(shared.dir,'figure-d forecasted-donations.png'))
+plotEstimatesVsActual(et,estimates,spec,filename=paste0(shared.dir,'figure-d forecasted-donations.png'),grps=grps)
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
@@ -134,51 +131,6 @@ coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]))
 dev.off()
 
-# Miksi Australian vuodet ovat 2000-2010, vaikka data on vuosilta 2010-2023?
-coeff.year0.models[coeff.year0.models$phase=='log-log'&coeff.year0.models$rw==1,]
-table(coeff.year0.models$rw)
-
-tst2$prdct[tst2$prdct$phase=='log-log'&tst2$prdct$rw==1,]
-
-coeff.year0.models %>%
-	group_by(rw) %>%
-	summarise(min.year0=min(year0),max.year0=max(year0))
-
-pt=getGroupEstimates2(et,spec,year0.ord=1,agedist=agedist,save.years.from.end=5)
-
-# getStuff = function(pt,rw) pt[pt$phase=='log-log'&pt$rw==1,]
-
-pt$prdct[pt$prdct$phase=='log-log'&pt$prdct$rw==1,]
-
-# The numbers here are not extraorbitant
-rv.3p$prdct[rv.3p$prdct$phase=='log-log'&rv.3p$prdct$rw==2,]
-
-rv=rv.3p
-
-options(warn=2)
-
-tuh=predictDonations2(rv.3p,model='don-x.a+year0+x1',cumulative=FALSE)
-str(tuh)
-tuh[tuh$rw==2&tuh$prd.year==2003,]
-
-tuh %>% filter(prd.year==2002)
-
-estimates[estimates$rw==2&estimates$prd.year==2002,]
-
-prd.data[prd.data$rw==2&prd.data$year0==2002,][1:10,]
-prd.data=prd.data[prd.data$rw==2,]
-
-str(rv.3p$prdct)
-rv.1$prdct %>% filter(rw==2,phase=='don-x.a+x1',x==1)
-rv.2$prdct %>% filter(rw==2,phase=='don-x.a+x1',x==1)
-rv.3p$prdct %>% filter(rw==3,phase=='don-x.a+year0',x<5)
-
-rv.3p$prdct %>% filter(rw==2,year0==2002,x<5)
-table(rv.3p$prdct)
-
-# ok, vika on siis lopulta ainakin 'don-x.a+year0+x1'-ennusteessa (olisikohan väärä power siellä)
-# väärä selitettävä muuttuja, lisäksi x.pwr-arvot olivat pielessä
-
 ###############
 ### html-output
 # table of r2-values
@@ -229,8 +181,31 @@ are contours of the estimated cumulative donations in 50 years.
 (b) Parameters for blood services estimated separately for each year in data. Dark colours represent more recent years.'
 
 html.file=sub('¤table¤',html.table.parameters,html.template)
-cat(html.file)
+# cat(html.file)
 cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
+###
+
+# cat(paste0('<td><img width=500 src="summary-',names(countries),'.png"></td>'),sep='\n')
+
+###
+# Summary plots
+html.table.summaries='<table><tr>
+<td><img width=500 src="summary-au.png"></td>
+<td><img width=500 src="summary-ct.png"></td> </tr><tr>
+<tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr>
+<td><img width=500 src="summary-fi.png"></td>
+<td><img width=500 src="summary-fr.png"></td> </tr><tr>
+<tr><td style=\'text-align:center;\'>(c)</td><td style=\'text-align:center;\'>(d)</td></tr>
+<td><img width=500 src="summary-nc.png"></td>
+<td><img width=500 src="summary-nl.png"></td> </tr><tr>
+<tr><td style=\'text-align:center;\'>(e)</td><td style=\'text-align:center;\'>(f)</td></tr>
+</table>'
+
+captions$s='<b>Figure S</b> Summary of estimated models and forecasted donations by country (panels a&ndash;f).'
+
+html.file=sub('¤table¤',html.table.summaries,html.template)
+cat(html.file)
+cat(html.file,file=paste0(shared.dir,'figure-s summaries.html'))
 ###
 
 captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations'
@@ -238,17 +213,15 @@ captions$e='<b>Figure E</b> An example of a distribution matrix at the top, and 
 rows of the distribution matrix (lines) and the original data (circles).
 The colours at the top and the bottom match each other. The predict future donations from the five final years (in yellow) 
 and future years, a single model is fitted. In addition to these years themselves, additional years are included to 
-achieve more accurate estimates for the paramters: these years are marked with the vertical bar between the matrix and axis.
-'
-
+achieve more accurate estimates for the paramters: these years are marked with the vertical bar between the matrix and axis.'
 list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='<br><br>')
 html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='<p>')),html.template)
 cat(html.file)
 cat(html.file,file=paste0(shared.dir,'list of legends.html'))
 
 # numbers of new donors
-data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
-plot(n2~year0,data=data,ylim=c(0,max(data$n2)))
+# data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
+# plot(n2~year0,data=data,ylim=c(0,max(data$n2)))
 
 flist <- list.files("../submit/","summary*", full.names = TRUE)
 file.copy(flist,shared.dir,overwrite=TRUE)
@@ -271,7 +244,6 @@ plot.et.data = function(etd,i) {
 		print('returning')
 		return()
 	}
-	print(dim(etd))
 	rect(etd$ord-0.5,etd$year0.int-0.5,etd$ord-0.5+1,etd$year0.int-0.5+1,col=col_vector[i],border='white')
 	text(etd$ord,etd$year0.int,labels=round(etd$cdon,1),cex=0.75)
 }
@@ -300,7 +272,7 @@ for (i in 1:length(tst)) {
 }
 
 plot(NULL,xlim=c(0.5,25),ylim=c(0,20),xlab='years since first donation',ylab='cumulative donations')
-sapply(1:3,FUN=function(x) plotActivityAndFit(tst[[x]],x) )
+dummy=sapply(1:3,FUN=function(x) plotActivityAndFit(tst[[x]],x) )
 plotActivityAndFit(tst2,length(col_vector))
 dev.off()
 
@@ -310,6 +282,11 @@ dev.off()
 # - office/mobile-jakauma
 # - veriryhmien osuudet luovuttajissa/luovutuksissa (vain O-/muut saatavilla)
 # - ikäjakaumastsa jotakin: ensiluovuttajien keskimääräinen ikä (ei haittaa,)
+
+# For the abstract etc.
+et0 %>% filter(ord==1) %>% summarise(donors=sum(n))
+et0 %>% summarise(donations=sum(n*don,na.rm=TRUE))
+
 
 donors= et0 %>%
 	filter(ord==1) %>%
@@ -397,8 +374,6 @@ colnames(df)[1]=' '
 
 html.table=paste(capture.output(print(xtable(df,align=c('l','l',rep('r',ncol(df)-1))),type='html',include.rownames=FALSE)),collapse='\n')
 html.table=gsub('&amp;','&',html.table)
-cat(html.table)
 caption='<b>Table 1</b> Summary statistics of donors and donations'
 html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
-cat(html.file)
 cat(html.file,file=paste0(shared.dir,'table-1.html'))
