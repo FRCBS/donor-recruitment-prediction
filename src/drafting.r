@@ -231,7 +231,13 @@ html.file=sub('¤table¤',html.table.parameters,html.template)
 cat(html.file)
 cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
 
-captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations (test)'
+captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations'
+captions$e='<b>Figure E</b> An example of a distribution matrix at the top, and at the bottom, models fitted (lines) to the 
+rows of the distribution matrix (lines) and the original data (circles).
+The colours at the top and the bottom match each other. The predict future donations from the five final years (in yellow) 
+and future years, a single model is fitted. In addition to these years themselves, additional years are included to 
+achieve more accurate estimates for the paramters: these years are marked with the vertical bar between the matrix and axis.
+'
 
 list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='<br><br>')
 html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='<p>')),html.template)
@@ -251,20 +257,50 @@ plotDistibutionMatrix(countries$fi$res[[1]]$distm,skip=0)
 plot(x=1:5)
 dev.off()
 
+### Figure E (the explanation figure)
 library(RColorBrewer)
-n <- 25
+n <- 21 # this is not used
 qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 
-plot(NULL,xlim=c(1,25),ylim=rev(c(2000,2023)),xlab='years since first donation',ylab='year of first donation')
-palette(rainbow(n.classes))
+# palette(rainbow(n.classes))
+plot.et.data = function(etd,i) {
+	if (nrow(etd)==0) {
+		print('returning')
+		return()
+	}
+	print(dim(etd))
+	rect(etd$ord-0.5,etd$year0.int-0.5,etd$ord-0.5+1,etd$year0.int-0.5+1,col=col_vector[i],border='white')
+	text(etd$ord,etd$year0.int,labels=round(etd$cdon,1),cex=0.75)
+}
+
+plotActivityAndFit = function(tst.item,x,country='fi') {
+	etd=tst.item$et.data %>% filter(country=='fi')
+	fid=tst.item$prdct %>% inner_join(grps,join_by(rw)) %>% filter(country=='fi',phase=='log-log')
+	points(etd$x,etd$cdon,col=col_vector[x])
+	lines(fid$x,fid$fit,col=col_vector[x],lwd=3)
+}
+
+pdf('../submit/figure-e distm-and-curves.pdf',height=8,width=8)
+nf <- layout(
+	matrix(c(1,2),ncol=1,byrow=TRUE), 
+	heights=c(2,1)
+)
+
+par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
+plot(NULL,xlim=c(0.5,25),ylim=rev(c(2000,2023)),xlab='years since first donation',ylab='year of first donation')
+etd0=tst2$et.data %>% filter(country=='fi')
+plot.et.data(etd0,length(col_vector))
+lines(c(0,0),c(min(etd0$year0.int)-0.5,max(etd0$year0.int)+0.5),lwd=3)
 for (i in 1:length(tst)) {
 	etd=tst[[i]]$et.data %>% filter(country=='fi')
-	rect(etd$ord-0.5,etd$year0.int-0.5,etd$ord-0.5+1,etd$year0.int-0.5+1,col=col_vector[i])
-	text(etd$ord,etd$year0.int,labels=round(etd$cdon,1))
+	plot.et.data(etd,i)
 }
-i=24
-etd=tst2$et.data %>% filter(country=='fi')
+
+plot(NULL,xlim=c(0.5,25),ylim=c(0,20),xlab='years since first donation',ylab='cumulative donations')
+sapply(1:3,FUN=function(x) plotActivityAndFit(tst[[x]],x) )
+plotActivityAndFit(tst2,length(col_vector))
+dev.off()
 
 # table1
 # - luovuttajien ja luovutusten kokonaismäärät

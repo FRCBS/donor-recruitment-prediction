@@ -34,7 +34,6 @@ print(file)
 	
 	sheet.names = getSheetNames(file)
 	for (sn in sheet.names) {
-print(sn)
 		data = read.xlsx(file,colNames=TRUE,rowNames=TRUE,sheet = sn)
 		if (grepl(' def(inition)?$',sn)) {
 			if (is.null(gt)) {
