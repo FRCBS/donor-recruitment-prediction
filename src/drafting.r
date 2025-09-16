@@ -1,4 +1,6 @@
 source('functions-2.r')
+tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
+
 
 # Must be moved to a better place
 plotCountrySummaries(et,grps,estimates.year0.models,spec,coeff.data)
@@ -243,6 +245,26 @@ plot(n2~year0,data=data,ylim=c(0,max(data$n2)))
 flist <- list.files("../submit/","summary*", full.names = TRUE)
 file.copy(flist,shared.dir,overwrite=TRUE)
 
+pdf('../submit/distm-sample.pdf',width=8,height=12)
+par(mfrow=c(2,1))
+plotDistibutionMatrix(countries$fi$res[[1]]$distm,skip=0)
+plot(x=1:5)
+dev.off()
+
+library(RColorBrewer)
+n <- 25
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+
+plot(NULL,xlim=c(1,25),ylim=rev(c(2000,2023)),xlab='years since first donation',ylab='year of first donation')
+palette(rainbow(n.classes))
+for (i in 1:length(tst)) {
+	etd=tst[[i]]$et.data %>% filter(country=='fi')
+	rect(etd$ord-0.5,etd$year0.int-0.5,etd$ord-0.5+1,etd$year0.int-0.5+1,col=col_vector[i])
+	text(etd$ord,etd$year0.int,labels=round(etd$cdon,1))
+}
+i=24
+etd=tst2$et.data %>% filter(country=='fi')
 
 # table1
 # - luovuttajien ja luovutusten kokonaismäärät

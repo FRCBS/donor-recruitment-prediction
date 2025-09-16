@@ -856,7 +856,8 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
 		ylab('year of first donation') + 
 		labs(title=main) + 
 		scale_y_reverse()
-	print(p)
+	# print(p)
+	p
 }
 
 plotDelayBySex = function(activity.stats.sex,country) {
