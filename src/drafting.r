@@ -1,8 +1,11 @@
 source('functions-2.r')
 # tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
+# estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
 
 # Must be moved to a better place
 plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
+plotCountrySummaries(et,grps,estimates.year0.models.nofuture,spec,coeff.data)
+estimates0$avg.age
 
 # This should be changed
 shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
@@ -11,17 +14,8 @@ library(xtable)
 
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
 # aggregated, must add an extra step for this
-# These are written to files by default; just used for reference
 # nb! should probably rename phase -> model for clarity
-# nb! Something should be said about the confidence intervals
 # Different groups might actually be correlated, so summing may be a necessity;
-# no possibility to make them shorter. Should see if smaller groups yield more precise estimates in the first place
-# Possibly extensions: 
-#  - time series plots of cdon50; more readable
-#  - average ord of donations: the first year will cause a problem, so this is bound to be distorted
-# Must do:
-#  - some confidence intervals needed
-
 agedist=NULL
 
 #######
@@ -41,6 +35,8 @@ estimates.tail.nofuture=predictDonations2(tst2,model=model,cumulative=cumulative
 estimates.year0.models=rbind(estimates0,estimates.tail)
 estimates.year0.models.nofuture=rbind(estimates0,estimates.tail.nofuture)
 
+# str(estimates.year0.models)
+# estimates.year0.models %>% filter(rw==3,prd.year==2010) %>% summarise(ts=sum(est*x)/sum(est))
 
 getCoeff = function(x) {
 	df.year0=x$prdct %>% group_by(rw) %>% summarise(year0=min(year0.lo))
@@ -53,7 +49,6 @@ coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
 # estimates = estimates.year0.models
 plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps)
 coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
-
 
 plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',
 	filename=paste0('../fig/estimate-vs-actual-discrete.png'))
@@ -77,7 +72,10 @@ filename=paste0(shared.dir,'parameters.png')
 png.res=150
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
 par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
-plot(x=NULL,xlim=c(0.30,0.72),ylim=c(1.2,3.3),xlab='exponent',ylab='multiplier')
+param.xlim=c(0.30,0.72)
+param.ylim=c(1.2,3)
+# c(-2,2)*
+plot(x=NULL,xlim=param.xlim,ylim=param.ylim,xlab='exponent',ylab='multiplier')
 
 phase='log-log'
 dparam=c('log.x.','.Intercept.')
@@ -85,12 +83,8 @@ vfun=c(NA,exp)
 rv=getGroupEstimates2(et,spec.list$country,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 plotCoeffData(rv$coeff,spec.list$country,rv$grps,phase,dparam,vfun)
 
-# points by year
-# TODO The years could also be estimated separately, one line of distm per each round
-# These are now excluded
 dparam=c('log.x.','year0')
 phase='log-year0-log'
-# plotCoeffData(rv$coeff,spec,rv$grps,phase,dparam,vfun,FALSE)
 
 rv=getGroupEstimates2(et,spec.list$country.sex,plot='curve',try.nls=FALSE)
 phase='log-log'
@@ -104,18 +98,21 @@ rv$coeff[rv$coeff$phase=='log-log',]
 rv$coeff %>% filter(phase==phase)
 
 # contours
-b = seq(0.3,0.75,len=50)
-for (u in c(5,7.5,10,15,20,25,30)) {
-	# u = a·50^b -> a=u/50^b, log(u)=log(a)+b·log(50) -> b=(log(u)-log(a))/log(50)
-	a = u/50^b
-	lines(b,a,lty='dotted')
-	b0=1.2
-	text((log(u)-log(b0))/log(50),y=b0,labels=u)
+addCountours=function(x) {
+	b = seq(param.xlim[1]-0.2,param.xlim[2]+0.2,len=50)
+	for (u in c(5,7.5,10,15,20,25,30)) {
+		# u = a·50^b -> a=u/50^b, log(u)=log(a)+b·log(50) -> b=(log(u)-log(a))/log(50)
+		a = u/50^b
+		lines(b,a,lty='dotted')
+		b0=1.2
+		text((log(u)-log(b0))/log(50),y=b0,labels=u)
+	}
 }
+addCountours()
 
 # legends
-legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
-legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]))
+legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'),bty='s',bg='white')
+legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]),bty='s',bg='white')
 dev.off()
 #####
 
@@ -127,6 +124,7 @@ png(filename,width=7*png.res,height=7*png.res,res=png.res)
 par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 plot(x=NULL,xlim=c(0.3,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
 coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
+addCountours()
 # legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]))
 dev.off()

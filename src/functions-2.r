@@ -8,7 +8,6 @@ prd.cumulative2density = function(pah) {
         return(cbind(dpah,pah[,4:ncol(pah)]))
 }
 
-# 2025-09-14 must add the computations for relative activity here (summing errors)
 predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5,cumulative=TRUE) {
 	if (cumulative) {
 		rv$prdct[is.na(rv$prdct$year0),'year0']=0
@@ -73,8 +72,6 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 		print(pph)
 	} else 
 		print('nothing to report')
-
-bsAssign('prd.data')
 
 	if (all(is.na(prd.data$year0))) {
 		pah=cross_join(prd.years,sizes.data) %>%
@@ -153,7 +150,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		data.frame(parameter=rownames(sm),sm,phase=phase)
 	}
 
-	m.predict = function(m,phase,power.term=NULL) {
+	m.predict = function(m,phase,power.term=NULL,recursive=0) {
 		years=NULL
 		if ('year0' %in% names(m$model)) {
 			# summary(m)
@@ -197,9 +194,13 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		esq$x=new.data[,1]
 		esq$phase=phase
 
+bsAssign('m')
+bsAssign('esq')
 		mm=m$model
 		if ('year0' %in% colnames(mm))
 			mm$year0=as.integer(as.character(mm$year0))
+
+		mm$rownr=1:nrow(mm)
 
 		# colnames(mm)=sub('(log.x.)|(x.pwr)','x',colnames(mm))
 		join.cols=grep('(log.x.)|(x.pwr)|(sqrt.x)|(sq.x)|(^x$)',colnames(esq),value=TRUE) %>%
@@ -219,7 +220,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 
 		# columns to have fit, lwr, upr (1:3), year0.col
 		colnames(esq)[nc+1]='actual'
-		esq=esq[,c(1:3,nc+1,which(colnames(esq)=='year0'),which(colnames(esq)=='x'),which(colnames(esq)=='phase'))]
+		esq=esq[,c(1:3,nc+1,which(colnames(esq)=='year0'),which(colnames(esq)=='x'),which(colnames(esq)=='phase'),which(colnames(esq)=='rownr'))]
 
 		if (grepl('^log',names(m$model[1]))) {
 			# print(paste(phase,'exp applied'))
@@ -229,6 +230,19 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		}
 
 		esq$error=esq$fit-esq$actual
+		esq$abs.errorperc=abs(esq$error)/esq$actual
+
+		wh = which(!is.na(esq$abs.errorperc)&esq$abs.errorperc>0.5)
+		if (length(wh) > 0) {
+			print(paste('found outliers ',phase,length(wh),recursive,paste(wh,collapse=' ')),sep=' ')
+			subset=setdiff(1:nrow(mm),unique(esq$rownr[wh]))
+			m2=lm(m,subset=subset,data=m$model[subset,])
+print(summary(m))
+bsAssign('m2')
+print(summary(m2))
+			return(m.predict(m2,phase,power.term=power.term,recursive=recursive+1))
+print('***')
+		}
 
 		return(esq)
 	}
@@ -237,7 +251,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
-		# print(paste('*************',grps[rw,],collapse=', '))
+		print(paste('*************',grps[rw,],collapse=', '))
 
 		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
@@ -255,6 +269,9 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		data$x=data$ord
 		data$sqrt.x=sqrt(data$x)
 		data$year0.int=data$year0
+
+		data$x1=0
+		data$x1[data$ord==1]=1
 		
 		year.start = min(data$year0.int)
 
@@ -290,24 +307,27 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		data$year0=as.factor(data$year0)
 
 		# The model with a common intercept/multiplier
-		m=lm(log(cdon)~log(x),data=data)
-		# sm=summary(m)
+		phase='log(cdon)~log(x)'
+		m=lm(formula(phase),data=data)
 		power.term=summary(m)$coeff[2,1]
 		intercept=summary(m)$coeff[1,1]
 		b=exp(intercept)
 
 		# initialise the coeff-structure
-		coeff = sm.extract(m,'log-log')
-		prdct = m.predict(m,'log-log')
+		coeff = sm.extract(m,phase)
+		prdct = m.predict(m,phase)
 
 		# experimental: use don to estimate the models
-		m=lm(log(don)~log(x),data=data)
-		power.term.d=summary(m)$coeff[2,1]
-		intercept=summary(m)$coeff[1,1]
-		bd=exp(intercept)
-		coeff = rbind(coeff,sm.extract(m,'log(don)-log'))
-		prdct = rbind(prdct,m.predict(m,'log(don)-log'))
+		phase='log(don)~log(x)'
+		m=lm(formula(phase),data=data)
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase))
 
+		m=lm(log(don)~log(x)+x1,data=data)
+		coeff = rbind(coeff,sm.extract(m,'log(don)-log+x1'))
+		prdct = rbind(prdct,m.predict(m,'log(don)-log+x1'))
+
+		power.term.d=summary(m)$coeff[2,1]
 		data$x.pwr=data$x^power.term.d
 		m=lm(don~x.pwr,data=data)
 		coeff = rbind(coeff,sm.extract(m,'don-x.a'))
@@ -338,19 +358,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		# the power-conversion happens here
 		data2$y=data2$cdon^(1/power.term)
 
-		plot.FALSE=FALSE
-		if (plot.FALSE) {
-			resolution=150
-			filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-fund-plot.png')
-			png(filename,res=resolution,width=9*resolution,height=7*resolution)
-			plot(y~x,data=data2,main=paste0('b=',b,', a=',power.term,', y50=',round(b*50^power.term,1)))
-			for(yr in unique(data2$year0)) {
-				data3=data2[data2$year0==yr,]
-				lines(data3$x,data3$y,col=as.integer(yr))
-			}
-			dev.off()
-		}
-
 		# 2025-08-17 model with x converted to a power with the exponent found previously
 		data$x.pwr=data$x^power.term
 		m=lm(cdon~x.pwr,data=data)
@@ -362,9 +369,18 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		if (multi.year) {
 			m=lm(log(cdon)~0+year0+log(x),data=data)
 			sm=summary(m)
-			# print(sm)
 			coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
 			prdct = rbind(prdct,m.predict(m,'log-year0-log'))
+
+			m=lm(log(don)~0+year0+log(x),data=data)
+			sm=summary(m)
+			coeff = rbind(coeff,sm.extract(m,'log(don)-year0-log'))
+			prdct = rbind(prdct,m.predict(m,'log(don)-year0-log'))
+
+			m=lm(log(don)~0+year0+log(x)+x1,data=data)
+			sm=summary(m)
+			coeff = rbind(coeff,sm.extract(m,'log(don)-year0-log+x1'))
+			prdct = rbind(prdct,m.predict(m,'log(don)-year0-log+x1'))
 
 			m=lm(cdon~x.pwr+year0+0,data=data)
 			coeff = rbind(coeff,sm.extract(m,'cdon-x.a+year0'))
@@ -384,8 +400,8 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 
 bsAssign('data')
 bsAssign('power.term.d')
-			data$x1=0
-			data$x1[data$ord==1]=1
+			# data$x1=0
+			# data$x1[data$ord==1]=1
 			data$x.pwr=data$x^power.term.d
 			m=lm(don~x.pwr+year0+0+x1,data=data)
 			coeff = rbind(coeff,sm.extract(m,'don-x.a+year0+x1'))
@@ -462,27 +478,6 @@ bsAssign('power.term.d')
 		colfunc <- colorRampPalette(c(col.start, "white"))
 		colfun=colfunc(20)
 		col0=colfun[rw] # 2025-08-06 -> index
-
-		if (plot.FALSE) {
-			resolution=150
-			filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-sqrt-multiple-new.png')
-			# if (plot=='all') {
-				png(filename,res=resolution,width=9*resolution,height=7*resolution)
-				plot(x=NULL,ylim=c(0,50),xlim=c(0,55))
-
-			# plot.terms=c('lambda','y0')
-			plot.terms=c('x','sqrt.x') # These are kind of obsolete
-			if ('orig' %in% plot) {
-				points(coeff[plot.terms[1],'Estimate'],coeff[plot.terms[2],'Estimate'],
-					col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
-			}
-			if ('alt' %in% plot) {
-				points(x.half,y.max,
-					col=col0,lwd=lwd,pch=spec$pch(grps[rw,spec$pch.dim]))
-			}
-
-			dev.off()
-		}
 		
 		coeff$rw=rw
 		prdct$rw=rw
@@ -490,11 +485,11 @@ bsAssign('power.term.d')
 		# Add these to enable joining with forecasted years
 		# This is where to adjust for the extended/overlapping period
 		# 2025-09-15
-bsAssign('year.start')
-bsAssign('save.years.overlap')
-bsAssign('save.years.overlap')
-min0=min(year0.ord)
-bsAssign('min0')
+# bsAssign('year.start')
+# bsAssign('save.years.overlap')
+# bsAssign('save.years.overlap')
+# min0=min(year0.ord)
+# bsAssign('min0')
 
 		# -save.years.from.end
 		prdct$year0.lo=year.start+min(year0.ord)+cn.overlap-1
@@ -566,23 +561,39 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 	processEstimates = function(estimates) {
 		pah=estimates %>% 
 			group_by(rw,prd.year) %>%
-			summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),error=sum(error,na.rm=TRUE),.groups='drop') %>% 
+			summarise(
+				avg.age=sum(est*x,na.rm=TRUE)/sum(est,na.rm=TRUE),
+				est=sum(est),
+				lo=sum(est.lo),
+				hi=sum(est.hi),
+				error=sum(error,na.rm=TRUE),
+				.groups='drop') %>% 
 			rename(year=prd.year) %>%
 			inner_join(grps,join_by(rw))
 
-		df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','error')],values_from='est',names_from=c('country'))) %>%
+		# pah$avg.age=1
+
+		extr=c('est','lo','hi','error','avg.age')
+		tmp=lapply(extr,FUN=function(x) {
+			pivot_wider(pah[,c('country','year',x)],values_from=x,names_from='country') %>% arrange(year)
+			})
+		names(tmp)=extr
+		tmp$lty='dashed'
+
+		return(tmp)
+
+		df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','lo','hi','error')],values_from='est',names_from=c('country'))) %>%
 			arrange(year)
-		df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi','error')],values_from='est.lo',names_from=c('country'))) %>%
+		df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','hi','error')],values_from='lo',names_from=c('country'))) %>%
 			arrange(year)
-		df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est','error')],values_from='est.hi',names_from=c('country'))) %>%
+		df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','lo','est','error')],values_from='hi',names_from=c('country'))) %>%
 			arrange(year)
-		df3.err=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi','est')],values_from='error',names_from=c('country'))) %>%
+		df3.err=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','lo','hi','est')],values_from='error',names_from=c('country'))) %>%
 			arrange(year)
 		return(list(est=df3,lo=df3.lo,hi=df3.hi,error=df3.err,lty='dashed'))
 	}
 
-bsAssign('estimates')
-	if (is.list(estimates)) {
+	if (!is.data.frame(estimates)) {
 		estimates.list=lapply(estimates,processEstimates)
 	} else 
 		estimates.list=list(sole=processEstimates(estimates))
@@ -593,12 +604,13 @@ bsAssign('estimates')
 	coeff.data$cdon50.lo=with(coeff.data,lo.y*50^lo.x)
 	coeff.data$cdon50.hi=with(coeff.data,hi.y*50^hi.x)
 
+	estimates0=estimates.list[[1]]
 	for (rw in grps$rw) {
 		cn=grps$country[rw]
 
 		wh.min=min(which(!is.na(df3[[cn]])))
 		y0=df3[[cn]][wh.min]
-		y.max=max(estimates.list[[1]]$hi[[cn]],na.rm=TRUE)
+		y.max=max(estimates0$hi[[cn]],na.rm=TRUE)
 
 		filename=paste0('../submit/summary-',cn,'.png')
 		resolution=150
@@ -607,9 +619,9 @@ bsAssign('estimates')
 		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
 
 		nf <- layout(
-			matrix(c(1,2,3,4),ncol=1,byrow=TRUE), 
+			matrix(c(1,2,3),ncol=1,byrow=TRUE), 
 			# widths=c(3,1), 
-			heights=c(2,1,1,1)
+			heights=c(2,1,1)
 		)
 
 		plot(x=NULL,xlim=xlim,ylim=c(0,y.max)/1000,
@@ -627,34 +639,35 @@ bsAssign('estimates')
 
 		# number of new donations
 		nd=new.donors %>% filter(country==cn)
-		plot(x=NULL,xlim=xlim,ylim=c(0,max(nd$n2)/1000),
-			xlab='year',ylab='new donors (in 1,000)'
-		)
+		# plot(x=NULL,xlim=xlim,ylim=c(0,max(nd$n2)/1000),xlab='year',ylab='new donors (in 1,000)')
 		rect(nd$year-0.3,0,nd$year+0.3,nd$n2/1000,col=colfun(cn))
 
 		# activity scales/errors
 		# nb! These will be the same for all estimates anyhow
-		err=estimates.list[[1]]$error
+		err=estimates0$error
 		wh=which(abs(err[[cn]])>1 & err$year <= max(nd$year))
 
 		err.data=data.frame(year=err$year[wh],error=err[[cn]][wh])
-		cmb.data=inner_join(err.data,estimates.list[[1]]$est[,c(cn,'year')],join_by(year))
+		cmb.data=inner_join(err.data,estimates0$est[,c(cn,'year')],join_by(year))
 		cmb.data$perc=100*cmb.data$error/cmb.data[[cn]]
 
+		# 2nd panel: average errors
 		max.y=max(abs(cmb.data$perc),na.rm=TRUE)
 		plot(x=NULL,xlim=xlim,ylim=c(-max.y,max.y),xlab='year',ylab='error-%')
-
 		points(cmb.data$year,cmb.data$perc,col=colfun(cn),pch=2)
-		# points(df3.err$year[wh],df3.err[[cn]][wh],col=colfun(cn),pch=2)
-		# lines(min(df3.err$year[wh]),50,min(df3.err$year[50]),50,lty='dotted')
 		abline(h=0,lty='dotted')
 
+		# 3rd panel: cdon50/average age (since first donation) of donor
 		ced=coeff.data[coeff.data$rw==rw,]
 		plot(x=NULL,xlim=xlim,ylim=c(0,max(ced$cdon50.hi)),xlab='year',ylab='cdon50')
-
 		lines(ced$year,ced$cdon50,col=colfun(cn),lwd=2)
 		lines(ced$year,ced$cdon50.lo,lty='dashed',col=colfun(cn))
 		lines(ced$year,ced$cdon50.hi,lty='dashed',col=colfun(cn))
+
+		points(estimates0$avg.age$year,estimates0$avg.age[[cn]],col=colfun(cn))
+		wh=min(which(!is.na(estimates0$avg.age[[cn]])))
+		year0=estimates0$avg.age$year[wh]
+		lines(c(year0,year0+55),c(0,0.5*55),lty='dashed',col=colfun(cn))
 
 		dev.off()
 	}
