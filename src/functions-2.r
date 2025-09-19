@@ -196,6 +196,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 
 bsAssign('m')
 bsAssign('esq')
+bsAssign('phase')
 		mm=m$model
 		if ('year0' %in% colnames(mm))
 			mm$year0=as.integer(as.character(mm$year0))
@@ -230,16 +231,19 @@ bsAssign('esq')
 		}
 
 		esq$error=esq$fit-esq$actual
-		esq$abs.errorperc=abs(esq$error)/esq$actual
+		esq$abs.errorperc=abs(esq$error)/esq$fit
 
-		wh = which(!is.na(esq$abs.errorperc)&esq$abs.errorperc>0.5)
+		wh = which(!is.na(esq$abs.errorperc)&esq$abs.errorperc>0.3)
 		if (length(wh) > 0) {
 			print(paste('found outliers ',phase,length(wh),recursive,paste(wh,collapse=' ')),sep=' ')
 			subset=setdiff(1:nrow(mm),unique(esq$rownr[wh]))
-			m2=lm(m,subset=subset,data=m$model[subset,])
-print(summary(m))
+			# phase0=sub(
+			data=m$model[subset,]
+			phase0=gsub('log\\(([^)]+)\\)',paste0('`log(\\1)`'),phase)
+			m2=lm(formula(phase0),data=data)
+# print(summary(m))
 bsAssign('m2')
-print(summary(m2))
+# print(summary(m2))
 			return(m.predict(m2,phase,power.term=power.term,recursive=recursive+1))
 print('***')
 		}
@@ -323,34 +327,25 @@ print('***')
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase))
 
-		m=lm(log(don)~log(x)+x1,data=data)
-		coeff = rbind(coeff,sm.extract(m,'log(don)-log+x1'))
-		prdct = rbind(prdct,m.predict(m,'log(don)-log+x1'))
+		phase='log(don)~log(x)+x1'
+		m=lm(formula(phase),data=data)
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase))
 
 		power.term.d=summary(m)$coeff[2,1]
 		data$x.pwr=data$x^power.term.d
-		m=lm(don~x.pwr,data=data)
-		coeff = rbind(coeff,sm.extract(m,'don-x.a'))
-		prdct = rbind(prdct,m.predict(m,'don-x.a',power.term=power.term.d))
+		phase='don~x.pwr'
+		m=lm(formula(phase),data=data)
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
 
 		# 2025-08-25
-		m=lm(don~x.pwr,data=data[data$x>1,])
-		coeff = rbind(coeff,sm.extract(m,'don-x.a+x1'))
-		prdct0=m.predict(m,'don-x.a+x1',power.term=power.term.d)
+		phase='don~x.pwr'
+		m=lm(formula(phase),data=data[data$x>1,])
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct0=m.predict(m,phase,power.term=power.term.d)
+		# nb! This look weird, and is not used anyway
 		prdct0[1,1:3]=prdct0[1,1:3]+as.numeric((data[1,'don']-prdct0[1,1])) # this doesn't work too well with multiple years
-		# m=lm(don~x.pwr,data=data)
-		# prdct2=m.predict(m,'don-x.a+x1',power.term=power.term.d)
-
-		if (FALSE) {
-			# comparing the squared error between the alternate models
-			print(paste('cut','original','cut-original'))
-			print(paste(
-				sum((prdct0$fit[1:length(data$don)]-data$don)^2),
-				sum((prdct2$fit[1:length(data$don)]-data$don)^2),
-				sum((prdct0$fit[1:length(data$don)]-data$don)^2)-
-				sum((prdct2$fit[1:length(data$don)]-data$don)^2)))
-		}
-
 		prdct = rbind(prdct,prdct0)
 
 		data2=data
@@ -360,42 +355,49 @@ print('***')
 
 		# 2025-08-17 model with x converted to a power with the exponent found previously
 		data$x.pwr=data$x^power.term
-		m=lm(cdon~x.pwr,data=data)
-		coeff = rbind(coeff,sm.extract(m,'cdon-x.a'))
-		prdct = rbind(prdct,m.predict(m,'cdon-x.a',power.term=power.term)) # power.term converts the predictions
+		phase='cdon~x.pwr'
+		m=lm(formula(phase),data=data)
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term)) # power.term converts the predictions
 
 		# model with year0-based slopes (b_i)
 		multi.year = (length(year0.ord) > 1)
 		if (multi.year) {
-			m=lm(log(cdon)~0+year0+log(x),data=data)
+			phase='log(cdon)~0+year0+log(x)'
+			m=lm(formula(phase),data=data)
 			sm=summary(m)
-			coeff = rbind(coeff,sm.extract(m,'log-year0-log'))
-			prdct = rbind(prdct,m.predict(m,'log-year0-log'))
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase))
 
-			m=lm(log(don)~0+year0+log(x),data=data)
+			phase='log(don)~0+year0+log(x)'
+			m=lm(formula(phase),data=data)
 			sm=summary(m)
-			coeff = rbind(coeff,sm.extract(m,'log(don)-year0-log'))
-			prdct = rbind(prdct,m.predict(m,'log(don)-year0-log'))
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase))
 
-			m=lm(log(don)~0+year0+log(x)+x1,data=data)
+			phase='log(don)~0+year0+log(x)+x1'
+			m=lm(formula(phase),data=data)
 			sm=summary(m)
-			coeff = rbind(coeff,sm.extract(m,'log(don)-year0-log+x1'))
-			prdct = rbind(prdct,m.predict(m,'log(don)-year0-log+x1'))
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase))
 
-			m=lm(cdon~x.pwr+year0+0,data=data)
-			coeff = rbind(coeff,sm.extract(m,'cdon-x.a+year0'))
-			prdct = rbind(prdct,m.predict(m,'cdon-x.a+year0',power.term=power.term)) # power.term converts the predictions
+			phase='cdon~x.pwr+year0+0'
+			m=lm(formula(phase),data=data)
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term)) # power.term converts the predictions
 
 			### 2025-08-22 newly added things
 			data$x.pwr=data$x^power.term.d
-			m=lm(log(don)~0+year0+log(x),data=data)
+			phase='log(don)~0+year0+log(x)'
+			m=lm(phase,data=data)
 			sm=summary(m)
-			coeff = rbind(coeff,sm.extract(m,'log(don)-year0-log'))
-			prdct = rbind(prdct,m.predict(m,'log(don)-year0-log'))
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase))
 
-			m=lm(don~x.pwr+year0+0,data=data)
-			coeff = rbind(coeff,sm.extract(m,'don-x.a+year0'))
-			prdct = rbind(prdct,m.predict(m,'don-x.a+year0',power.term=power.term.d)) # power.term converts the predictions
+			phase='don~x.pwr+year0+0'
+			m=lm(formula(phase),data=data)
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d)) # power.term converts the predictions
 			data$x.pwr=data$x^power.term
 
 bsAssign('data')
@@ -403,34 +405,38 @@ bsAssign('power.term.d')
 			# data$x1=0
 			# data$x1[data$ord==1]=1
 			data$x.pwr=data$x^power.term.d
-			m=lm(don~x.pwr+year0+0+x1,data=data)
-			coeff = rbind(coeff,sm.extract(m,'don-x.a+year0+x1'))
-			prdct = rbind(prdct,m.predict(m,'don-x.a+year0+x1',power.term=power.term.d))
+			phase='don~x.pwr+year0+0+x1'
+			m=lm(formula(phase),data=data)
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
 			###
 
 			# linear model with converted response variable
 			data2$sq.x=data2$x^2
-			m=lm(y~x+year0+0,data=data2)
+			phase='y~x+year0+0'
+			m=lm(formula(phase),data=data2)
 			sm=summary(m)
 			# print(sm)
-			coeff = rbind(coeff,sm.extract(m,'cdon.a-x-year0'))
-			prdct = rbind(prdct,m.predict(m,'cdon.a-x-year0',power.term=power.term))
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term))
 		}
 
 		# linear model converted response variable, no year0
 		data2$sq.x=data2$x^2
-		m=lm(y~x,data=data2)
+		phase='y~x'
+		m=lm(formula(phase),data=data2)
 		sm=summary(m)
-		coeff = rbind(coeff,sm.extract(m,'cdon.a-x'))
-		prdct = rbind(prdct,m.predict(m,'cdon.a-x',power.term=power.term))
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term))
 
 		# model with the added squared regressor
 		data2$sq.x=data2$x^2
-		m=lm(y~x+sq.x,data=data2)
+		phase='y~x+sq.x'
+		m=lm(formula(phase),data=data2)
 		sm=summary(m)
 		# print(sm)
-		coeff = rbind(coeff,sm.extract(m,'cdon.a-x-sq.x'))
-		prdct = rbind(prdct,m.predict(m,'cdon.a-x-sq.x',power.term=power.term))
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term))
 
 		if (multi.year) {
 			# the x+sqrt.x model (kind of old-fashioned already)
@@ -477,7 +483,7 @@ bsAssign('power.term.d')
 		col.start=spec$colours[[grps[rw,spec$col.dim]]]
 		colfunc <- colorRampPalette(c(col.start, "white"))
 		colfun=colfunc(20)
-		col0=colfun[rw] # 2025-08-06 -> index
+		col0=colfun[rw]
 		
 		coeff$rw=rw
 		prdct$rw=rw

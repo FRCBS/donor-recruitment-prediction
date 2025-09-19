@@ -5,7 +5,7 @@ source('functions-2.r')
 # Must be moved to a better place
 plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
 plotCountrySummaries(et,grps,estimates.year0.models.nofuture,spec,coeff.data)
-estimates0$avg.age
+sestimates0$avg.age
 
 # This should be changed
 shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
@@ -23,7 +23,9 @@ agedist=NULL
 #######
 # What are the parameters here?
 #  - 
-model='don-x.a+x1'
+str(tst)
+unique(tst[[1]]$prdct$phase)
+model='log(don)~log(x)+x1' # 'don-x.a+x1'
 cumulative=FALSE
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
 grps=rlist[[1]]$grps
