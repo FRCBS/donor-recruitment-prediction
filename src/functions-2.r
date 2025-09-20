@@ -25,7 +25,8 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 	# This applies to cases where only one year is selected and the model is estimated
 	# with no year0 term (multi.year==FALSE)
 	if (all(pred.d$year0.lo==pred.d$year0.hi)) {
-		model=sub('.year0','',model)
+		model=sub('0\\+year0\\+','',model)
+print(paste('model is now',model))
 	}
 
 	prd.data=pred.d[pred.d$phase==model,]
@@ -237,15 +238,19 @@ bsAssign('phase')
 		if (length(wh) > 0) {
 			print(paste('found outliers ',phase,length(wh),recursive,paste(wh,collapse=' ')),sep=' ')
 			subset=setdiff(1:nrow(mm),unique(esq$rownr[wh]))
-			# phase0=sub(
 			data=m$model[subset,]
 			phase0=gsub('log\\(([^)]+)\\)',paste0('`log(\\1)`'),phase)
-			m2=lm(formula(phase0),data=data)
+			m2=NULL
+			m2=try(lm(formula(phase0),data=data))
 # print(summary(m))
 bsAssign('m2')
 # print(summary(m2))
-			return(m.predict(m2,phase,power.term=power.term,recursive=recursive+1))
-print('***')
+			if (!is.null(names(m2))) {
+				esq0 = m.predict(m2,phase,power.term=power.term,recursive=recursive+1)
+				return(esq0)
+			} else {
+				print('reestimation failed')
+			}
 		}
 
 		return(esq)
@@ -388,11 +393,15 @@ print('***')
 
 			### 2025-08-22 newly added things
 			data$x.pwr=data$x^power.term.d
+if (FALSE) {
+	# this is a repeat model
+	# should check if there is something worth adding here
 			phase='log(don)~0+year0+log(x)'
 			m=lm(phase,data=data)
 			sm=summary(m)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase))
+}
 
 			phase='don~x.pwr+year0+0'
 			m=lm(formula(phase),data=data)

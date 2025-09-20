@@ -5,7 +5,6 @@ source('functions-2.r')
 # Must be moved to a better place
 plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
 plotCountrySummaries(et,grps,estimates.year0.models.nofuture,spec,coeff.data)
-sestimates0$avg.age
 
 # This should be changed
 shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
@@ -23,8 +22,8 @@ agedist=NULL
 #######
 # What are the parameters here?
 #  - 
-str(tst)
-unique(tst[[1]]$prdct$phase)
+# str(tst)
+# unique(tst[[1]]$prdct$phase)
 model='log(don)~log(x)+x1' # 'don-x.a+x1'
 cumulative=FALSE
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
@@ -50,7 +49,7 @@ coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
 
 # estimates = estimates.year0.models
 plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps)
-coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
+# coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
 
 plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',
 	filename=paste0('../fig/estimate-vs-actual-discrete.png'))
@@ -58,15 +57,17 @@ plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year
 #######
 # All years (after 2nd) as a lump
 #######
+model='log(don)~log(x)+x1'
 rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
+unique(rv.1$prdct$phase)
 rvs=list(rv.1,rv.2,rv.3p)
-estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='log-year0-log'))) # cdon.a-x-year0
-# estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model='don-x.a+year0+x1',cumulative=FALSE))) # cdon.a-x-year0
+estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE)))
+str(estimates)
 
 # plotPredictions(rv.3p,models='all')
-plotEstimatesVsActual(et,estimates,spec,main='Predictions with years estimated as a lump with x1',grps=grps) # ,ylim=c(100,500))
+plotEstimatesVsActual(et,estimates,spec,grps=grps) 
 plotEstimatesVsActual(et,estimates,spec,filename=paste0(shared.dir,'figure-d forecasted-donations.png'),grps=grps)
 
 #### Plotting the coefficients

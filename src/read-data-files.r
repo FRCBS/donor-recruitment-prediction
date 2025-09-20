@@ -5,14 +5,13 @@ setwd('c:/hy-version/donor-recruitment-prediction/src')
 # knitr::opts_chunk$set(echo = FALSE,warning=FALSE)
 library(tidyverse)
 library(openxlsx)
-library(ggplot2) # # heatmaps etc
-library(reshape2) # melt (needed in heatmaps)
+# library(ggplot2) # # heatmaps etc
+# library(reshape2) # melt (needed in heatmaps)
 
 ## ----parameters,echo=FALSE----------------------------------------------------
 source('functions-2.r')
 param=list()
 param$data.directory = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data'
-
 
 ## ----read-files,echo=FALSE----------------------------------------------------
 file.names = dir(path=param$data.directory,pattern="*.xlsx")
@@ -241,11 +240,6 @@ et.ord.max = et %>%
 et = et %>%
 	inner_join(et.ord.max,join_by(year0,country,x$ord<y$ord.max)) %>%
 	dplyr::select(-ord.max)
-
-et %>%
-	filter(Name=='Male Office 0-25',country=='au') %>%
-	arrange(year0,ord) %>%
-	top_n(50)
 
 ## ----echo=FALSE---------------------------------------------------------------
 # These values are experimental in the data, so quick-fix them here
