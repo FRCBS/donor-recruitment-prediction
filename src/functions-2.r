@@ -126,7 +126,7 @@ print(paste('model is now',model))
 # year0 should be added to the spec
 # similarly for year to use maybe reference year +/- offset
 getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE,
-	agedist=NULL,save.years.from.end=0,save.years.overlap=0) {
+	agedist=NULL,save.years.from.end=0,save.years.overlap=0,filter.threshold=0.3) {
 	# reference.years.local=reference.years
 	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
@@ -234,17 +234,14 @@ bsAssign('phase')
 		esq$error=esq$fit-esq$actual
 		esq$abs.errorperc=abs(esq$error)/esq$fit
 
-		wh = which(!is.na(esq$abs.errorperc)&esq$abs.errorperc>0.3)
-		if (length(wh) > 0) {
+		wh = which(!is.na(esq$abs.errorperc)&esq$abs.errorperc>filter.threshold)
+		if (length(wh) > 0 && !is.null(filter.threshold)) {
 			print(paste('found outliers ',phase,length(wh),recursive,paste(wh,collapse=' ')),sep=' ')
 			subset=setdiff(1:nrow(mm),unique(esq$rownr[wh]))
 			data=m$model[subset,]
 			phase0=gsub('log\\(([^)]+)\\)',paste0('`log(\\1)`'),phase)
 			m2=NULL
 			m2=try(lm(formula(phase0),data=data))
-# print(summary(m))
-bsAssign('m2')
-# print(summary(m2))
 			if (!is.null(names(m2))) {
 				esq0 = m.predict(m2,phase,power.term=power.term,recursive=recursive+1)
 				return(esq0)
@@ -724,7 +721,7 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 	}
 }
 
-plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',xlim=NULL,ylim=NULL,grps=NULL) {
+plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',xlim=NULL,ylim=NULL,grps=NULL,multipliers=list(nc=100)) {
 	# actual donations
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
@@ -772,14 +769,15 @@ bsAssign('estimates')
 	plot(NULL,xlim=xlim,ylim=ylim,ylab='number of donations (in 1,000)',xlab='year',main=main)
 	cns=grep('..',colnames(df3),value=TRUE)
 	for (cn in cns) {
-		multiplier = (if (cn=='nc') 100 else 1) # nb! Navarre hard-coded thing
-		lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty=lty,col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
-		lines(df3.lo$year,multiplier*df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
-		lines(df3.hi$year,multiplier*df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) # col=unlist(sapply(colnames(df3),FUN=colfun)))
+		multiplier = (if (cn %in% names(multipliers)) multipliers[[cn]] else 1) # nb! Navarre hard-coded thing
+		lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty=lty,col=colfun(cn)) 
+		lines(df3.lo$year,multiplier*df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) 
+		lines(df3.hi$year,multiplier*df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) 
 		points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
 	}
 
-	legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(x) cn.names[[x]]))
+	legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
+		paste0(cn.names[[cn]],if (cn %in% names(multipliers)) paste0(' (times ',multipliers[[cn]],')') else '') }))
 
 	if (!is.null(filename))
 		dev.off()

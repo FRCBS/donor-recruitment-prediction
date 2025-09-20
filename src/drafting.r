@@ -1,6 +1,4 @@
 source('functions-2.r')
-# tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
-# estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
 
 # Must be moved to a better place
 plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
@@ -24,20 +22,40 @@ agedist=NULL
 #  - 
 # str(tst)
 # unique(tst[[1]]$prdct$phase)
-model='log(don)~log(x)+x1' # 'don-x.a+x1'
+model='log(don)~log(x)+x1' # tässä year0 aiheutti virheen: yksi vuosi tuli mukaan sekä häntään että muute
 cumulative=FALSE
+
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
 grps=rlist[[1]]$grps
 tst=rlist[lengths(rlist)!=0]
 estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
-tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
-estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
-estimates.tail.nofuture=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=0)
-estimates.year0.models=rbind(estimates0,estimates.tail)
-estimates.year0.models.nofuture=rbind(estimates0,estimates.tail.nofuture)
 
-# str(estimates.year0.models)
-# estimates.year0.models %>% filter(rw==3,prd.year==2010) %>% summarise(ts=sum(est*x)/sum(est))
+rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5,
+	filter.threshold=NULL))
+grps=rlist[[1]]$grps
+tst=rlist[lengths(rlist)!=0]
+estimates0.nofilter=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
+
+tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
+tst2.nooverlap=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=0)
+tst2.nofilter=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=0,
+	filter.threshold=NULL)
+
+estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
+estimates.tail.nooverlap=predictDonations2(tst2.nooverlap,model=model,cumulative=cumulative,multiplier=1)
+
+estimates.tail.nofuture=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=0)
+
+# +filtering, +overlap
+year.test=2018
+estimates0 %>% filter(rw==4,prd.year==2018)
+estimates.tail %>% filter(rw==4,prd.year==2018)
+
+estimates.year0.models=rbind(estimates0,estimates.tail)
+estimates.year0.models.nofilter=rbind(estimates0.nofilter,estimates.tail.nooverlap)
+estimates.year0.models.nooverlap=rbind(estimates0,estimates.tail.nooverlap)
+
+estimates.year0.models.nofuture=rbind(estimates0,estimates.tail.nofuture)
 
 getCoeff = function(x) {
 	df.year0=x$prdct %>% group_by(rw) %>% summarise(year0=min(year0.lo))
@@ -51,24 +69,32 @@ coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
 plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps)
 # coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
 
-plotEstimatesVsActual(et,estimates.year0.models,spec,main='Predictions with year0-specific models (5-year tail)',
-	filename=paste0('../fig/estimate-vs-actual-discrete.png'))
+# Mitä malleja haluttaisiin mukaan?
+# yhtenä kokonaisuutena
+# yksittäin, ei lisämausteita
+# yksittäin, overlap, ei filtteröintiä
+# lopullinen, eli yksittäin, overlap ja filtteröinti mukana
 
 #######
 # All years (after 2nd) as a lump
 #######
-model='log(don)~log(x)+x1'
+model='log(don)~0+year0+log(x)+x1'
 rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
-unique(rv.1$prdct$phase)
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE)))
-str(estimates)
-
-# plotPredictions(rv.3p,models='all')
+print(dim(estimates))
+estimates %>% filter(rw==3,pred.year==2010)
+table(rv.3p$prdct$phase)
 plotEstimatesVsActual(et,estimates,spec,grps=grps) 
-plotEstimatesVsActual(et,estimates,spec,filename=paste0(shared.dir,'figure-d forecasted-donations.png'),grps=grps)
+
+######
+# summaries of the methods
+plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-no.filtering.png'))
+plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-filtering.png'))
+plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering.png'))
+plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0('../submit/eva-lump.png'))
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
@@ -187,6 +213,40 @@ cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
 ###
 
 # cat(paste0('<td><img width=500 src="summary-',names(countries),'.png"></td>'),sep='\n')
+
+###
+# Model specification plots
+html.table.specifications='<table><tr>
+<td><img width=500 src="eva-lump.png"></td>
+<td><img width=500 src="eva-no.overlap-no.filtering.png"></td> </tr><tr>
+<tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr>
+<td><img width=500 src="eva-no.overlap-filtering.png"></td>
+<td><img width=500 src="eva-overlap-filtering.png"></td> </tr><tr>
+<tr><td style=\'text-align:center;\'>(c)</td><td style=\'text-align:center;\'>(d)</td></tr>
+<!-- <td><img width=500 src="summary-nc.png"></td>
+<td><img width=500 src="summary-nl.png"></td> </tr><tr>
+<tr><td style=\'text-align:center;\'>(e)</td><td style=\'text-align:center;\'>(f)</td></tr> -->
+</table>'
+
+captions$z='<b>Figure Z</b> Estimated models with formaula log(don) ~ log(x) + x<sub>1</sub> and different 
+structures: (a)&nbsp;All years estimated together as a single model, filtering applied. The forecast errors especially for 
+Navarre exhibit serial correlation, as the forecasts are not adjusted to reflect the changes in behaviour.
+(b)&nbsp;All years but the last 5 estimated separately, o filtering applied and no overlap for the tail. The lack of 
+filtering causes the effect of spikes, e.g., around year 2015 for Navarre, to be distribution both before and after the spike, 
+leading to overly large estimates outside the spike, and underestimation during the spike. 
+(c)&nbsp;All years but the last 5 estimated separately, no overlap for the tail but filtering applied. The filtering removes the 
+effect of spike and overall shrinks the confidence intervals. (d)%nbsp;All years but the last 5 estimated separately, 
+both filtering and overlap at the tail applied. The additional effect of overlap affects the confidence intervals at the right tails,
+especially prominently for Australia and the Netherlands.'
+
+flist <- list.files("../submit/","eva-*", full.names = TRUE)
+file.copy(flist,shared.dir,overwrite=TRUE)
+
+html.file=sub('¤table¤',html.table.specifications,html.template)
+cat(html.file)
+cat(html.file,file=paste0(shared.dir,'figure-z model specifications.html'))
+###
+
 
 ###
 # Summary plots
