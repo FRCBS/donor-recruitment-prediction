@@ -22,17 +22,22 @@ agedist=NULL
 #  - 
 # str(tst)
 # unique(tst[[1]]$prdct$phase)
-model='log(don)~log(x)+x1' # tässä year0 aiheutti virheen: yksi vuosi tuli mukaan sekä häntään että muute
+model.pwr='don~x.pwr+x1' # 'log(don)~log(x)+x1' # tässä year0 aiheutti virheen: yksi vuosi tuli mukaan sekä häntään että muute
+model='log(don)~log(x)+x1'
+table(rlist[[1]]$prdct$phase)
 cumulative=FALSE
 
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
+
+rlist[[1]]$coeff %>% filter(rw==4,parameter=='r.squared') %>% arrange(Estimate) # debug
+
 grps=rlist[[1]]$grps
 tst=rlist[lengths(rlist)!=0]
 estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
+estimates0.pwr=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=cumulative)))
 
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5,
 	filter.threshold=NULL))
-grps=rlist[[1]]$grps
 tst=rlist[lengths(rlist)!=0]
 estimates0.nofilter=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
 
@@ -42,18 +47,21 @@ tst2.nofilter=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.ye
 	filter.threshold=NULL)
 
 estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
+estimates.tail.pwr=predictDonations2(tst2,model=model.pwr,cumulative=cumulative,multiplier=1)
 estimates.tail.nooverlap=predictDonations2(tst2.nooverlap,model=model,cumulative=cumulative,multiplier=1)
 
 estimates.tail.nofuture=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=0)
 
 # +filtering, +overlap
-year.test=2018
-estimates0 %>% filter(rw==4,prd.year==2018)
-estimates.tail %>% filter(rw==4,prd.year==2018)
+year.test=2015 # debug
+estimates0 %>% filter(rw==4,prd.year==year.test) # debug
+estimates.tail %>% filter(rw==4,prd.year==year.test) # debug
 
 estimates.year0.models=rbind(estimates0,estimates.tail)
+estimates.year0.models.pwr=rbind(estimates0.pwr,estimates.tail.pwr)
 estimates.year0.models.nofilter=rbind(estimates0.nofilter,estimates.tail.nooverlap)
 estimates.year0.models.nooverlap=rbind(estimates0,estimates.tail.nooverlap)
+estimates.year0.models.ultimate=rbind(estimates0.pwr,estimates.tail)
 
 estimates.year0.models.nofuture=rbind(estimates0,estimates.tail.nofuture)
 
@@ -95,6 +103,8 @@ plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename
 plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-filtering.png'))
 plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering.png'))
 plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0('../submit/eva-lump.png'))
+plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0('../submit/eva-overlap-filter-pwr.png'))
+plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'))
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
@@ -162,6 +172,7 @@ dev.off()
 ### html-output
 # table of r2-values
 captions=list()
+include.captions=TRUE
 
 r2.data=rv.3p$coeff %>% filter(parameter=='r.squared') %>% dplyr::select(Estimate,rw,phase)
 # pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
@@ -223,26 +234,28 @@ html.table.specifications='<table><tr>
 <td><img width=500 src="eva-no.overlap-filtering.png"></td>
 <td><img width=500 src="eva-overlap-filtering.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(c)</td><td style=\'text-align:center;\'>(d)</td></tr>
-<!-- <td><img width=500 src="summary-nc.png"></td>
-<td><img width=500 src="summary-nl.png"></td> </tr><tr>
-<tr><td style=\'text-align:center;\'>(e)</td><td style=\'text-align:center;\'>(f)</td></tr> -->
+<td><img width=500 src="eva-overlap-filtering-pwr.png"></td>
+<td><img width=500 src="eva-ultimate.png"></td> </tr><tr>
+<tr><td style=\'text-align:center;\'>(e)</td><td style=\'text-align:center;\'>(f)</td></tr>
 </table>'
 
 captions$z='<b>Figure Z</b> Estimated models with formaula log(don) ~ log(x) + x<sub>1</sub> and different 
 structures: (a)&nbsp;All years estimated together as a single model, filtering applied. The forecast errors especially for 
 Navarre exhibit serial correlation, as the forecasts are not adjusted to reflect the changes in behaviour.
-(b)&nbsp;All years but the last 5 estimated separately, o filtering applied and no overlap for the tail. The lack of 
+(b)&nbsp;All years but the last 5 estimated separately, no filtering applied and no overlap for the tail. The lack of 
 filtering causes the effect of spikes, e.g., around year 2015 for Navarre, to be distribution both before and after the spike, 
 leading to overly large estimates outside the spike, and underestimation during the spike. 
 (c)&nbsp;All years but the last 5 estimated separately, no overlap for the tail but filtering applied. The filtering removes the 
-effect of spike and overall shrinks the confidence intervals. (d)%nbsp;All years but the last 5 estimated separately, 
+effect of spike and overall shrinks the confidence intervals. (d)&nbsp;All years but the last 5 estimated separately, 
 both filtering and overlap at the tail applied. The additional effect of overlap affects the confidence intervals at the right tails,
-especially prominently for Australia and the Netherlands.'
+especially prominently for Australia and the Netherlands. (e)&nbsp;The power functional form yields better forecasts for 
+the years estimated individually, but is inferior to logarithmic form at the tails; filtering and overlap applied.
+(f)&nbsp;The tail from panel (d) combined with the head from panel (e). Note that the tail also includes predictions from the head.'
 
 flist <- list.files("../submit/","eva-*", full.names = TRUE)
 file.copy(flist,shared.dir,overwrite=TRUE)
 
-html.file=sub('¤table¤',html.table.specifications,html.template)
+html.file=sub('¤table¤',paste(html.table.specifications,if(include.captions) captions$z else '',sep='\n'),html.template)
 cat(html.file)
 cat(html.file,file=paste0(shared.dir,'figure-z model specifications.html'))
 ###

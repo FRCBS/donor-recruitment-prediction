@@ -338,10 +338,20 @@ bsAssign('phase')
 		data$x.pwr=data$x^power.term.d
 		phase='don~x.pwr'
 		m=lm(formula(phase),data=data)
+bsAssign('data')
+bsAssign('m')
+bsAssign('power.term.d')
+# if (rw==4) error(2)
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
+
+		phase='don~x.pwr+x1'
+		m=lm(formula(phase),data=data)
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
 
 		# 2025-08-25
+if (FALSE) {
 		phase='don~x.pwr'
 		m=lm(formula(phase),data=data[data$x>1,])
 		coeff = rbind(coeff,sm.extract(m,phase))
@@ -349,6 +359,7 @@ bsAssign('phase')
 		# nb! This look weird, and is not used anyway
 		prdct0[1,1:3]=prdct0[1,1:3]+as.numeric((data[1,'don']-prdct0[1,1])) # this doesn't work too well with multiple years
 		prdct = rbind(prdct,prdct0)
+}
 
 		data2=data
 
