@@ -20,13 +20,17 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 			pred.d[,col.index]=pmax(pred.d[,col.index],0)
 	}
 
+bsAssign('pred.d')
+
 	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
 
 	# This applies to cases where only one year is selected and the model is estimated
 	# with no year0 term (multi.year==FALSE)
 	if (all(pred.d$year0.lo==pred.d$year0.hi)) {
+		# print('swithing model')
+		# print(model)
 		model=sub('0\\+year0\\+','',model)
-print(paste('model is now',model))
+		# print(model)
 	}
 
 	prd.data=pred.d[pred.d$phase==model,]
@@ -71,8 +75,8 @@ print(paste('model is now',model))
 		filter(lwr>upr)
 	if (nrow(pph) > 0) {
 		print(pph)
-	} else 
-		print('nothing to report')
+		error('tangled confidence intervals')
+	} 
 
 	if (all(is.na(prd.data$year0))) {
 		pah=cross_join(prd.years,sizes.data) %>%
@@ -81,6 +85,10 @@ print(paste('model is now',model))
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
+bsAssign('sizes.data')
+bsAssign('prd.data')
+bsAssign('prd.years')
+bsAssign('pah')
 	} else {
 		# prd.years ~ yksinkertainen lista ennustettavista vuosista
 		# sizes.data ~ tunnetut uusien luovuttajien lukumäärät (jatkettu ennustevälille)
@@ -95,7 +103,7 @@ print(paste('model is now',model))
 			filter(is.na(fit)) %>%
 			dplyr::select(prd.year,rw,year0,n2) %>%
 			# copied part: roughly the same as above
-			inner_join(pred.d[pred.d$phase==sub('.year0','',model),colnames(prd.data) != 'year0'],
+			inner_join(pred.d[pred.d$phase==sub('0\\+year0\\+','',model),colnames(prd.data) != 'year0'],
 				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
@@ -195,9 +203,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		esq$x=new.data[,1]
 		esq$phase=phase
 
-bsAssign('m')
-bsAssign('esq')
-bsAssign('phase')
 		mm=m$model
 		if ('year0' %in% colnames(mm))
 			mm$year0=as.integer(as.character(mm$year0))
@@ -394,7 +399,7 @@ if (FALSE) {
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase))
 
-			phase='cdon~x.pwr+year0+0'
+			phase='cdon~x.pwr+0+year0'
 			m=lm(formula(phase),data=data)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term)) # power.term converts the predictions
@@ -411,7 +416,7 @@ if (FALSE) {
 			prdct = rbind(prdct,m.predict(m,phase))
 }
 
-			phase='don~x.pwr+year0+0'
+			phase='don~x.pwr+0+year0'
 			m=lm(formula(phase),data=data)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d)) # power.term converts the predictions
@@ -422,7 +427,7 @@ bsAssign('power.term.d')
 			# data$x1=0
 			# data$x1[data$ord==1]=1
 			data$x.pwr=data$x^power.term.d
-			phase='don~x.pwr+year0+0+x1'
+			phase='don~x.pwr+0+year0+x1'
 			m=lm(formula(phase),data=data)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
@@ -430,7 +435,7 @@ bsAssign('power.term.d')
 
 			# linear model with converted response variable
 			data2$sq.x=data2$x^2
-			phase='y~x+year0+0'
+			phase='y~x+0+year0'
 			m=lm(formula(phase),data=data2)
 			sm=summary(m)
 			# print(sm)
@@ -457,11 +462,11 @@ bsAssign('power.term.d')
 
 		if (multi.year) {
 			# the x+sqrt.x model (kind of old-fashioned already)
-			frml.char = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+year0+0' else '')
-			m=lm(formula(frml.char),data=data)
+			phase = paste0('cdon~x+sqrt.x',if('year0' %in% colnames(data) && length(unique(data$year0)) > 1) '+0+year0' else '')
+			m=lm(formula(phase),data=data)
 			sm=summary(m)
-			coeff = rbind(coeff,sm.extract(m,'cdon-sqrt-x-year0'))
-			# prdct = rbind(prdct,m.predict(m,'cdon-sqrt-x-year0'))
+			coeff = rbind(coeff,sm.extract(m,phase))
+			# prdct = rbind(prdct,m.predict(m,phase))
 		}
 		
 		# the x+sqrt.x model (kind of old-fashioned already)
@@ -631,8 +636,8 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 	for (rw in grps$rw) {
 		cn=grps$country[rw]
 
-		wh.min=min(which(!is.na(df3[[cn]])))
-		y0=df3[[cn]][wh.min]
+		# wh.min=min(which(!is.na(df3[[cn]])))
+		# y0=df3[[cn]][wh.min]
 		y.max=max(estimates0$hi[[cn]],na.rm=TRUE)
 
 		filename=paste0('../submit/summary-',cn,'.png')

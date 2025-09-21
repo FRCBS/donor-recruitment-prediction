@@ -2,6 +2,7 @@ source('functions-2.r')
 
 # Must be moved to a better place
 plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
+plotCountrySummaries(et,grps,list(main=estimates,nofuture=estimates.nofuture),spec,coeff.data)
 plotCountrySummaries(et,grps,estimates.year0.models.nofuture,spec,coeff.data)
 
 # This should be changed
@@ -87,15 +88,18 @@ plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps)
 # All years (after 2nd) as a lump
 #######
 model='log(don)~0+year0+log(x)+x1'
+model.pwr='don~x.pwr+0+year0+x1'
 rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE)))
-print(dim(estimates))
-estimates %>% filter(rw==3,pred.year==2010)
-table(rv.3p$prdct$phase)
+estimates.nofuture=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE,multiplier=0)))
+estimates.pwr=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=FALSE)))
 plotEstimatesVsActual(et,estimates,spec,grps=grps) 
+plotEstimatesVsActual(et,estimates.nofuture,spec,grps=grps) 
+
+plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps) 
 
 ######
 # summaries of the methods
@@ -103,13 +107,60 @@ plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename
 plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-filtering.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0('../submit/eva-lump.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,filename=paste0('../submit/eva-lump-pwr.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering-pwr.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'),mode='mfrow')
 
+str(prd.years)
+str(sizes.data)
+
+pah.if=cross_join(prd.years,sizes.data) %>%
+			inner_join(prd.data[,colnames(prd.data) != 'year0'],
+				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
+			mutate(year=year0+x-1) %>%
+			filter(year==prd.year) %>%
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
+
+		pah.has.year0=cross_join(prd.years,sizes.data) %>%
+			inner_join(prd.data,join_by(rw,year0)) %>%
+			mutate(year=year0+x-1) %>%
+			filter(year==prd.year) %>%
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
+
+pah0=cross_join(prd.years,sizes.data) %>%
+			left_join(prd.data,join_by(rw,year0)) %>%
+			filter(is.na(fit)) %>%
+			dplyr::select(prd.year,rw,year0,n2) %>%
+			# copied part: roughly the same as above
+			inner_join(pred.d[pred.d$phase==sub('0\\+year0\\+','',model),colnames(prd.data) != 'year0'],
+				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
+			mutate(year=year0+x-1) %>%
+			filter(year==prd.year) %>%
+			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error) %>%
+			rbind(pah.has.year0)
+
+table(pred.d$phase)
+
+
+pah0 %>% filter(rw==3,prd.year==2030,year0==2025)
+pah.if %>% filter(rw==3,prd.year==2030,year0==2025)
+pah.has.year0 %>% filter(rw==3,prd.year==2030,year0==2025)
+pah0 %>% filter(rw==3,prd.year==2030,year0==2025)
+pah %>% filter(rw==3,prd.year==2030,year0==2025)
+str(pah0)
+
 source('functions-2.r')
 plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,mode='mfrow')
 
+ %>% filter(prd.year==2030,rw==3)
+dim(pah)
+dim(estimates.nofuture)
+pah=predictDonations2(rvs[[3]],model=model,cumulative=FALSE,multiplier=2)
+pah %>% filter(prd.year==2030,rw==3)
+estimates %>% filter(prd.year==2030,rw==3)
+estimates.nofuture %>% filter(prd.year==2030,rw==3)
+estimates.year0.models %>% filter(prd.year==2030,rw==3)
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
@@ -121,17 +172,16 @@ param.ylim=c(1.2,3)
 # c(-2,2)*
 plot(x=NULL,xlim=param.xlim,ylim=param.ylim,xlab='exponent',ylab='multiplier')
 
-phase='log-log'
+phase='log(cdon)~log(x)'
 dparam=c('log.x.','.Intercept.')
 vfun=c(NA,exp)
 rv=getGroupEstimates2(et,spec.list$country,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
+unique(rv$coeff$phase)
 plotCoeffData(rv$coeff,spec.list$country,rv$grps,phase,dparam,vfun)
 
 dparam=c('log.x.','year0')
-phase='log-year0-log'
-
 rv=getGroupEstimates2(et,spec.list$country.sex,plot='curve',try.nls=FALSE)
-phase='log-log'
+# phase='log-log'
 dparam=c('log.x.','.Intercept.')
 plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
 
@@ -170,7 +220,7 @@ plot(x=NULL,xlim=c(0.3,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
 coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
 addCountours()
 # legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
-legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]))
+legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]),bty='s',bg='white')
 dev.off()
 
 ###############
@@ -234,9 +284,9 @@ cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
 # Model specification plots
 html.table.specifications='<table><tr>
 <td><img width=500 src="eva-lump.png"></td>
-<td><img width=500 src="eva-no.overlap-no.filtering.png"></td> </tr><tr>
+<td><img width=500 src="eva-lump-pwr.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr>
-<td><img width=500 src="eva-no.overlap-filtering.png"></td>
+<td><img width=500 src="eva-no.overlap-no.filtering.png"></td>
 <td><img width=500 src="eva-overlap-filtering.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(c)</td><td style=\'text-align:center;\'>(d)</td></tr>
 <td><img width=500 src="eva-overlap-filtering-pwr.png"></td>
@@ -244,14 +294,19 @@ html.table.specifications='<table><tr>
 <tr><td style=\'text-align:center;\'>(e)</td><td style=\'text-align:center;\'>(f)</td></tr>
 </table>'
 
-captions$z='<b>Figure Z</b> Estimated models with formaula log(don) ~ log(x) + x<sub>1</sub> and different 
-structures: (a)&nbsp;All years estimated together as a single model, filtering applied. The forecast errors especially for 
-Navarre exhibit serial correlation, as the forecasts are not adjusted to reflect the changes in behaviour.
-(b)&nbsp;All years but the last 5 estimated separately, no filtering applied and no overlap for the tail. The lack of 
+# Estimated models with formula log(don) ~ log(x) + x<sub>1</sub> and different 
+structures: 
+captions$z='<b>Figure Z</b> Forecasts with different functional forms and model structures. 
+(a)&nbsp;All years estimated together as a single model using the logarithmic form, filtering applied. 
+The forecast errors exhibit some serial correlation, but overall the estimates are the most accurate, resulting in 
+the tightest confidence intervals of all in this figure.
+(b) Similarly, but with the power form. The condifence intervals are significantly wider for this specification.
+(c)&nbsp;All years but the last 5 estimated separately, no filtering applied and no overlap for the tail. The lack of 
 filtering causes the effect of spikes, e.g., around year 2015 for Navarre, to be distribution both before and after the spike, 
-leading to overly large estimates outside the spike, and underestimation during the spike. 
-(c)&nbsp;All years but the last 5 estimated separately, no overlap for the tail but filtering applied. The filtering removes the 
-effect of spike and overall shrinks the confidence intervals. (d)&nbsp;All years but the last 5 estimated separately, 
+leading to overly large estimates outside the spike, and underestimation during the spike.
+<!-- (c)&nbsp;All years but the last 5 estimated separately, no overlap for the tail but filtering applied. The filtering removes the 
+effect of spike and overall shrinks the confidence intervals. -->
+(d)&nbsp;All years but the last 5 estimated separately, 
 both filtering and overlap at the tail applied. The additional effect of overlap affects the confidence intervals at the right tails,
 especially prominently for Australia and the Netherlands. (e)&nbsp;The power functional form yields better forecasts for 
 the years estimated individually, but is inferior to logarithmic form at the tails; filtering and overlap applied.
