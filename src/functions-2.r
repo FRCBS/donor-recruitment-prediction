@@ -732,7 +732,8 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 	}
 }
 
-plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',xlim=NULL,ylim=NULL,grps=NULL,multipliers=list(nc=100)) {
+plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,main=NULL,lty='solid',
+	xlim=NULL,ylim=NULL,grps=NULL,multipliers=list(nc=100),mode='single') {
 	# actual donations
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
@@ -744,7 +745,6 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	df.ad=data.frame(pivot_wider(actual.don,values_from='don2',names_from=c('country'))) %>% arrange(year)
 	rownames(df.ad)=as.character(df.ad$year)
 
-bsAssign('estimates')
 	pah=estimates %>% 
 		group_by(rw,prd.year) %>%
 		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),.groups='drop') %>% 
@@ -766,6 +766,7 @@ bsAssign('estimates')
 			# default: 5.1  4.1  4.1   2.1
 			#      bottom, left, top, right
 		if (is.null(main)) {
+			# par(mar=c(2.2,4.1,0.5,0.6))
 			par(mar=c(2.2,4.1,0.5,0.6))
 		}
 	}
@@ -777,18 +778,43 @@ bsAssign('estimates')
 	if (is.null(ylim)) 
 		ylim=c(0,2e3)
 	
-	plot(NULL,xlim=xlim,ylim=ylim,ylab='number of donations (in 1,000)',xlab='year',main=main)
-	cns=grep('..',colnames(df3),value=TRUE)
+
+	cns=grep('..',colnames(df3),value=TRUE)[-1]
+print(length(cns))
+	if (mode=='single') {
+		plot(NULL,xlim=xlim,ylim=ylim,ylab='number of donations (in 1,000)',xlab='year',main=main)
+	} else {
+		# par(mfrow=c(length(cns),1))
+		par(mar=c(2.2,1,0.5,0.6))
+		plot(NULL,xlim=xlim,ylim=c(0,length(cns)),ylab='',xlab='year',main=main,yaxt='n')
+print('ok')
+	}
 	for (cn in cns) {
-		multiplier = (if (cn %in% names(multipliers)) multipliers[[cn]] else 1) # nb! Navarre hard-coded thing
-		lines(df3$year,multiplier*df3[[cn]]/1000,type='l',lwd=2,lty=lty,col=colfun(cn)) 
-		lines(df3.lo$year,multiplier*df3.lo[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) 
-		lines(df3.hi$year,multiplier*df3.hi[[cn]]/1000,type='l',lwd=1,lty='dotted',col=colfun(cn)) 
-		points(df.ad$year,multiplier*df.ad[[cn]]/1000,type='p',col=colfun(cn))
+		if (mode=='single') {
+			i = 0
+			multiplier = 0.001 * (if (cn %in% names(multipliers)) multipliers[[cn]] else 1) # nb! Navarre hard-coded thing
+			y0=0
+		} else {
+			# multiplier=1
+			i=length(cns)-which(cns==cn)
+			y.max=max(df.ad[[cn]],df3.hi[[cn]],na.rm=TRUE)
+			y0=min(df3.lo[[cn]],df.ad[[cn]],na.rm=TRUE)
+			multiplier=0.95/(y.max-y0)
+			# plot(NULL,ylim=c(min(df3.lo[[cn]],na.rm=TRUE),max(df.ad[[cn]],df3.hi[[cn]],na.rm=TRUE))/1000,xlim=xlim,axes=FALSE,ylab=)
+		}
+		lines(df3$year,i+multiplier*(df3[[cn]]-y0),type='l',lwd=2,lty=lty,col=colfun(cn)) 
+		lines(df3.lo$year,i+multiplier*(df3.lo[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
+		lines(df3.hi$year,i+multiplier*(df3.hi[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
+		points(df.ad$year,i+multiplier*(df.ad[[cn]]-y0),type='p',col=colfun(cn))
 	}
 
-	legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
-		paste0(cn.names[[cn]],if (cn %in% names(multipliers)) paste0(' (times ',multipliers[[cn]],')') else '') }))
+	if (mode=='single') {
+		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
+			paste0(cn.names[[cn]],if (cn %in% names(multipliers)) paste0(' (times ',multipliers[[cn]],')') else '') }))
+	} else
+		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
+			paste0(cn.names[[cn]]) }))
+
 
 	if (!is.null(filename))
 		dev.off()

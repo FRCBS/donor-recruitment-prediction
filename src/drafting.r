@@ -99,12 +99,17 @@ plotEstimatesVsActual(et,estimates,spec,grps=grps)
 
 ######
 # summaries of the methods
-plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-no.filtering.png'))
-plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-filtering.png'))
-plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering.png'))
-plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0('../submit/eva-lump.png'))
-plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0('../submit/eva-overlap-filter-pwr.png'))
-plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'))
+plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-no.filtering.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-filtering.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0('../submit/eva-lump.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering-pwr.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'),mode='mfrow')
+
+source('functions-2.r')
+plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,mode='mfrow')
+
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
