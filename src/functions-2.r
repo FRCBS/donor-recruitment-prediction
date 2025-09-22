@@ -85,10 +85,6 @@ bsAssign('pred.d')
 			mutate(year=year0+x-1) %>%
 			filter(year==prd.year) %>%
 			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
-bsAssign('sizes.data')
-bsAssign('prd.data')
-bsAssign('prd.years')
-bsAssign('pah')
 	} else {
 		# prd.years ~ yksinkertainen lista ennustettavista vuosista
 		# sizes.data ~ tunnetut uusien luovuttajien lukumäärät (jatkettu ennustevälille)
@@ -262,7 +258,7 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 	for (rw in 1:nrow(grps)) {
 		data = et.test
 
-		print(paste('*************',grps[rw,],collapse=', '))
+		# print(paste('*************',grps[rw,],collapse=', '))
 
 		# Add the group info to the data set
 		for (cn in 1:ncol(grps)) {
@@ -298,7 +294,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 				filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
 		} else if (save.years.from.end < 0) {
 			# 2025-09-15
-			print('adjusting')
 			data = data %>% 
 				# +cn.overlap
 				filter(year0.int-save.years.from.end+cn.overlap>max(year0.int))
@@ -756,16 +751,26 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		rename(year=prd.year) %>%
 		inner_join(grps,join_by(rw)) # nb! global variable
 
-	df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est.hi')],values_from='est',names_from=c('country'))) %>%
+	# TODO There is significant hard-coding here: nc multiplier and using countries instead of groups
+	# But groups in general would be hard to plot
+	if (is.null(xlim)) 
+		xlim=c(2000,2035)
+	if (is.null(ylim)) 
+		ylim=c(0,2e3)
+
+# bsAssign('pah')
+	df3=data.frame(pivot_wider(pah[pah$year<=xlim[2],!colnames(pah) %in% c('rw','est.lo','est.hi')],values_from='est',names_from=c('country'))) %>%
 		arrange(year)
-	df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','est.hi')],values_from='est.lo',names_from=c('country'))) %>%
+	df3.lo=data.frame(pivot_wider(pah[pah$year<=xlim[2],!colnames(pah) %in% c('rw','est','est.hi')],values_from='est.lo',names_from=c('country'))) %>%
 		arrange(year)
-	df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est.lo','est')],values_from='est.hi',names_from=c('country'))) %>%
+	df3.hi=data.frame(pivot_wider(pah[pah$year<=xlim[2],!colnames(pah) %in% c('rw','est.lo','est')],values_from='est.hi',names_from=c('country'))) %>%
 		arrange(year)
+
+	x2=which(df3$year==xlim[2])
 
 	# plot predictions
 	if (!is.null(filename)) {
-		png.res=150
+		png.res=225
 		png(filename,width=9*png.res,height=7*png.res,res=png.res)
 			# par('mar')
 			# default: 5.1  4.1  4.1   2.1
@@ -774,25 +779,15 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 			# par(mar=c(2.2,4.1,0.5,0.6))
 			par(mar=c(2.2,4.1,0.5,0.6))
 		}
-	}
-
-	# TODO There is significant hard-coding here: nc multiplier and using countries instead of groups
-	# But groups in general would be hard to plot
-	if (is.null(xlim)) 
-		xlim=c(2000,2035)
-	if (is.null(ylim)) 
-		ylim=c(0,2e3)
-	
+	}	
 
 	cns=grep('..',colnames(df3),value=TRUE)[-1]
-print(length(cns))
 	if (mode=='single') {
 		plot(NULL,xlim=xlim,ylim=ylim,ylab='number of donations (in 1,000)',xlab='year',main=main)
 	} else {
 		# par(mfrow=c(length(cns),1))
 		par(mar=c(2.2,1,0.5,0.6))
 		plot(NULL,xlim=xlim,ylim=c(0,length(cns)),ylab='',xlab='year',main=main,yaxt='n')
-print('ok')
 	}
 	for (cn in cns) {
 		if (mode=='single') {
@@ -802,23 +797,28 @@ print('ok')
 		} else {
 			# multiplier=1
 			i=length(cns)-which(cns==cn)
-			y.max=max(df.ad[[cn]],df3.hi[[cn]],na.rm=TRUE)
-			y0=min(df3.lo[[cn]],df.ad[[cn]],na.rm=TRUE)
-			multiplier=0.95/(y.max-y0)
+			y.max=max(df.ad[[cn]],na.rm=TRUE) # ,df3.hi[[cn]] # remove these to keep the data points aligned
+			y00=min(df.ad[[cn]],na.rm=TRUE) # df3.lo[[cn]],
+			y0=0.75*y00 # decreasing the multiplier raises the curves
+			multiplier=0.60/(y.max-y0) # increasing the multiplier streches the curves vertically
 			# plot(NULL,ylim=c(min(df3.lo[[cn]],na.rm=TRUE),max(df.ad[[cn]],df3.hi[[cn]],na.rm=TRUE))/1000,xlim=xlim,axes=FALSE,ylab=)
 		}
 		lines(df3$year,i+multiplier*(df3[[cn]]-y0),type='l',lwd=2,lty=lty,col=colfun(cn)) 
 		lines(df3.lo$year,i+multiplier*(df3.lo[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
 		lines(df3.hi$year,i+multiplier*(df3.hi[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
 		points(df.ad$year,i+multiplier*(df.ad[[cn]]-y0),type='p',col=colfun(cn))
+		# Bars illustrating the scale of things happening, now related to the magnitude of actual observations
+		# lines(0.2+c(df3.hi$year[x2],df3.hi$year[x2]),0.075+c(i,i+multiplier*y00/5),type='l',lwd=2,lty='solid',col=colfun(cn))
 	}
 
 	if (mode=='single') {
 		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
 			paste0(cn.names[[cn]],if (cn %in% names(multipliers)) paste0(' (times ',multipliers[[cn]],')') else '') }))
-	} else
-		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
+	} else {
+		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),bty='s',bg='white',FUN=function(cn) {
 			paste0(cn.names[[cn]]) }))
+		sapply(1:length(cns),FUN=function(x) abline(h=x,lwd=1,lty='dotted',col='black'))
+	}
 
 
 	if (!is.null(filename))

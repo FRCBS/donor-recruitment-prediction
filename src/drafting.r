@@ -1,4 +1,6 @@
 source('functions-2.r')
+plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps,mode='mfrow')
+
 
 # Must be moved to a better place
 plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
@@ -29,9 +31,6 @@ table(rlist[[1]]$prdct$phase)
 cumulative=FALSE
 
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
-
-rlist[[1]]$coeff %>% filter(rw==4,parameter=='r.squared') %>% arrange(Estimate) # debug
-
 grps=rlist[[1]]$grps
 tst=rlist[lengths(rlist)!=0]
 estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
@@ -75,7 +74,7 @@ getCoeff = function(x) {
 coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
 
 # estimates = estimates.year0.models
-plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps)
+plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps,mode='mfrow')
 # coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
 
 # Mitä malleja haluttaisiin mukaan?
@@ -97,9 +96,8 @@ estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=mod
 estimates.nofuture=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE,multiplier=0)))
 estimates.pwr=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=FALSE)))
 plotEstimatesVsActual(et,estimates,spec,grps=grps) 
-plotEstimatesVsActual(et,estimates.nofuture,spec,grps=grps) 
-
-plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps) 
+# plotEstimatesVsActual(et,estimates.nofuture,spec,grps=grps) 
+# plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps) 
 
 ######
 # summaries of the methods
@@ -111,56 +109,6 @@ plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,filename=paste0('../submit
 plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering-pwr.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'),mode='mfrow')
-
-str(prd.years)
-str(sizes.data)
-
-pah.if=cross_join(prd.years,sizes.data) %>%
-			inner_join(prd.data[,colnames(prd.data) != 'year0'],
-				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
-			mutate(year=year0+x-1) %>%
-			filter(year==prd.year) %>%
-			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
-
-		pah.has.year0=cross_join(prd.years,sizes.data) %>%
-			inner_join(prd.data,join_by(rw,year0)) %>%
-			mutate(year=year0+x-1) %>%
-			filter(year==prd.year) %>%
-			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error)
-
-pah0=cross_join(prd.years,sizes.data) %>%
-			left_join(prd.data,join_by(rw,year0)) %>%
-			filter(is.na(fit)) %>%
-			dplyr::select(prd.year,rw,year0,n2) %>%
-			# copied part: roughly the same as above
-			inner_join(pred.d[pred.d$phase==sub('0\\+year0\\+','',model),colnames(prd.data) != 'year0'],
-				join_by(rw,between(x$year0,y$year0.lo,y$year0.hi))) %>%
-			mutate(year=year0+x-1) %>%
-			filter(year==prd.year) %>%
-			mutate(est=n2*fit,est.lo=n2*lwr,est.hi=n2*upr,error=n2*error) %>%
-			rbind(pah.has.year0)
-
-table(pred.d$phase)
-
-
-pah0 %>% filter(rw==3,prd.year==2030,year0==2025)
-pah.if %>% filter(rw==3,prd.year==2030,year0==2025)
-pah.has.year0 %>% filter(rw==3,prd.year==2030,year0==2025)
-pah0 %>% filter(rw==3,prd.year==2030,year0==2025)
-pah %>% filter(rw==3,prd.year==2030,year0==2025)
-str(pah0)
-
-source('functions-2.r')
-plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,mode='mfrow')
-
- %>% filter(prd.year==2030,rw==3)
-dim(pah)
-dim(estimates.nofuture)
-pah=predictDonations2(rvs[[3]],model=model,cumulative=FALSE,multiplier=2)
-pah %>% filter(prd.year==2030,rw==3)
-estimates %>% filter(prd.year==2030,rw==3)
-estimates.nofuture %>% filter(prd.year==2030,rw==3)
-estimates.year0.models %>% filter(prd.year==2030,rw==3)
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
@@ -273,7 +221,7 @@ Significant differences between blood services and betweeen groups within blood 
 are contours of the estimated cumulative donations in 50 years. 
 (b) Parameters for blood services estimated separately for each year in data. Dark colours represent more recent years.'
 
-html.file=sub('¤table¤',html.table.parameters,html.template)
+html.file=sub('¤table¤',paste(html.table.parameters,if(include.captions) captions$z else '',sep='\n'),html.template)
 # cat(html.file)
 cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
 ###
@@ -294,9 +242,10 @@ html.table.specifications='<table><tr>
 <tr><td style=\'text-align:center;\'>(e)</td><td style=\'text-align:center;\'>(f)</td></tr>
 </table>'
 
-# Estimated models with formula log(don) ~ log(x) + x<sub>1</sub> and different 
-structures: 
-captions$z='<b>Figure Z</b> Forecasts with different functional forms and model structures. 
+# Estimated models with formula log(don) ~ log(x) + x<sub>1</sub> and different structures: 
+captions$z='<b>Figure Z</b> Forecasts with different functional forms and model structures. The illustrations for 
+each blood establishment have been scaled to roughly fit the designated height while keeping the 
+positions of the actual donation symbols fixed between the panels.
 (a)&nbsp;All years estimated together as a single model using the logarithmic form, filtering applied. 
 The forecast errors exhibit some serial correlation, but overall the estimates are the most accurate, resulting in 
 the tightest confidence intervals of all in this figure.
@@ -316,13 +265,13 @@ flist <- list.files("../submit/","eva-*", full.names = TRUE)
 file.copy(flist,shared.dir,overwrite=TRUE)
 
 html.file=sub('¤table¤',paste(html.table.specifications,if(include.captions) captions$z else '',sep='\n'),html.template)
-cat(html.file)
+# cat(html.file)
 cat(html.file,file=paste0(shared.dir,'figure-z model specifications.html'))
 ###
 
 
 ###
-# Summary plots
+# Summary plots: each country individually
 html.table.summaries='<table><tr>
 <td><img width=500 src="summary-au.png"></td>
 <td><img width=500 src="summary-ct.png"></td> </tr><tr>
@@ -337,8 +286,7 @@ html.table.summaries='<table><tr>
 
 captions$s='<b>Figure S</b> Summary of estimated models and forecasted donations by country (panels a&ndash;f).'
 
-html.file=sub('¤table¤',html.table.summaries,html.template)
-cat(html.file)
+html.file=sub('¤table¤',paste(html.table.summaries,if(include.captions) captions$z else '',sep='\n'),html.template)
 cat(html.file,file=paste0(shared.dir,'figure-s summaries.html'))
 ###
 
@@ -360,11 +308,13 @@ cat(html.file,file=paste0(shared.dir,'list of legends.html'))
 flist <- list.files("../submit/","summary*", full.names = TRUE)
 file.copy(flist,shared.dir,overwrite=TRUE)
 
-pdf('../submit/distm-sample.pdf',width=8,height=12)
-par(mfrow=c(2,1))
-plotDistibutionMatrix(countries$fi$res[[1]]$distm,skip=0)
-plot(x=1:5)
-dev.off()
+if (FALSE) {
+	pdf('../submit/distm-sample.pdf',width=8,height=12)
+	par(mfrow=c(2,1))
+	plotDistibutionMatrix(countries$fi$res[[1]]$distm,skip=0)
+	plot(x=1:5)
+	dev.off()
+}
 
 ### Figure E (the explanation figure)
 library(RColorBrewer)
