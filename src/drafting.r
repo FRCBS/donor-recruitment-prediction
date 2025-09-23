@@ -112,7 +112,7 @@ plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename
 
 #### Plotting the coefficients
 filename=paste0(shared.dir,'parameters.png')
-png.res=150
+png.res=param$png.resolution
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
 par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 param.xlim=c(0.30,0.72)
@@ -231,7 +231,7 @@ tr:nth-child(even) {
 </html>"
 
 html.table=paste(capture.output(print(xtable(r2.2,digits=5),type='html',include.rownames=FALSE)),collapse='\n')
-caption='<b>Table P</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
+caption='<b>Table C</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
 html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
 cat(html.file)
 cat(html.file,file=paste0(shared.dir,'table-c r2-values.html'))
@@ -321,22 +321,14 @@ Further, the bottom part contains statistics about donor activity and maturity: 
 values and their confidence intervals are shown in solid and dashed lines, and the donor maturity, computed as the weighted average of 
 years since first donation, with number of donations as the weights. Finally, the line with slope y=&half;x is drawn as a reference.'
 
-flist <- list.files("../submit/","summary*", full.names = TRUE)
-file.copy(flist,shared.dir,overwrite=TRUE)
-
 html.file=sub('¤table¤',paste(html.table.summaries,if(include.captions) captions$s else '',sep='\n'),html.template)
 cat(html.file,file=paste0(shared.dir,'figure-s summaries.html'))
+
+flist <- list.files("../submit/","summary*", full.names = TRUE)
+file.copy(flist,shared.dir,overwrite=TRUE)
 ###
 
-flist <- list.files("../submit/","figure-e*", full.names = TRUE)
-file.copy(flist,shared.dir,overwrite=TRUE)
-
 captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations'
-captions$e='<b>Figure E</b> An example of a distribution matrix at the top, and at the bottom, models fitted (lines) to the 
-rows of the distribution matrix (lines) and the original data (circles).
-The colours at the top and the bottom match each other. The predict future donations from the five final years (in yellow) 
-and future years, a single model is fitted. In addition to these years themselves, additional years are included to 
-achieve more accurate estimates for the paramters: these years are marked with the vertical bar between the matrix and axis.'
 
 list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='\n<br><br>')
 html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='\n<p>')),html.template)
@@ -346,14 +338,6 @@ cat(html.file,file=paste0(shared.dir,'list of legends.html'))
 # numbers of new donors
 # data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
 # plot(n2~year0,data=data,ylim=c(0,max(data$n2)))
-
-if (FALSE) {
-	pdf('../submit/distm-sample.pdf',width=8,height=12)
-	par(mfrow=c(2,1))
-	plotDistibutionMatrix(countries$fi$res[[1]]$distm,skip=0)
-	plot(x=1:5)
-	dev.off()
-}
 
 ### Figure E (the explanation figure)
 library(RColorBrewer)
@@ -373,12 +357,13 @@ plot.et.data = function(etd,i) {
 
 plotActivityAndFit = function(tst.item,x,country='fi') {
 	etd=tst.item$et.data %>% filter(country=='fi')
-	fid=tst.item$prdct %>% inner_join(grps,join_by(rw)) %>% filter(country=='fi',phase=='log-log')
+	fid=tst.item$prdct %>% inner_join(grps,join_by(rw)) %>% filter(country=='fi',phase=='log(cdon)~log(x)')
 	points(etd$x,etd$cdon,col=col_vector[x])
 	lines(fid$x,fid$fit,col=col_vector[x],lwd=3)
 }
 
-pdf('../submit/figure-e distm-and-curves.pdf',height=8,width=8)
+#### 
+png('../submit/figure-e distm-and-curves.png',height=8*param$png.resolution,width=8*param$png.resolution,res=param$png.resolution)
 nf <- layout(
 	matrix(c(1,2),ncol=1,byrow=TRUE), 
 	heights=c(2,1)
@@ -397,7 +382,22 @@ for (i in 1:length(tst)) {
 plot(NULL,xlim=c(0.5,25),ylim=c(0,20),xlab='years since first donation',ylab='cumulative donations')
 dummy=sapply(1:3,FUN=function(x) plotActivityAndFit(tst[[x]],x) )
 plotActivityAndFit(tst2,length(col_vector))
+
 dev.off()
+
+captions$e='<b>Figure E</b> An example of a distribution matrix at the top, and at the bottom, models fitted (lines) to the 
+rows of the distribution matrix (lines) and the original data (circles).
+The colours at the top and the bottom match each other. The predict future donations from the five final years (in yellow) 
+and future years, a single model is fitted. In addition to these years themselves, additional years are included to 
+achieve more accurate estimates for the paramters: these years are marked with the vertical bar between the matrix and axis.'
+
+html.fragment='<img src="figure-e distm-and-curves.png" width=800>\n<p>'
+
+html.file=sub('¤table¤',paste(html.fragment,if(include.captions) captions$e else '',sep='\n'),html.template)
+cat(html.file,file=paste0(shared.dir,'figure-e distm-and-curves.html'))
+
+flist <- list.files("../submit/","figure-e*", full.names = TRUE)
+file.copy(flist,shared.dir,overwrite=TRUE)
 
 # table1
 # - luovuttajien ja luovutusten kokonaismäärät

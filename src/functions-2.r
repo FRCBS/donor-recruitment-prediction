@@ -638,7 +638,7 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 		y.max=max(estimates0$hi[[cn]],na.rm=TRUE)
 
 		filename=paste0('../submit/summary-',cn,'.png')
-		resolution=150
+		resolution=param$png.resolution
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
@@ -704,7 +704,8 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdon-x.a')) {
 	for (rw in rv$grps$rw) {
 		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
-		resolution=150
+		# resolution=150
+		resolution=param$png.resolution
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		plot(x=NULL,xlim=xlim,ylim=ylim,
 			xlab='years since first donation',ylab='cumulative donations per donor',
@@ -774,7 +775,8 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 
 	# plot predictions
 	if (!is.null(filename)) {
-		png.res=225
+		# png.res=225
+		resolution=param$png.resolution
 		png(filename,width=9*png.res,height=7*png.res,res=png.res)
 			# par('mar')
 			# default: 5.1  4.1  4.1   2.1

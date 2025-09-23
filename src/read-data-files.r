@@ -12,6 +12,7 @@ library(openxlsx)
 source('functions-2.r')
 param=list()
 param$data.directory = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data'
+param$png.resolution=1.4*150
 
 ## ----read-files,echo=FALSE----------------------------------------------------
 file.names = dir(path=param$data.directory,pattern="*.xlsx")
