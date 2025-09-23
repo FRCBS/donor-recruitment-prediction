@@ -3,6 +3,8 @@
 # Should really utilise the computations in getGroupEstimates
 # The data could more easily be derived similarly as et.test
 
+# mspecs=expand.grid(family=c('low','pwr'),dep=c('don','cdon'),year0=c('','year0'),x1=c('','x1'))
+
 prd.cumulative2density = function(pah) {
         dpah=(rbind(pah[,1:3],0*pah[1,1:3])-rbind(0*pah[1,1:3],pah[,1:3]))[1:nrow(pah),] # nämä siis saa vähentämällä
         return(cbind(dpah,pah[,4:ncol(pah)]))
@@ -323,7 +325,14 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		coeff = sm.extract(m,phase)
 		prdct = m.predict(m,phase)
 
-		# experimental: use don to estimate the models
+		# 2025-09-22 new
+		phase='log(cdon)~log(x)+x1'
+		m=lm(formula(phase),data=data)
+		# power.term=summary(m)$coeff[2,1]
+		# intercept=summary(m)$coeff[1,1]
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase))
+
 		phase='log(don)~log(x)'
 		m=lm(formula(phase),data=data)
 		coeff = rbind(coeff,sm.extract(m,phase))
@@ -336,12 +345,15 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 
 		power.term.d=summary(m)$coeff[2,1]
 		data$x.pwr=data$x^power.term.d
+
 		phase='don~x.pwr'
 		m=lm(formula(phase),data=data)
-bsAssign('data')
-bsAssign('m')
-bsAssign('power.term.d')
-# if (rw==4) error(2)
+		coeff = rbind(coeff,sm.extract(m,phase))
+		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
+
+		# 2025-09-22 new
+		phase='cdon~x.pwr+x1'
+		m=lm(formula(phase),data=data)
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
 
@@ -349,17 +361,6 @@ bsAssign('power.term.d')
 		m=lm(formula(phase),data=data)
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
-
-		# 2025-08-25
-if (FALSE) {
-		phase='don~x.pwr'
-		m=lm(formula(phase),data=data[data$x>1,])
-		coeff = rbind(coeff,sm.extract(m,phase))
-		prdct0=m.predict(m,phase,power.term=power.term.d)
-		# nb! This look weird, and is not used anyway
-		prdct0[1,1:3]=prdct0[1,1:3]+as.numeric((data[1,'don']-prdct0[1,1])) # this doesn't work too well with multiple years
-		prdct = rbind(prdct,prdct0)
-}
 
 		data2=data
 
@@ -376,19 +377,34 @@ if (FALSE) {
 		# model with year0-based slopes (b_i)
 		multi.year = (length(year0.ord) > 1)
 		if (multi.year) {
-			phase='log(cdon)~0+year0+log(x)'
+			phase='log(cdon)~log(x)+0+year0'
 			m=lm(formula(phase),data=data)
 			sm=summary(m)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase))
 
-			phase='log(don)~0+year0+log(x)'
+			phase='log(don)~log(x)+0+year0'
 			m=lm(formula(phase),data=data)
 			sm=summary(m)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase))
 
-			phase='log(don)~0+year0+log(x)+x1'
+bsAssign('data')
+			phase='don~x.pwr+0+year0+x1'
+			m=lm(formula(phase),data=data)
+			sm=summary(m)
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
+
+			# 2025-09-22 new 
+			phase='log(cdon)~log(x)+0+year0+x1'
+			m=lm(formula(phase),data=data)
+			sm=summary(m)
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase))
+
+			# 2025-09-22 new 
+			phase='log(don)~log(x)+0+year0+x1'
 			m=lm(formula(phase),data=data)
 			sm=summary(m)
 			coeff = rbind(coeff,sm.extract(m,phase))
@@ -399,17 +415,13 @@ if (FALSE) {
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term)) # power.term converts the predictions
 
+			phase='cdon~x.pwr+0+year0+x1'
+			m=lm(formula(phase),data=data)
+			coeff = rbind(coeff,sm.extract(m,phase))
+			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term)) # power.term converts the predictions
+
 			### 2025-08-22 newly added things
 			data$x.pwr=data$x^power.term.d
-if (FALSE) {
-	# this is a repeat model
-	# should check if there is something worth adding here
-			phase='log(don)~0+year0+log(x)'
-			m=lm(phase,data=data)
-			sm=summary(m)
-			coeff = rbind(coeff,sm.extract(m,phase))
-			prdct = rbind(prdct,m.predict(m,phase))
-}
 
 			phase='don~x.pwr+0+year0'
 			m=lm(formula(phase),data=data)
@@ -421,11 +433,13 @@ bsAssign('data')
 bsAssign('power.term.d')
 			# data$x1=0
 			# data$x1[data$ord==1]=1
+if (FALSE) {
 			data$x.pwr=data$x^power.term.d
 			phase='don~x.pwr+0+year0+x1'
 			m=lm(formula(phase),data=data)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
+}
 			###
 
 			# linear model with converted response variable
@@ -564,7 +578,7 @@ bsAssign('power.term.d')
 }
 
 # 2025-09-14
-plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,2035),ylim=c(0,2e3)) {
+plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,2035),ylim=c(0,2e3),include.errors=FALSE) {
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
 		group_by(!!!syms(c('year',spec$dim.keep))) %>%
@@ -594,8 +608,6 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 			rename(year=prd.year) %>%
 			inner_join(grps,join_by(rw))
 
-		# pah$avg.age=1
-
 		extr=c('est','lo','hi','error','avg.age')
 		tmp=lapply(extr,FUN=function(x) {
 			pivot_wider(pah[,c('country','year',x)],values_from=x,names_from='country') %>% arrange(year)
@@ -604,16 +616,6 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 		tmp$lty='dashed'
 
 		return(tmp)
-
-		df3=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','lo','hi','error')],values_from='est',names_from=c('country'))) %>%
-			arrange(year)
-		df3.lo=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','est','hi','error')],values_from='lo',names_from=c('country'))) %>%
-			arrange(year)
-		df3.hi=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','lo','est','error')],values_from='hi',names_from=c('country'))) %>%
-			arrange(year)
-		df3.err=data.frame(pivot_wider(pah[,!colnames(pah) %in% c('rw','lo','hi','est')],values_from='error',names_from=c('country'))) %>%
-			arrange(year)
-		return(list(est=df3,lo=df3.lo,hi=df3.hi,error=df3.err,lty='dashed'))
 	}
 
 	if (!is.data.frame(estimates)) {
@@ -642,9 +644,9 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
 
 		nf <- layout(
-			matrix(c(1,2,3),ncol=1,byrow=TRUE), 
+			matrix(c(1,2,if(include.errors) 3 else NULL),ncol=1,byrow=TRUE), 
 			# widths=c(3,1), 
-			heights=c(2,1,1)
+			heights=c(2,1,if(include.errors) 1 else NULL)
 		)
 
 		plot(x=NULL,xlim=xlim,ylim=c(0,y.max)/1000,
@@ -675,10 +677,12 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 		cmb.data$perc=100*cmb.data$error/cmb.data[[cn]]
 
 		# 2nd panel: average errors
-		max.y=max(abs(cmb.data$perc),na.rm=TRUE)
-		plot(x=NULL,xlim=xlim,ylim=c(-max.y,max.y),xlab='year',ylab='error-%')
-		points(cmb.data$year,cmb.data$perc,col=colfun(cn),pch=2)
-		abline(h=0,lty='dotted')
+		if (include.errors) {
+			max.y=max(abs(cmb.data$perc),na.rm=TRUE)
+			plot(x=NULL,xlim=xlim,ylim=c(-max.y,max.y),xlab='year',ylab='error-%')
+			points(cmb.data$year,cmb.data$perc,col=colfun(cn),pch=2)
+			abline(h=0,lty='dotted')
+		}
 
 		# 3rd panel: cdon50/average age (since first donation) of donor
 		ced=coeff.data[coeff.data$rw==rw,]
@@ -815,9 +819,9 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
 			paste0(cn.names[[cn]],if (cn %in% names(multipliers)) paste0(' (times ',multipliers[[cn]],')') else '') }))
 	} else {
-		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),bty='s',bg='white',FUN=function(cn) {
-			paste0(cn.names[[cn]]) }))
 		sapply(1:length(cns),FUN=function(x) abline(h=x,lwd=1,lty='dotted',col='black'))
+		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
+			paste0(cn.names[[cn]]) }),bty='s',bg='white')
 	}
 
 
