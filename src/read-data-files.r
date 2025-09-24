@@ -11,15 +11,17 @@ library(openxlsx)
 ## ----parameters,echo=FALSE----------------------------------------------------
 source('functions-2.r')
 param=list()
-param$data.directory = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data'
+param$data.dir = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data/'
+param$shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
+
 param$png.resolution=1.4*150
 
 ## ----read-files,echo=FALSE----------------------------------------------------
-file.names = dir(path=param$data.directory,pattern="*.xlsx")
+file.names = dir(path=param$data.dir,pattern="*.xlsx")
 file.names = file.names[!grepl('~',file.names)]
 file.names = file.names[!grepl('^old',file.names)]
 file.names = file.names[grepl('.xlsx$',file.names)]
-file.paths = paste(param$data.directory,'/',file.names,sep='')
+file.paths = paste(param$data.dir,file.names,sep='')
 
 countries = list()
 gt = NULL
@@ -214,9 +216,9 @@ for (cn in names(countries)) {
 et0=et
 
 # save
-save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.Rdata"))
-save(activity.stats,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.Rdata"))
-save(activity.stats.sex,file=str_c(str_replace(param$data.directory,"/data","/results"),"/activity.stats.sex.Rdata"))
+save(et,file=str_c(str_replace(param$data.dir,"data","/results"),"/et.Rdata"))
+save(activity.stats,file=str_c(str_replace(param$data.dir,"data","/results"),"/activity.stats.Rdata"))
+save(activity.stats.sex,file=str_c(str_replace(param$data.dir,"data","/results"),"/activity.stats.sex.Rdata"))
 
 et.noage = et %>%
 	ungroup() %>%
@@ -230,7 +232,7 @@ et.noage$Name=sub(' [0-9].+','',et.noage$Name)
 # Combine the new -O- with 0-100 age data from above with the O- rows
 # In the combined data, there are no age groups
 et.noage = bind_rows(et.noage,et %>% filter(BloodGroup=='O-'))
-save(et,file=str_c(str_replace(param$data.directory,"/data","/results"),"/et.noage.Rdata"))
+save(et,file=str_c(str_replace(param$data.dir,"data","/results"),"/et.noage.Rdata"))
 
 # Cut out the last, incomplete year; these might be complete ones as well
 et.ord.max = et %>%

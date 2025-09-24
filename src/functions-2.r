@@ -637,7 +637,7 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 		# y0=df3[[cn]][wh.min]
 		y.max=max(estimates0$hi[[cn]],na.rm=TRUE)
 
-		filename=paste0('../submit/summary-',cn,'.png')
+		filename=paste0(param$shared.dir,'fig/summary-',cn,'.png')
 		resolution=param$png.resolution
 		png(filename,res=resolution,width=9*resolution,height=7*resolution)
 		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top

@@ -7,9 +7,6 @@ plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates
 plotCountrySummaries(et,grps,list(main=estimates,nofuture=estimates.nofuture),spec,coeff.data)
 plotCountrySummaries(et,grps,estimates.year0.models.nofuture,spec,coeff.data)
 
-# This should be changed
-shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
-
 library(xtable)
 
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
@@ -101,20 +98,21 @@ plotEstimatesVsActual(et,estimates,spec,grps=grps)
 
 ######
 # summaries of the methods
-plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-no.filtering.png'),mode='mfrow')
-plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0('../submit/eva-no.overlap-filtering.png'),mode='mfrow')
-plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering.png'),mode='mfrow')
-plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0('../submit/eva-lump.png'),mode='mfrow')
-plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,filename=paste0('../submit/eva-lump-pwr.png'),mode='mfrow')
-plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0('../submit/eva-overlap-filtering-pwr.png'),mode='mfrow')
-plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0('../submit/eva-ultimate.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-no.overlap-no.filtering.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-no.overlap-filtering.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-overlap-filtering.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-lump.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-lump-pwr.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-overlap-filtering-pwr.png'),mode='mfrow')
+plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-ultimate.png'),mode='mfrow')
 
 
 #### Plotting the coefficients
-filename=paste0(shared.dir,'parameters.png')
+filename=paste0(param$shared.dir,'fig/parameters.png')
 png.res=param$png.resolution
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
-par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
+# pdf(filename,width=7,height=7)
+par(mar=c(4.1,4.1,0.5,0.6)) # no space at the top
 param.xlim=c(0.30,0.72)
 param.ylim=c(1.2,3)
 plot(x=NULL,xlim=param.xlim,ylim=param.ylim,xlab='exponent (b)',ylab='multiplier (exp(a))')
@@ -159,11 +157,11 @@ dev.off()
 
 #####
 # trajectories of parameters (from models estimated individually for each year)
-filename=paste0(shared.dir,'parameter-trajectories.png')
+filename=paste0(param$shared.dir,'fig/parameter-trajectories.png')
 # png.res=100
 png(filename,width=7*png.res,height=7*png.res,res=png.res)
-par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
-plot(x=NULL,xlim=c(0.3,0.72),ylim=c(1.2,5),xlab='exponent',ylab='multiplier')
+par(mar=c(4.1,4.1,0.5,0.6)) # no space at the top
+plot(x=NULL,xlim=param.xlim,ylim=param.ylim,xlab='exponent (b)',ylab='multiplier (exp(a))')
 coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
 addCountours()
 # legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
@@ -233,40 +231,39 @@ tr:nth-child(even) {
 html.table=paste(capture.output(print(xtable(r2.2,digits=5),type='html',include.rownames=FALSE)),collapse='\n')
 caption='<b>Table C</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
 html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
-cat(html.file)
-cat(html.file,file=paste0(shared.dir,'table-c r2-values.html'))
+cat(html.file,file=paste0(param$shared.dir,'table-c r2-values.html'))
 
 ###
 # Parameter plots (these have been already written above to png files)
 # <td style='text-align:center; vertical-align:middle'></td> 
-html.table.parameters='<table><tr><td><img width=500 src="parameters.png"></td><td><img width=500 src="parameter-trajectories.png"></td></tr>
+html.table.parameters='<table><tr><td><img width=500 src="fig/parameters.png"></td><td><img width=500 src="fig/parameter-trajectories.png"></td></tr>
 <tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr></table>'
 
 captions$p='<b>Figure P </b>Estimated parameters for different blood establishments from model log(cdon)~a+b·log(x)<sup>b</sup>, where 
 exp(a) and b are referred to as the multiplier and exponent, respectively. 
 (a) All the years taken together (3rd year onwards). 
-Significant differences between blood establishments and betweeen groups within blood establishments can be observed. The dashed lines 
+Significant differences between blood establishments and between groups within blood establishments can be observed. The dashed lines 
 are contours of the estimated cumulative donations in 50 years. 
 (b) Parameters for blood establishments estimated separately for each year in data. Dark colours represent more recent years.'
 
 html.file=sub('¤table¤',paste(html.table.parameters,if(include.captions) captions$p else '',sep='\n'),html.template)
 # cat(html.file)
-cat(html.file,file=paste0(shared.dir,'figure-p parameters.html'))
+cat(html.file,file=paste0(param$shared.dir,'figure-p parameters.html'))
 ###
 
-# cat(paste0('<td><img width=500 src="summary-',names(countries),'.png"></td>'),sep='\n')
+# cat(paste0('<td><img width=500 src="fig/summary-',names(countries),'.png"></td>'),sep='\n')
 
 ###
 # Model specification plots
 html.table.specifications='<table><tr>
-<td><img width=500 src="eva-lump.png"></td>
-<td><img width=500 src="eva-lump-pwr.png"></td> </tr><tr>
+<td><img width=500 src="fig/eva-lump.png"></td>
+<td><img width=500 src="fig/eva-lump-pwr.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(a) Years together, logarithmic for, filtering applied</td><td style=\'text-align:center;\'>(b) As in (a), but power form</td></tr>
-<td><img width=500 src="eva-no.overlap-no.filtering.png"></td>
-<td><img width=500 src="eva-overlap-filtering.png"></td> </tr><tr>
+<td><img width=500 src="fig/eva-no.overlap-no.filtering.png"></td>
+<td><img width=500 src="fig/eva-overlap-filtering.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(c) Logarithmic form, years separately, no overlap, no filtering</td><td style=\'text-align:center;\'>(d) Logarithmic form, years separately, overlap and filtering</td></tr>
-<td><img width=500 src="eva-overlap-filtering-pwr.png"></td>
-<td><img width=500 src="eva-ultimate.png"></td> </tr><tr>
+<td><img width=500 src="fig/eva-overlap-filtering-pwr.png"></td>
+<td><img width=500 src="fig/eva-ultimate.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(e) Power form, years separately, overlap and filtering</td><td style=\'text-align:center;\'>(f) Power form for the initial years, logarithmic form for the tail,<br>with overlap and filtering</td></tr>
 </table>'
 
@@ -277,7 +274,7 @@ positions of the actual donation symbols fixed between the panels.
 (a)&nbsp;All years estimated together as a single model using the logarithmic form, filtering applied. 
 The forecast errors exhibit some serial correlation, but overall the forecasts are the most accurate, resulting in 
 the tightest confidence intervals of all the alternatives discussed in this figure.
-(b) Similarly, but with the power form. The condifence intervals for forecasts are significantly wider 
+(b) Similarly, but with the power form. The confidence intervals for forecasts are significantly wider 
 for this specification, although the predictions for the past values are more accurate.
 (c)&nbsp;All years but the last 5 estimated separately, no filtering applied and no overlap for the tail. The lack of 
 filtering causes the effect of spikes, e.g., around year 2015 for Navarre, to be distribution both before and after the spike, 
@@ -290,26 +287,26 @@ especially prominently for Australia and the Netherlands. (e)&nbsp;The power fun
 the years estimated individually, but is inferior to logarithmic form at the tails; filtering and overlap applied.
 (f)&nbsp;The tail from panel (d) combined with the head from panel (e). Note that the tail also includes predictions from the head.'
 
-flist <- list.files("../submit/","eva-*", full.names = TRUE)
-file.copy(flist,shared.dir,overwrite=TRUE)
+# flist <- list.files("../submit/","eva-*", full.names = TRUE)
+# file.copy(flist,param$shared.dir,overwrite=TRUE)
 
 html.file=sub('¤table¤',paste(html.table.specifications,if(include.captions) captions$z else '',sep='\n'),html.template)
 # cat(html.file)
-cat(html.file,file=paste0(shared.dir,'figure-z model specifications.html'))
+cat(html.file,file=paste0(param$shared.dir,'figure-z model specifications.html'))
 ###
 
 
 ###
 # Summary plots: each country individually
 html.table.summaries='<table><tr>
-<td><img width=500 src="summary-au.png"></td>
-<td><img width=500 src="summary-ct.png"></td> </tr><tr>
+<td><img width=500 src="fig/summary-au.png"></td>
+<td><img width=500 src="fig/summary-ct.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(a) Australia</td><td style=\'text-align:center;\'>(b) Catalonia</td></tr>
-<td><img width=500 src="summary-fi.png"></td>
-<td><img width=500 src="summary-fr.png"></td> </tr><tr>
+<td><img width=500 src="fig/summary-fi.png"></td>
+<td><img width=500 src="fig/summary-fr.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(c) Finland</td><td style=\'text-align:center;\'>(d) France</td></tr>
-<td><img width=500 src="summary-nc.png"></td>
-<td><img width=500 src="summary-nl.png"></td> </tr><tr>
+<td><img width=500 src="fig/summary-nc.png"></td>
+<td><img width=500 src="fig/summary-nl.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(e) Navarre</td><td style=\'text-align:center;\'>(f) Netherlands</td></tr>
 </table>'
 
@@ -322,18 +319,13 @@ values and their confidence intervals are shown in solid and dashed lines, and t
 years since first donation, with number of donations as the weights. Finally, the line with slope y=&half;x is drawn as a reference.'
 
 html.file=sub('¤table¤',paste(html.table.summaries,if(include.captions) captions$s else '',sep='\n'),html.template)
-cat(html.file,file=paste0(shared.dir,'figure-s summaries.html'))
+cat(html.file,file=paste0(param$shared.dir,'figure-s summaries.html'))
 
-flist <- list.files("../submit/","summary*", full.names = TRUE)
-file.copy(flist,shared.dir,overwrite=TRUE)
+# flist <- list.files("../submit/","summary*", full.names = TRUE)
+# file.copy(flist,param$shared.dir,overwrite=TRUE)
 ###
 
-captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations'
-
-list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='\n<br><br>')
-html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='\n<p>')),html.template)
-cat(html.file)
-cat(html.file,file=paste0(shared.dir,'list of legends.html'))
+# captions$d='<b>Figure D</b> Forecasted donations compared with the actual historical donations'
 
 # numbers of new donors
 # data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
@@ -341,8 +333,8 @@ cat(html.file,file=paste0(shared.dir,'list of legends.html'))
 
 ### Figure E (the explanation figure)
 library(RColorBrewer)
-n <- 21 # this is not used
-qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+n <- 21 # this is not used: the palette has a fixed number of colours
+qual_col_pals = brewer.pal.info[brewer.pal.info$category=='qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 
 # palette(rainbow(n.classes))
@@ -363,7 +355,7 @@ plotActivityAndFit = function(tst.item,x,country='fi') {
 }
 
 #### 
-png('../submit/figure-e distm-and-curves.png',height=8*param$png.resolution,width=8*param$png.resolution,res=param$png.resolution)
+png(paste0(param$shared.dir,'fig/figure-e distm-and-curves.png'),height=8*param$png.resolution,width=8*param$png.resolution,res=param$png.resolution)
 nf <- layout(
 	matrix(c(1,2),ncol=1,byrow=TRUE), 
 	heights=c(2,1)
@@ -373,7 +365,7 @@ par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 plot(NULL,xlim=c(0.5,25),ylim=rev(c(2000,2023)),xlab='years since first donation',ylab='year of first donation')
 etd0=tst2$et.data %>% filter(country=='fi')
 plot.et.data(etd0,length(col_vector))
-lines(c(0,0),c(min(etd0$year0.int)-0.5,max(etd0$year0.int)+0.5),lwd=3)
+arrows(0,min(etd0$year0.int)-0.5,0,max(etd0$year0.int)+0.5,lwd=2,angle=90,code=3,length=0.025) # sidebar
 for (i in 1:length(tst)) {
 	etd=tst[[i]]$et.data %>% filter(country=='fi')
 	plot.et.data(etd,i)
@@ -391,13 +383,18 @@ The colours at the top and the bottom match each other. The predict future donat
 and future years, a single model is fitted. In addition to these years themselves, additional years are included to 
 achieve more accurate estimates for the paramters: these years are marked with the vertical bar between the matrix and axis.'
 
-html.fragment='<img src="figure-e distm-and-curves.png" width=800>\n<p>'
+html.fragment='<img src="fig/figure-e distm-and-curves.png" width=800>\n<p>'
 
 html.file=sub('¤table¤',paste(html.fragment,if(include.captions) captions$e else '',sep='\n'),html.template)
-cat(html.file,file=paste0(shared.dir,'figure-e distm-and-curves.html'))
+cat(html.file,file=paste0(param$shared.dir,'figure-e distm-and-curves.html'))
 
-flist <- list.files("../submit/","figure-e*", full.names = TRUE)
-file.copy(flist,shared.dir,overwrite=TRUE)
+# flist <- list.files("../submit/","figure-e*", full.names = TRUE)
+# file.copy(flist,param$shared.dir,overwrite=TRUE)
+
+list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='\n<br><br>')
+html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='\n<p>')),html.template)
+# cat(html.file)
+cat(html.file,file=paste0(param$shared.dir,'list of legends.html'))
 
 # table1
 # - luovuttajien ja luovutusten kokonaismäärät
@@ -409,7 +406,6 @@ file.copy(flist,shared.dir,overwrite=TRUE)
 # For the abstract etc.
 et0 %>% filter(ord==1) %>% summarise(donors=sum(n))
 et0 %>% summarise(donations=sum(n*don,na.rm=TRUE))
-
 
 donors= et0 %>%
 	filter(ord==1) %>%
@@ -499,4 +495,4 @@ html.table=paste(capture.output(print(xtable(df,align=c('l','l',rep('r',ncol(df)
 html.table=gsub('&amp;','&',html.table)
 caption='<b>Table 1</b> Summary statistics of donors and donations'
 html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
-cat(html.file,file=paste0(shared.dir,'table-1.html'))
+cat(html.file,file=paste0(param$shared.dir,'table-1.html'))
