@@ -124,14 +124,14 @@ rv=getGroupEstimates2(et,spec.list$country,plot='curve',try.nls=FALSE,year0.ord=
 unique(rv$coeff$phase)
 plotCoeffData(rv$coeff,spec.list$country,rv$grps,phase,dparam,vfun)
 
-dparam=c('log.x.','year0')
 rv=getGroupEstimates2(et,spec.list$country.sex,plot='curve',try.nls=FALSE)
-# phase='log-log'
-dparam=c('log.x.','.Intercept.')
 plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
 
 rv=getGroupEstimates2(et,spec.list$country.bloodgr,plot='curve',try.nls=FALSE)
 plotCoeffData(rv$coeff,spec.list$country.bloodgr,rv$grps,phase,dparam,vfun,TRUE)
+
+rv=getGroupEstimates2(et,spec.list$country.age,plot='curve',try.nls=FALSE)
+plotCoeffData(rv$coeff,spec.list$country.age,rv$grps,phase,dparam,vfun,TRUE)
 
 rv$coeff[rv$coeff$phase=='log-log',]
 rv$coeff %>% filter(phase==phase)
@@ -150,7 +150,8 @@ addCountours=function(x) {
 addCountours()
 
 # legends
-legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'),bty='s',bg='white')
+# spec.list$country.age$pch = function(x) { pchs=list(a0=7,a25=9,a40=12);  return(pchs[[paste0('a',x)]])}
+legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-','age < 25','25≤age<40','age≥40'),bty='s',bg='white')
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]),bty='s',bg='white')
 dev.off()
 #####

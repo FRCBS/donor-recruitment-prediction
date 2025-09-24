@@ -321,6 +321,13 @@ spec.list$country.sex$colours = colours
 spec.list$country.sex$col.dim = 'country'
 spec.list$country.sex$pch.dim = 'Sex'
 
+spec.list$country.age = list()
+spec.list$country.age$dim.keep = c('country','age.lower')
+spec.list$country.age$pch = function(x) { pchs=list(a0=7,a25=9,a40=12);  return(pchs[[paste0('a',x)]])}
+spec.list$country.age$colours = colours
+spec.list$country.age$col.dim = 'country'
+spec.list$country.age$pch.dim = 'Age'
+
 spec.list$country.bloodgr = list()
 spec.list$country.bloodgr$dim.keep = c('country','BloodGroup')
 spec.list$country.bloodgr$pch = function(x) { pchs=list(); pchs[['-O-']]=4; pchs[['O-']]=1;  return(pchs[[x]])}
