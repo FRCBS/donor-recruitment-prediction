@@ -13,8 +13,8 @@ source('functions-2.r')
 param=list()
 param$data.dir = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data/'
 param$shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
-
 param$png.resolution=1.4*150
+param$figure.format='pdf'
 
 ## ----read-files,echo=FALSE----------------------------------------------------
 file.names = dir(path=param$data.dir,pattern="*.xlsx")
@@ -326,7 +326,7 @@ spec.list$country.age$dim.keep = c('country','age.lower')
 spec.list$country.age$pch = function(x) { pchs=list(a0=7,a25=9,a40=12);  return(pchs[[paste0('a',x)]])}
 spec.list$country.age$colours = colours
 spec.list$country.age$col.dim = 'country'
-spec.list$country.age$pch.dim = 'Age'
+spec.list$country.age$pch.dim = 'age.lower'
 
 spec.list$country.bloodgr = list()
 spec.list$country.bloodgr$dim.keep = c('country','BloodGroup')

@@ -22,8 +22,6 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 			pred.d[,col.index]=pmax(pred.d[,col.index],0)
 	}
 
-bsAssign('pred.d')
-
 	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
 
 	# This applies to cases where only one year is selected and the model is estimated
@@ -639,7 +637,7 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 
 		filename=paste0(param$shared.dir,'fig/summary-',cn,'.png')
 		resolution=param$png.resolution
-		png(filename,res=resolution,width=9*resolution,height=7*resolution)
+		pdfOrPng(filename,width=9,height=7)
 		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
 
@@ -706,7 +704,7 @@ plotPredictions = function(rv,xlim=c(1,55),ylim=c(1,25),models=c('cdon.a-x','cdo
 		filename=paste0('../fig/',paste(grps[rw,],collapse='-'),'-predictions.png')
 		# resolution=150
 		resolution=param$png.resolution
-		png(filename,res=resolution,width=9*resolution,height=7*resolution)
+		pdfOrPng(filename,width=9,height=7)
 		plot(x=NULL,xlim=xlim,ylim=ylim,
 			xlab='years since first donation',ylab='cumulative donations per donor',
 			main=paste(rv$grps[rw,setdiff(colnames(rv$grps),'rw')]))
@@ -777,7 +775,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	if (!is.null(filename)) {
 		# png.res=225
 		resolution=param$png.resolution
-		png(filename,width=9*png.res,height=7*png.res,res=png.res)
+		pdfOrPng(filename,width=9,height=7)
 			# par('mar')
 			# default: 5.1  4.1  4.1   2.1
 			#      bottom, left, top, right
@@ -1006,3 +1004,89 @@ cdm2pdm = function(distm) {
 		substr(x,1,1) <- toupper(substr(x,1,1))
 		return(x)
 	}
+
+pdfOrPng = function(filename,width,height) {
+	if (param$figure.format == 'png') {
+		png(sub('.pdf$','.png',filename),height=8*param$png.resolution,width=8*param$png.resolution,res=param$png.resolution)
+	} else {
+		pdf(sub('.png$','.pdf',filename),height=height,width=width)
+	}
+}
+
+composeFigure = function(figures.table.latex,paper.dir,figures.file) {
+	tex.pre='\\documentclass{standalone}\n\\usepackage[pdftex]{color,graphicx}\n\\begin{document}'
+	tex.post='\n\\end{document}'
+
+	cont = figures.table.latex
+	cont=gsub('.hspace[^\\}]+\\}','',cont)
+	cont=gsub('.(caption|clearpage)','%\\\\\\1',cont)
+	cont=gsub('(.(begin|end).figure)','%\\1',cont)
+	cont=paste(tex.pre,cont,tex.post,collapse='\n',sep='\n')
+
+	# 2025-08-30 Compile the fragment into a new figure file (only in PDF)
+	# fragment = gsub('.hspace.[^\\}]+.'
+	# cat(cont,file=sub('.tex$','.tex',figures.file)
+
+	figures.file=gsub('([\\/]+)','/',figures.file)
+	figures.file=sub('.+[\\/]','composed-',figures.file)
+	latexCompile(cont,paper.dir,sub(paper.dir,'',figures.file))
+}
+
+latexCompile = function(content,workdir,filename) {
+	oldwd = getwd()
+	setwd(workdir)
+
+	tex.file = sub('.pdf$','.tex',filename)
+
+	pdflatex = 'C:\\Users\\super\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64\\pdflatex.exe'
+
+	cat(content,file=tex.file)
+	system(paste(pdflatex,paste0('"',tex.file,'"')),intern=TRUE)
+	setwd(oldwd)
+}
+
+convertOutput = function(html,file) {
+	if (param$figure.format == 'png') {
+		cat(html,file)
+	} else {
+		html.0=html.file
+		tex=sub('.+[<]body[>]','',html.file)
+		tex=gsub('[<]table[>].tr.','\\\\begin{tabular}{cc}',tex)
+		tex=gsub('[<]/table[>]','\\\\end{tabular}\n\\\\end{center}\n',tex)
+		tex=gsub('[<]/tr[>][<]tr[>]','\\\\\\\\\n',tex)
+		tex=gsub('[<]/td[>][\n ]*[^>]+td[^>]*[>]',' & ',tex)
+		tex=gsub('[<]/td[>][\n ]*[^>]+td[^>]*[>]',' & ',tex)
+		tex=gsub('[<]/tr[>]','\\\\\\\\\n',tex)
+		tex=gsub('[<]b[>](.+)[<]/b[>]','\\\\textbf{\\1}',tex)
+		tex=gsub('[<]/body[>].+','\n\\\\end{document}',tex)
+		tex=gsub('&nbsp;','\\\\ ',tex)
+		tex=gsub('&half;','$\\\\frac{1}{2}$',tex)
+		tex=gsub('&ndash;','--',tex)
+		tex=gsub('&middot;','\\\\cdot',tex)
+		tex=gsub('log','\\\\log',tex)
+		tex=gsub('src=.([^>]+).[>]','>\\\\includegraphics[width=9cm]{\\1}',tex)
+		tex=gsub('[.]png','.pdf',tex)
+		tex=gsub('[<][^>]+[>]','',tex)
+
+		tex=gsub('[<]span[>](.+)[<]/span[>]','$\\1$',tex)
+
+		if (!grepl('end.center',tex)) {
+			tex=sub('.textbf','\\\\end{center}\n\\\\textbf',tex)
+			tex=gsub('9cm','16cm',tex)
+		}
+
+		tex.pre='\\documentclass[varwidth=20cm,border=2mm]{standalone}\n\\usepackage[pdftex]{color,graphicx}\n\\begin{document} \\begin{center}'
+
+		# file=paste0(shared.dir,'text.tes')
+		wd=sub('^(.+[/\\]).+','\\1',file)
+		bare.file=sub(wd,'',file,fixed=TRUE)
+		bare.file=sub('.html','.tex',bare.file)
+		# cat(paste(tex.pre,tex,collapse='\n'),file=paste0(shared.dir,'latex-test.tex'))
+		tex=paste(tex.pre,tex,collapse='\n')
+		latexCompile(tex,shared.dir,bare.file)
+	}
+
+	suffix=c('aux','log','tex')
+	dev.null=sapply(suffix,FUN=function(x) file.remove(sub('[.][a-z]+$',paste0('.',x),file)) )
+}
+
