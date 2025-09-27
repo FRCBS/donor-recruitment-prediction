@@ -1060,15 +1060,17 @@ convertOutput = function(html,file) {
 		tex=gsub('[<]b[>](.+)[<]/b[>]','\\\\textbf{\\1}',tex)
 		tex=gsub('[<]/body[>].+','\n\\\\end{document}',tex)
 		tex=gsub('&nbsp;','\\\\ ',tex)
-		tex=gsub('&half;','$\\\\frac{1}{2}$',tex)
+		tex=gsub('&frac12;','$\\\\frac{1}{2}$',tex)
 		tex=gsub('&ndash;','--',tex)
 		tex=gsub('&middot;','\\\\cdot',tex)
-		tex=gsub('log','\\\\log',tex)
+		tex=gsub('(log|exp)[(]','\\\\\\1(',tex)
 		tex=gsub('src=.([^>]+).[>]','>\\\\includegraphics[width=9cm]{\\1}',tex)
 		tex=gsub('[.]png','.pdf',tex)
+# tex='model <span>log(cdon)~a+b&middot;log(x)</span>, where '
+# gsub('[<]span[>](.+)[<]/span[>]','\\$\\1\\$',tex)
+		tex=gsub('[<]span[>]([^<]+)[<]/span[>]','\\$\\1\\$',tex)
 		tex=gsub('[<][^>]+[>]','',tex)
 
-		tex=gsub('[<]span[>](.+)[<]/span[>]','$\\1$',tex)
 
 		if (!grepl('end.center',tex)) {
 			tex=sub('.textbf','\\\\end{center}\n\\\\textbf',tex)

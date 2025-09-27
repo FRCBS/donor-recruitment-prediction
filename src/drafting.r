@@ -134,10 +134,9 @@ rv=getGroupEstimates2(et,spec.list$country.age,plot='curve',try.nls=FALSE)
 plotCoeffData(rv$coeff,spec.list$country.age,rv$grps,phase,dparam,vfun,TRUE)
 
 rv$coeff[rv$coeff$phase=='log-log',]
-rv$coeff %>% filter(phase==phase)
 
 # contours
-addCountours=function(x) {
+addContours=function(x) {
 	b = seq(param.xlim[1]-0.2,param.xlim[2]+0.2,len=50)
 	for (u in c(5,7.5,10,15,20,25,30,35)) {
 		# u = a·50^b -> a=u/50^b, log(u)=log(a)+b·log(50) -> b=(log(u)-log(a))/log(50)
@@ -147,7 +146,7 @@ addCountours=function(x) {
 		text((log(u)-log(b0))/log(50),y=b0,labels=u)
 	}
 }
-addCountours()
+addContours()
 
 # legends
 # spec.list$country.age$pch = function(x) { pchs=list(a0=7,a25=9,a40=12);  return(pchs[[paste0('a',x)]])}
@@ -164,7 +163,7 @@ pdfOrPng(filename,width=7,height=7)
 par(mar=c(4.1,4.1,0.5,0.6)) # no space at the top
 plot(x=NULL,xlim=param.xlim,ylim=param.ylim,xlab='exponent (b)',ylab='multiplier (exp(a))')
 coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
-addCountours()
+addContours()
 # legend('topright',pch=c(15,2,6,1,4),legend=c('all','female','male','O-','other than O-'))
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]),bty='s',bg='white')
 dev.off()
@@ -241,9 +240,9 @@ html.table.parameters='<table><tr><td><img width=500 src="fig/parameters.png"></
 <tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr></table>'
 
 captions$figure3='<b>Figure 3 </b>Estimated parameters for different blood establishments from model <span>log(cdon)~a+b&middot;log(x)</span>, where 
-exp(a) and b are referred to as the multiplier and exponent, respectively. 
+<span>exp(a)</span> and <span>b</span> are referred to as the multiplier and exponent, respectively. 
 (a) All the years taken together (3rd year onwards). 
-Significant differences between blood establishments and between groups within blood establishments can be observed. The dashed lines 
+Significant differences between blood establishments and between groups within blood establishments can be observed. The dotted curves 
 are contours of the estimated cumulative donations in 50 years. 
 (b) Parameters for blood establishments estimated separately for each year in data. Dark colours represent more recent years.'
 
@@ -309,8 +308,8 @@ the top part contains the actual donation amounts (circles), estimated donations
 and their confidence intervals (solid and dotted lines) and bars (number of new donors); an alternative scenario with now new donors 
 is shown with dashed lines with confidence interval (dotted). 
 Further, the bottom part contains statistics about donor activity and maturity: the cdon<sub>50</sub>
-values and their confidence intervals are shown in solid and dashed lines, and the donor maturity, computed as the weighted average of 
-years since first donation, with number of donations as the weights. Finally, the line with slope y=&half;x is drawn as a reference.'
+values and their confidence intervals are shown in solid and dashed lines, and the donor maturity (circles), computed as the weighted average of 
+years since first donation, with number of donations as the weights. Finally, the line with slope y=&frac12;x is drawn as a reference.'
 
 html.file=sub('¤table¤',paste(html.table.summaries,if(include.captions) captions$figure4 else '',sep='\n'),html.template)
 convertOutput(html.file,file=paste0(param$shared.dir,'figure-4 summaries.html'))
@@ -493,6 +492,5 @@ cat(html.file,file=paste0(param$shared.dir,'table-1.html'))
 # Notes:
 # removed fragment: “What if we would be able to make our donors donate like the Dutch?” or “What if we would not like to put any extra pressure on O- donors”.  
 # [järjestys ja muut kirjoittajat; osoitteet ja mahdollisesti orcid:t muistettava kysyä (katsottava lehden vaatimuksista); Australiasta eettisen luvan numero tms.; funding; spreadsheet tool status; letters vs. numbers]
-
-# EZPS
-# 1C
+# - figurejen osien nimeäminen
+# - katsottava, miten 
