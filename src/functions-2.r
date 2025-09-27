@@ -1,8 +1,4 @@
-# 2025-07-20 way forward
-# compute.csm below is fixed for counties are the grouping variable
-# Should really utilise the computations in getGroupEstimates
-# The data could more easily be derived similarly as et.test
-
+# This could be utilised in getGroupEstimates2: no more like hand stitched
 # mspecs=expand.grid(family=c('low','pwr'),dep=c('don','cdon'),year0=c('','year0'),x1=c('','x1'))
 
 prd.cumulative2density = function(pah) {
@@ -22,7 +18,7 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 			pred.d[,col.index]=pmax(pred.d[,col.index],0)
 	}
 
-	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) # nb! hard-coded parameters
+	prd.years=data.frame(prd.year=prd.start:(prd.start+prd.len)) 
 
 	# This applies to cases where only one year is selected and the model is estimated
 	# with no year0 term (multi.year==FALSE)
@@ -67,7 +63,6 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 		forecast.n2.fun=repeatLastYear
 	}
 
-	# nb! should probably cut the sizes as well earlier, not just for predictions (skip.last)
 	tmp=by(sizes.data,sizes.data[,c('rw')],FUN=forecast.n2.fun)
 	sizes.data=array2DF(tmp)[,-1]
 
@@ -126,18 +121,13 @@ predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multi
 	return(pah2)
 }
 
-# TODO
-# year0 should be added to the spec
-# similarly for year to use maybe reference year +/- offset
 getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=FALSE,year0.ord=3:100,skip.last=TRUE,
 	agedist=NULL,save.years.from.end=0,save.years.overlap=0,filter.threshold=0.3) {
-	# reference.years.local=reference.years
-	# reference.years.local$year=reference.years.local$year+year.offset
 	et.test = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
 		group_by(!!!syms(setdiff(colnames(et),setdiff(dim.cols,spec$dim.keep)))) %>%
 		summarise(cdon=sum(n*cdon),don=sum(n*don),.groups='drop') %>%
-		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # nb! year0 is here
+		group_by(!!!syms(c(spec$dim.keep,'year0','ord','year'))) %>% # 
 		summarise(n2=sum(n),cdon=sum(cdon)/n2,don=sum(don)/n2,.groups='drop')
 
 	grps=data.frame(unique(et.test[,spec$dim.keep]))
@@ -631,15 +621,12 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 	for (rw in grps$rw) {
 		cn=grps$country[rw]
 
-		# wh.min=min(which(!is.na(df3[[cn]])))
-		# y0=df3[[cn]][wh.min]
 		y.max=max(estimates0$hi[[cn]],na.rm=TRUE)
 
 		filename=paste0(param$shared.dir,'fig/summary-',cn,'.png')
 		resolution=param$png.resolution
 		pdfOrPng(filename,width=9,height=7)
 		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
-		# y.max=max(df3.hi[[cn]]/1000,na.rm=TRUE)
 
 		nf <- layout(
 			matrix(c(1,2,if(include.errors) 3 else NULL),ncol=1,byrow=TRUE), 
@@ -662,11 +649,9 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 
 		# number of new donations
 		nd=new.donors %>% filter(country==cn)
-		# plot(x=NULL,xlim=xlim,ylim=c(0,max(nd$n2)/1000),xlab='year',ylab='new donors (in 1,000)')
 		rect(nd$year-0.3,0,nd$year+0.3,nd$n2/1000,col=colfun(cn))
 
 		# activity scales/errors
-		# nb! These will be the same for all estimates anyhow
 		err=estimates0$error
 		wh=which(abs(err[[cn]])>1 & err$year <= max(nd$year))
 
@@ -752,7 +737,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		group_by(rw,prd.year) %>%
 		summarise(est=sum(est),est.lo=sum(est.lo),est.hi=sum(est.hi),.groups='drop') %>% 
 		rename(year=prd.year) %>%
-		inner_join(grps,join_by(rw)) # nb! global variable
+		inner_join(grps,join_by(rw))
 
 	# TODO There is significant hard-coding here: nc multiplier and using countries instead of groups
 	# But groups in general would be hard to plot
@@ -761,7 +746,6 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	if (is.null(ylim)) 
 		ylim=c(0,2e3)
 
-# bsAssign('pah')
 	df3=data.frame(pivot_wider(pah[pah$year<=xlim[2],!colnames(pah) %in% c('rw','est.lo','est.hi')],values_from='est',names_from=c('country'))) %>%
 		arrange(year)
 	df3.lo=data.frame(pivot_wider(pah[pah$year<=xlim[2],!colnames(pah) %in% c('rw','est','est.hi')],values_from='est.lo',names_from=c('country'))) %>%
@@ -773,14 +757,12 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 
 	# plot predictions
 	if (!is.null(filename)) {
-		# png.res=225
 		resolution=param$png.resolution
 		pdfOrPng(filename,width=9,height=7)
 			# par('mar')
 			# default: 5.1  4.1  4.1   2.1
 			#      bottom, left, top, right
 		if (is.null(main)) {
-			# par(mar=c(2.2,4.1,0.5,0.6))
 			par(mar=c(2.2,4.1,0.5,0.6))
 		}
 	}	
@@ -799,22 +781,20 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 			multiplier = 0.001 * (if (cn %in% names(multipliers)) multipliers[[cn]] else 1) # nb! Navarre hard-coded thing
 			y0=0
 		} else {
-			# multiplier=1
 			i=length(cns)-which(cns==cn)
-			y.max=max(df.ad[[cn]],na.rm=TRUE) # ,df3.hi[[cn]] # remove these to keep the data points aligned
-			y00=min(df.ad[[cn]],na.rm=TRUE) # df3.lo[[cn]],
+			y.max=max(df.ad[[cn]],na.rm=TRUE) 
+			y00=min(df.ad[[cn]],na.rm=TRUE) 
 			y0=0.75*y00 # decreasing the multiplier raises the curves
 			multiplier=0.60/(y.max-y0) # increasing the multiplier streches the curves vertically
-			# plot(NULL,ylim=c(min(df3.lo[[cn]],na.rm=TRUE),max(df.ad[[cn]],df3.hi[[cn]],na.rm=TRUE))/1000,xlim=xlim,axes=FALSE,ylab=)
 		}
 		lines(df3$year,i+multiplier*(df3[[cn]]-y0),type='l',lwd=2,lty=lty,col=colfun(cn)) 
 		lines(df3.lo$year,i+multiplier*(df3.lo[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
 		lines(df3.hi$year,i+multiplier*(df3.hi[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
 		points(df.ad$year,i+multiplier*(df.ad[[cn]]-y0),type='p',col=colfun(cn))
-		# Bars illustrating the scale of things happening, now related to the magnitude of actual observations
-		# lines(0.2+c(df3.hi$year[x2],df3.hi$year[x2]),0.075+c(i,i+multiplier*y00/5),type='l',lwd=2,lty='solid',col=colfun(cn))
 	}
 
+	# single-mode: all curves in a single plotting are/same scale
+	# other: each mode with its own 'lane'
 	if (mode=='single') {
 		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
 			paste0(cn.names[[cn]],if (cn %in% names(multipliers)) paste0(' (times ',multipliers[[cn]],')') else '') }))
@@ -823,7 +803,6 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
 			paste0(cn.names[[cn]]) }),bty='s',bg='white')
 	}
-
 
 	if (!is.null(filename))
 		dev.off()
@@ -910,83 +889,13 @@ plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 	return(df)
 }
 
-# The remaining parts are legacy functions that may still be useful
-# Obsolete functions deleted in dev branch on 2025-08-22 (cut locally to removed-parts.r)
-plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
-	if (!diff) {
-		colfunc <- colorRampPalette(c("white","green"))
-		cut.lower	= min(distm,na.rm=TRUE)-0.1
-		cut.higher = max(distm,na.rm=TRUE)+0.1
-	} else {
-		colfunc <- colorRampPalette(c('red','white','blue'))
-		abs.extreme = max(abs(distm),na.rm=TRUE) + 0.1
-		cut.lower = -abs.extreme
-		cut.higher = abs.extreme
-	}
-	
-	# fill.cut=cut(value,seq(min(distm,na.rm=TRUE)-0.1,max(distm,na.rm=TRUE)+0.1,length.out=50))
-	fill.seq = seq(cut.lower, cut.higher, length.out = 51)
-	# indexing: the skip.years first lines are removed to counter for the effect of pre-2000 donors
-	p=ggplot(melt(t(distm[(1+skip.years):dim(distm)[1],])), aes(Var1, Var2, fill=value, label=round(value, 1))) + # cut(value,fill.seq)
-		geom_tile()
-	if (diff)
-		p = p + scale_fill_gradient2(midpoint = 0, low = "red", mid = "white", high = "blue") 
-	else
-		p = p + scale_fill_gradient2(low = "white", high='green')
-	p = p + geom_text(color="black") + 
-		guides(fill="none") +
-		xlab('time since first donation') +
-		ylab('year of first donation') + 
-		labs(title=main) + 
-		scale_y_reverse()
-	# print(p)
-	p
-}
-
-plotDelayBySex = function(activity.stats.sex,country) {
-	# plot(activity.stats$ord,activity.stats$delay,
-	#			xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3,main=country)
-	
-	plot(NULL,xlab='number of previous donations',ylab='delay until next donation',
-			 type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$delay)),main=country)
-	if (is.factor(activity.stats.sex$Sex)) {
-		sexes = levels(activity.stats.sex$Sex)
-	} else
-		sexes = unique(activity.stats.sex$Sex)
-	for (i in 1:length(sexes)) {
-		sx = sexes[i]
-		data = activity.stats.sex[activity.stats.sex$Sex==sx,]
-		lines(data$ord,data$delay,col=i+1,lwd=2)
-	}
-	legend('bottomright',legend=sexes,fill=1+1:length(sexes))
-}
-
-plotPropBySex = function(activity.stats.sex,country) {
-	# plot(activity.stats$ord,activity.stats$prop*100,col='blue',xlim=c(0,150),ylim=c(0,100*max(activity.stats$prop)),
-	# type='l',lwd=3,xlab='number of previous donations',ylab='probability of next donation (%)',main=country)
-	
-	plot(NULL,xlab='number of previous donations',ylab='probability of next donation (%)',
-			 type='n',lwd=3,xlim=c(0,max(activity.stats.sex$ord)),ylim=c(0,max(activity.stats.sex$prop)),main=country)
-	
-	if (is.factor(activity.stats.sex$Sex)) {
-		sexes = levels(activity.stats.sex$Sex)
-	} else
-		sexes = unique(activity.stats.sex$Sex)
-	for (i in 1:length(sexes)) {
-		sx = sexes[i]
-		data = activity.stats.sex[activity.stats.sex$Sex==sx,]
-		lines(data$ord,data$prop,col=i+1,lwd=2)
-	}
-	legend('bottomright',legend=sexes,fill=1+1:length(sexes))
-}
-
+###
 # utility functions
 bsAssign = function(name) {
 	obj = get(name,envir=parent.frame())
 	assign(name,obj,.GlobalEnv)
 }
 
-## ----produce-explore-data,echo=FALSE------------------------------------------
 # This is a copy from blood-donor-recruitment-prediction.R
 # Unfortunately does not work for matrices
 cumulativeToDensity = function(dist) {
@@ -1005,6 +914,7 @@ cdm2pdm = function(distm) {
 		return(x)
 	}
 
+# Below are some function that are still used
 pdfOrPng = function(filename,width,height) {
 	if (param$figure.format == 'png') {
 		png(sub('.pdf$','.png',filename),height=8*param$png.resolution,width=8*param$png.resolution,res=param$png.resolution)
@@ -1013,6 +923,9 @@ pdfOrPng = function(filename,width,height) {
 	}
 }
 
+# Using latex, create a pdf figure from a latex fragment
+# Captions may also be included in figures.table.latex, as not all editorial sites allow them as metadata
+# and compile them with the figures; and this is not done for commenting anyway
 composeFigure = function(figures.table.latex,paper.dir,figures.file) {
 	tex.pre='\\documentclass{standalone}\n\\usepackage[pdftex]{color,graphicx}\n\\begin{document}'
 	tex.post='\n\\end{document}'
@@ -1022,10 +935,6 @@ composeFigure = function(figures.table.latex,paper.dir,figures.file) {
 	cont=gsub('.(caption|clearpage)','%\\\\\\1',cont)
 	cont=gsub('(.(begin|end).figure)','%\\1',cont)
 	cont=paste(tex.pre,cont,tex.post,collapse='\n',sep='\n')
-
-	# 2025-08-30 Compile the fragment into a new figure file (only in PDF)
-	# fragment = gsub('.hspace.[^\\}]+.'
-	# cat(cont,file=sub('.tex$','.tex',figures.file)
 
 	figures.file=gsub('([\\/]+)','/',figures.file)
 	figures.file=sub('.+[\\/]','composed-',figures.file)
@@ -1045,6 +954,7 @@ latexCompile = function(content,workdir,filename) {
 	setwd(oldwd)
 }
 
+# A simple html->latex conversion, mainly for the purpose of this paper
 convertOutput = function(html,file) {
 	if (param$figure.format == 'png') {
 		cat(html,file)
@@ -1066,8 +976,6 @@ convertOutput = function(html,file) {
 		tex=gsub('(log|exp)[(]','\\\\\\1(',tex)
 		tex=gsub('src=.([^>]+).[>]','>\\\\includegraphics[width=9cm]{\\1}',tex)
 		tex=gsub('[.]png','.pdf',tex)
-# tex='model <span>log(cdon)~a+b&middot;log(x)</span>, where '
-# gsub('[<]span[>](.+)[<]/span[>]','\\$\\1\\$',tex)
 		tex=gsub('[<]span[>]([^<]+)[<]/span[>]','\\$\\1\\$',tex)
 		tex=gsub('[<][^>]+[>]','',tex)
 
@@ -1079,11 +987,9 @@ convertOutput = function(html,file) {
 
 		tex.pre='\\documentclass[varwidth=20cm,border=2mm]{standalone}\n\\usepackage[pdftex]{color,graphicx}\n\\begin{document} \\begin{center}'
 
-		# file=paste0(shared.dir,'text.tes')
 		wd=sub('^(.+[/\\]).+','\\1',file)
 		bare.file=sub(wd,'',file,fixed=TRUE)
 		bare.file=sub('.html','.tex',bare.file)
-		# cat(paste(tex.pre,tex,collapse='\n'),file=paste0(shared.dir,'latex-test.tex'))
 		tex=paste(tex.pre,tex,collapse='\n')
 		latexCompile(tex,shared.dir,bare.file)
 	}
@@ -1091,4 +997,3 @@ convertOutput = function(html,file) {
 	suffix=c('aux','log','tex')
 	dev.null=sapply(suffix,FUN=function(x) file.remove(sub('[.][a-z]+$',paste0('.',x),file)) )
 }
-

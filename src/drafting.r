@@ -1,12 +1,4 @@
 source('functions-2.r')
-# plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps,mode='mfrow')
-rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
-
-# Must be moved to a better place
-plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
-# plotCountrySummaries(et,grps,list(main=estimates,nofuture=estimates.nofuture),spec,coeff.data)
-# plotCountrySummaries(et,grps,estimates.year0.models.nofuture,spec,coeff.data)
-
 library(xtable)
 
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
@@ -168,13 +160,15 @@ addContours()
 legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sapply(rv.3p$grps$country,FUN=function(x) cn.names[[x]]),bty='s',bg='white')
 dev.off()
 
+### 
+plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
+
 ###############
 ### html-output
 # table of r2-values
 captions=list()
-include.captions=TRUE
+include.captions=TRUE # Should captions be included in the figures that are generated?
 
-### table or r^2-values
 r2.data=rv.3p$coeff %>% filter(!grepl('y~|(sqrt)',phase)) %>% filter(parameter=='r.squared') %>% dplyr::select(Estimate,rw,phase)
 r2.2=pivot_wider(r2.data,values_from='Estimate',names_from='rw')
 colnames(r2.2)=sapply(colnames(r2.2),FUN=function(x) cn.names[[grps[as.integer(x),'country']]])
@@ -188,9 +182,6 @@ wrL=grep('x1',r2.2$Model,value=TRUE)
 nrl=setdiff(r2.2$Model,wrL)
 wrl=sub('.x1','',wrL)
 setdiff(nrl,wrl)
-
-#   # font-family: times, serif;
-#   white-space: nowrap;
 
 html.template="<!DOCTYPE html>
 <html>
@@ -247,10 +238,7 @@ are contours of the estimated cumulative donations in 50 years.
 (b) Parameters for blood establishments estimated separately for each year in data. Dark colours represent more recent years.'
 
 html.file=sub('¤table¤',paste(html.table.parameters,if(include.captions) captions$figure3 else '',sep='\n'),html.template)
-# cat(html.file)
 convertOutput(html.file,file=paste0(param$shared.dir,'figure-3 parameters.html')) 
-
-###
 
 ###
 # Model specification plots
@@ -284,7 +272,6 @@ the years estimated individually, but is inferior to logarithmic form at the tai
 (f)&nbsp;The tail from panel (d) combined with the head from panel (e). Note that the tail also includes predictions from the head.'
 
 html.file=sub('¤table¤',paste(html.table.specifications,if(include.captions) captions$figure2 else '',sep='\n'),html.template)
-# cat(html.file)
 convertOutput(html.file,file=paste0(param$shared.dir,'figure-2 model specifications.html'))
 ###
 
@@ -314,23 +301,12 @@ years since first donation, with number of donations as the weights. Finally, th
 html.file=sub('¤table¤',paste(html.table.summaries,if(include.captions) captions$figure4 else '',sep='\n'),html.template)
 convertOutput(html.file,file=paste0(param$shared.dir,'figure-4 summaries.html'))
 
-# flist <- list.files("../submit/","summary*", full.names = TRUE)
-# file.copy(flist,param$shared.dir,overwrite=TRUE)
-###
-
-# captions$d='<b>Figure x</b> Forecasted donations compared with the actual historical donations'
-
-# numbers of new donors
-# data=sizes.data %>% filter(rw==5,year0<2025) %>% dplyr::select(n2,year0) 
-# plot(n2~year0,data=data,ylim=c(0,max(data$n2)))
-
-### Figure E (the explanation figure)
+### Figure 1/E (the explanation figure)
 library(RColorBrewer)
 n <- 21 # this is not used: the palette has a fixed number of colours
 qual_col_pals = brewer.pal.info[brewer.pal.info$category=='qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 
-# palette(rainbow(n.classes))
 plot.et.data = function(etd,i) {
 	if (nrow(etd)==0) {
 		print('returning')
@@ -381,22 +357,12 @@ html.fragment='<img width=800 src="fig/distm-and-curves.png">\n<p>'
 html.file=sub('¤table¤',paste(html.fragment,if(include.captions) captions$figure1 else '',sep='\n'),html.template)
 convertOutput(html.file,file=paste0(param$shared.dir,'figure-1 distm-and-curves.html'))
 
-# flist <- list.files("../submit/","figure-1*", full.names = TRUE)
-# file.copy(flist,param$shared.dir,overwrite=TRUE)
-
 list.of.legends=paste(sapply(sort(names(captions)),FUN=function(x) captions[[x]]),sep='\n<br><br>')
 html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.legends,collapse='\n<p>')),html.template)
 # cat(html.file)
 cat(html.file,file=paste0(param$shared.dir,'list of legends.html'))
 
-# table1
-# - luovuttajien ja luovutusten kokonaismäärät
-# - luovuttajien/luovutusten sukupuolijakauma
-# - office/mobile-jakauma
-# - veriryhmien osuudet luovuttajissa/luovutuksissa (vain O-/muut saatavilla)
-# - ikäjakaumastsa jotakin: ensiluovuttajien keskimääräinen ikä (ei haittaa,)
-
-# For the abstract etc.
+# Numbers for the abstract etc.
 et0 %>% filter(ord==1) %>% summarise(donors=sum(n))
 et0 %>% summarise(donations=sum(n*don,na.rm=TRUE))
 
@@ -474,11 +440,10 @@ df$col[-perc.rows]=firstUp(df$col[-perc.rows])
 df$col[-perc.rows]=paste(df$col[-perc.rows],' (1,000)')
 df$col[perc.rows]=sub('^',paste0(rep('&nbsp;',5),collapse=''),df$col[perc.rows])
 df[perc.rows,2:ncol(df)]=apply(df[perc.rows,2:ncol(df)],2,FUN=function(x) sprintf('%.1f%%',x))
-repl=list(oneg='O-',female='Female',young='age < 25',middle='25 <= age < 40')
+repl=list(oneg='O-',female='Female',young='age < 25',middle='25 ≤ age < 40')
 for (rp in names(repl)) {
 	df$col[perc.rows]=sub(paste0(';[^;]+',rp),paste0(';',repl[rp]),df$col[perc.rows])
 }
-
 colnames(df)[2:ncol(df)]=sapply(colnames(df)[2:ncol(df)],FUN=function(x) cn.names[[x]])
 colnames(df)[1]=' '
 ###
@@ -493,4 +458,3 @@ cat(html.file,file=paste0(param$shared.dir,'table-1.html'))
 # removed fragment: “What if we would be able to make our donors donate like the Dutch?” or “What if we would not like to put any extra pressure on O- donors”.  
 # [järjestys ja muut kirjoittajat; osoitteet ja mahdollisesti orcid:t muistettava kysyä (katsottava lehden vaatimuksista); Australiasta eettisen luvan numero tms.; funding; spreadsheet tool status; letters vs. numbers]
 # - figurejen osien nimeäminen
-# - katsottava, miten 
