@@ -1,4 +1,4 @@
-source('functions-2.r')
+source('analysis-functions.r')
 library(xtable)
 
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
