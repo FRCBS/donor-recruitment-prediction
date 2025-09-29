@@ -44,13 +44,21 @@ datafile = file.path(param$wd,'donationdata.Rdata')
 # t.deferral=read.csv('deferral.csv',header=FALSE,colClasses=c(NA,'POSIXct','POSIXct',NA),sep='\t')
 # t.donor=read.csv('donor.csv',header=FALSE,colClasses=c(NA,NA,NA,NA,'Date',NA),sep='\t')
 # t.contact=read.csv('contact.csv',header=FALSE,colClasses=c(NA,NA,NA,'POSIXct',NA),sep='\t')
+# file_dir <- "/mnt/c/Users/potha01m/data/donor_prediction_timo_data/" #stored in same dir
+file_dir <- '/mnt/c/Users/potha01m/data/navarra/' #stored in same dir
 
-t.donation <- read.csv("donations.csv", header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
-t.donor <- read.csv("donor.csv", header = TRUE, colClasses = c(NA, NA, NA, NA, "Date", NA))
+t.donations <- read.csv(file.path(file_dir, "donations.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+t.donor <- read.csv(file.path(file_dir, "donor.csv"), header = TRUE, colClasses = c(NA, NA, NA, NA, "Date", NA))
 #change if comes from R or python. From R has another column (index)
-# t.deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, "POSIXct", "POSIXct", NA))
-t.deferral <- read.csv("deferral.csv", header = TRUE, colClasses = c(NA, NA, "POSIXct", "POSIXct", NA))
-t.contact <- read.csv("contact.csv", header = TRUE, colClasses = c(NA, NA, NA, "POSIXct", NA))
+# deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, "POSIXct", "POSIXct", NA))
+t.deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, NA, "POSIXct", "POSIXct", NA))
+t.contact <- read.csv(file.path(file_dir, "contact.csv"), header = TRUE, colClasses = c(NA, NA, NA, "POSIXct", NA))
+# t.donation <- read.csv("donations.csv", header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+# t.donor <- read.csv("donor.csv", header = TRUE, colClasses = c(NA, NA, NA, NA, "Date", NA))
+# #change if comes from R or python. From R has another column (index)
+# # t.deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, "POSIXct", "POSIXct", NA))
+# t.deferral <- read.csv("deferral.csv", header = TRUE, colClasses = c(NA, NA, "POSIXct", "POSIXct", NA))
+# t.contact <- read.csv("contact.csv", header = TRUE, colClasses = c(NA, NA, NA, "POSIXct", NA))
 
 # nb! These lines should be run only if the source data files does  not include column names
 # nb! Make sure the column names match the content of the columns in case they are in different order
