@@ -1,6 +1,7 @@
 source('analysis-functions.r')
 library(xtable)
 
+# plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,mode='mfrow')
 # nb! If smaller groups are used (even the original ones) and the donation forecasts are to be 
 # aggregated, must add an extra step for this
 # nb! should probably rename phase -> model for clarity
@@ -10,13 +11,8 @@ agedist=NULL
 #######
 # Each year separately
 #######
-# What are the parameters here?
-#  - 
-# str(tst)
-# unique(tst[[1]]$prdct$phase)
 model.pwr='don~x.pwr+x1' # 'log(don)~log(x)+x1' # tässä year0 aiheutti virheen: yksi vuosi tuli mukaan sekä häntään että muute
 model='log(don)~log(x)+x1'
-table(rlist[[1]]$prdct$phase)
 cumulative=FALSE
 
 rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
@@ -77,9 +73,14 @@ plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps,
 #######
 model='log(don)~log(x)+0+year0+x1'
 model.pwr='don~x.pwr+0+year0+x1'
+# model.pwr='don~x.pwr+x1'
 rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
 rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
 rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
+
+source('analysis-functions.r')
+plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,mode='mfrow')
+
 rvs=list(rv.1,rv.2,rv.3p)
 estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE)))
 estimates.nofuture=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE,multiplier=0)))
@@ -87,6 +88,8 @@ estimates.pwr=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model
 plotEstimatesVsActual(et,estimates,spec,grps=grps) 
 # plotEstimatesVsActual(et,estimates.nofuture,spec,grps=grps) 
 # plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps) 
+
+rv.3p$prdct %>% filter(phase==model.pwr,rw==3)
 
 ######
 # summaries of the methods
@@ -97,7 +100,6 @@ plotEstimatesVsActual(et,estimates,spec,grps=grps,filename=paste0(param$shared.d
 plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-lump-pwr.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-overlap-filtering-pwr.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-ultimate.png'),mode='mfrow')
-
 
 #### Plotting the coefficients
 filename=paste0(param$shared.dir,'fig/parameters.png')

@@ -272,20 +272,16 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		
 		year.start = min(data$year0.int)
 
-		# jere
 		cn.overlap=save.years.overlap
 		if ('country' %in% colnames(grps) && save.years.overlap != 0) {
 			cn.overlap=min(max.overlap[[grps[rw,'country']]],save.years.overlap) # -save.years.from.end+
-			print(paste0("hit it! ",cn.overlap,' ',grps[rw,'country']))
 		}
 
 		if (save.years.from.end >= 0) {
 			data = data %>% 
 				filter(year0.int>=year.start+min(year0.ord)-1,year0.int<=year.start+max(year0.ord)-1)
 		} else if (save.years.from.end < 0) {
-			# 2025-09-15
 			data = data %>% 
-				# +cn.overlap
 				filter(year0.int-save.years.from.end+cn.overlap>max(year0.int))
 			year.start=min(data$year0.int) # needed to override the computation
 			# e.g. max == 10; save 5 years -> 6:10; 6+5=11
@@ -316,8 +312,6 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		# 2025-09-22 new
 		phase='log(cdon)~log(x)+x1'
 		m=lm(formula(phase),data=data)
-		# power.term=summary(m)$coeff[2,1]
-		# intercept=summary(m)$coeff[1,1]
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase))
 
@@ -332,20 +326,23 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 		prdct = rbind(prdct,m.predict(m,phase))
 
 		power.term.d=summary(m)$coeff[2,1]
-		data$x.pwr=data$x^power.term.d
+
 
 		phase='don~x.pwr'
+		data$x.pwr=data$x^power.term.d
 		m=lm(formula(phase),data=data)
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
 
 		# 2025-09-22 new
 		phase='cdon~x.pwr+x1'
+		data$x.pwr=data$x^power.term
 		m=lm(formula(phase),data=data)
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
 
 		phase='don~x.pwr+x1'
+		data$x.pwr=data$x^power.term.d
 		m=lm(formula(phase),data=data)
 		coeff = rbind(coeff,sm.extract(m,phase))
 		prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
@@ -378,7 +375,9 @@ getGroupEstimates2 = function(et,spec,lwd=3,plot='orig',years.ahead=55,try.nls=F
 			prdct = rbind(prdct,m.predict(m,phase))
 
 bsAssign('data')
+print(power.term.d)
 			phase='don~x.pwr+0+year0+x1'
+			data$x.pwr=data$x^power.term.d
 			m=lm(formula(phase),data=data)
 			sm=summary(m)
 			coeff = rbind(coeff,sm.extract(m,phase))
@@ -386,6 +385,7 @@ bsAssign('data')
 
 			# 2025-09-22 new 
 			phase='log(cdon)~log(x)+0+year0+x1'
+			data$x.pwr=data$x^power.term
 			m=lm(formula(phase),data=data)
 			sm=summary(m)
 			coeff = rbind(coeff,sm.extract(m,phase))
@@ -399,11 +399,13 @@ bsAssign('data')
 			prdct = rbind(prdct,m.predict(m,phase))
 
 			phase='cdon~x.pwr+0+year0'
+			data$x.pwr=data$x^power.term
 			m=lm(formula(phase),data=data)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term)) # power.term converts the predictions
 
 			phase='cdon~x.pwr+0+year0+x1'
+			data$x.pwr=data$x^power.term
 			m=lm(formula(phase),data=data)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term)) # power.term converts the predictions
@@ -412,23 +414,11 @@ bsAssign('data')
 			data$x.pwr=data$x^power.term.d
 
 			phase='don~x.pwr+0+year0'
+			data$x.pwr=data$x^power.term.d
 			m=lm(formula(phase),data=data)
 			coeff = rbind(coeff,sm.extract(m,phase))
 			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d)) # power.term converts the predictions
-			data$x.pwr=data$x^power.term
-
-bsAssign('data')
-bsAssign('power.term.d')
-			# data$x1=0
-			# data$x1[data$ord==1]=1
-if (FALSE) {
-			data$x.pwr=data$x^power.term.d
-			phase='don~x.pwr+0+year0+x1'
-			m=lm(formula(phase),data=data)
-			coeff = rbind(coeff,sm.extract(m,phase))
-			prdct = rbind(prdct,m.predict(m,phase,power.term=power.term.d))
-}
-			###
+			# data$x.pwr=data$x^power.term
 
 			# linear model with converted response variable
 			data2$sq.x=data2$x^2
