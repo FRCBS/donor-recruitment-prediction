@@ -981,7 +981,7 @@ convertOutput = function(html,file) {
 		bare.file=sub(wd,'',file,fixed=TRUE)
 		bare.file=sub('.html','.tex',bare.file)
 		tex=paste(tex.pre,tex,collapse='\n')
-		latexCompile(tex,shared.dir,bare.file)
+		latexCompile(tex,param$shared.dir,bare.file)
 	}
 
 	suffix=c('aux','log','tex')

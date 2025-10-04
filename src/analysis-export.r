@@ -1,5 +1,7 @@
+# How to do it?
+
 rw0=3
-df=estimates0
+df=estimates0 %>% filter(rw==rw0)
 n2.data=df %>%
 	filter(rw==rw0,x==1) %>%
 	dplyr::select(year0,n2) %>%
@@ -14,17 +16,21 @@ year0.col=which(colnames(df)=='year0')
 hdr.nr=6
 
 n.col.xlsx=ncol(df)+2+1+6
-a.cell=''
 
-a=2.2
-b=0.52
 x=1:55
-y=a*x^b
-plot(y~x)
 yrs=2000:(2000+55)
-df2=expand.grid(year0=yrs,x=x)
-df2$prd.year=df2$year0+df2$x-1
-df2$fit=a*df2$x^b
+if (FALES) {
+	a=2.2
+	b=0.52
+	y=a*x^b
+	plot(y~x)
+	df2$fit=a*df2$x^b
+} else {
+	# This is what is actually needed in the exported document
+	df2=expand.grid(year0=yrs,x=x)
+	df2$prd.year=df2$year0+df2$x-1
+}
+
 
 new.rows=nrow(df)+(1:nrow(df2))
 df[new.rows,]=NA
@@ -74,7 +80,6 @@ b.ref=paste0('$',colToExcel(n.col.xlsx+4),'$',3)
 
 # Formula for the estimates computed based on parameters
 rws=hdr.nr+new.rows
-max(rws)
 x.col=which(colnames(df)=='x')
 frml.fit=paste0(a.ref,'*',colToExcel(x.col),rws,'^',b.ref)
 writeFormula(wb,'parameters',frml.fit,startCol=colToExcel(which(colnames(df)=='fit')),startRow=min(new.rows)+hdr.nr)
@@ -84,14 +89,22 @@ writeFormula(wb,'parameters',frml.fit,startCol=colToExcel(which(colnames(df)=='f
 rws=hdr.nr+(1:nrow(df))
 n.rws=hdr.nr+(1:nrow(n2.data))
 prd.year.col=colToExcel(which(colnames(df)=='prd.year'))
-sum.col=colToExcel(ncol(df)+1)
-frml.sumif=paste0('sumif($',prd.year.col,'$',rws[1],':$',prd.year.col,'$',rws[length(rws)],',',
-	colToExcel(n.col.xlsx-1),n.rws,',',
-	'$',sum.col,'$',rws[1],':$',sum.col,'$',rws[length(rws)],')')
-writeFormula(wb,'parameters',frml.sumif,startCol=n.col.xlsx+1,startRow=hdr.nr+1)
+sum.col=(ncol(df)+1)
+
+st0=createStyle(numFmt='# ##0')
+# write also the condidence intervals
+for (i in 0:2) {
+	frml.sumif=paste0('sumif($',prd.year.col,'$',rws[1],':$',prd.year.col,'$',rws[length(rws)],',',
+		'$',colToExcel(n.col.xlsx-1),n.rws,',',
+		'',int2col(sum.col+i),'$',rws[1],':',int2col(sum.col+i),'$',rws[length(rws)],')')
+	writeFormula(wb,'parameters',frml.sumif,startCol=n.col.xlsx+1+i,startRow=hdr.nr+1)
+	addStyle(wb,'parameters',st0,cols=n.col.xlsx+1+i,rows=(hdr.nr)+(1:length(frml.sumif)))
+}
 
 saveWorkbook(wb,"../tool.xlsx",overwrite=TRUE)
 
+# sarakkeiden piilottaminen
+# groupColumns(wb, sheet, cols, hidden = FALSE, level = -1)
 # write.xlsx(df,'../tool.xlsx')
 
 getwd()
