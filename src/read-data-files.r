@@ -13,6 +13,7 @@ source('functions-2.r')
 param=list()
 param$data.dir = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data/'
 param$shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
+param$shared.dir="c:/hy-version/donor-recruitment-prediction/submit/"
 param$png.resolution=1.4*150
 param$figure.format='pdf'
 

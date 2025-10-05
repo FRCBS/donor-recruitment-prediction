@@ -12,16 +12,33 @@ n2.data=estimates0 %>%
 	filter(rw==rw0,x==1) %>%
 	dplyr::select(year0,n2) %>%
 	rename(year=year0,n=n2) %>%
-	arrange(year)
-n2.data=rbind(n2.data,data.frame(year=(max(n2.data$year)+1):2080,n=n2.data$n[nrow(n2.data)]))
+	arrange(year) %>%
+	mutate(estimate=NA,ci.low=NA,ci.upr=NA)
+rws=(1:(2055-max(n2.data$year)))
+n2.data[nrow(n2.data)+rws,'year']=max(n2.data$year,na.rm=TRUE)+rws 
+data.frame(n2.data)
+# n2.data=rbind(n2.data,data.frame(year=(max(n2.data$year)+1):2080,n=n2.data$n[nrow(n2.data)]))
+
+n.wide = et %>%
+	filter(ord==1) %>%
+	mutate(bgr=sapply(BloodGroup,function(x) if(x=='O-') 'Oneg' else 'all')) %>%
+	dplyr::select(country,bgr,n,year0) %>%
+	pivot_wider(names_from=c('country','bgr'),values_from='n',values_fn=sum,names_sep='.') %>%
+	arrange(year0)
+rws=(1:(2055-max(n.wide$year0)))
+n.wide[nrow(n.wide)+rws,'year0']=max(n.wide$year0)+rws
+n.wide = fill(n.wide,colnames(n.wide)[-1],.direction='down')
+
+# todo: must extend these to 2055 with the 
+# should actually utilise the et0 structure: not that much cutting, undue
 
 n2.col=which(colnames(df)=='n2')
 colnames(df)[n2.col]='n2.value'
 year0.col=which(colnames(df)=='year0')
 
-hdr.nr=6
+hdr.nr=8
 
-n.col.xlsx=ncol(df)+2+1
+n.col.xlsx=ncol(df)+2+2
 
 x=1:55
 yrs=2000:(2000+55)
@@ -39,15 +56,23 @@ if (FALSE) {
 
 new.rows=nrow(df)+(1:nrow(df2))
 df[new.rows,]=NA
-df$phase[new.rows]='parameters'
+# df$phase[new.rows]='parameters'
 for (col in colnames(df2)) {
 	df[new.rows,col]=df2[,col]
 }
 
+###
 wb <- createWorkbook() 
 addWorksheet(wb,"parameters") 
+addWorksheet(wb,"nr of new donors") 
+writeData(wb,'nr of new donors',n.wide)
 writeData(wb,"parameters",x=df,startRow=hdr.nr)
 writeData(wb,"parameters",n2.data,startCol=n.col.xlsx-1,startRow=hdr.nr)
+
+n.frml=paste0('vlookup(',int2col(n.col.xlsx-1),hdr.nr+(1:nrow(n2.data)),',',
+	'\'nr of new donors\'!$A$1:$',int2col(ncol(n.wide)),'$',nrow(n.wide)+1,',',
+	'match(',int2col(n.col.xlsx),7,',\'nr of new donors\'!$A1:$',int2col(ncol(n.wide)),'1,0),FALSE)')
+writeFormula(wb,"parameters",n.frml,startCol=n.col.xlsx,startRow=hdr.nr+1)
 
 # references to the n-values in the estimate table
 n.references=paste0(colToExcel(n.col.xlsx),hdr.nr+1+df$year0-2000)
@@ -66,6 +91,19 @@ writeData(wb,'parameters',c('multiplier','exponent'),startCol=n.col.xlsx+3,start
 writeData(wb,'parameters',c(a,b),startCol=n.col.xlsx+4,startRow=2,colNames=FALSE)
 a.ref=paste0('$',colToExcel(n.col.xlsx+4),'$',2)
 b.ref=paste0('$',colToExcel(n.col.xlsx+4),'$',3)
+
+styBold=createStyle(textDecoration='bold')
+
+# parameter section
+writeData(wb,'parameters',c('nl','Oneg','log.separately','fi','all'),startCol=n.col.xlsx,startRow=1)
+writeData(wb,'parameters',c('Blood establishment','Blood gr','Model','Number of new donors, country','Number of new donors, blood group'),startCol=n.col.xlsx-2,startRow=1)
+prm.col=int2col(n.col.xlsx)
+concat.frml=paste0(paste(concat.frml=paste0(prm.col,1:3),collapse='&"/"&'),'&"/"')
+writeFormula(wb,'parameters',concat.frml,startCol=n.col.xlsx,startRow=6)
+prm.col=int2col(n.col.xlsx)
+concat.frml=paste(concat.frml=paste0(prm.col,1:2),collapse='&"."&')
+writeFormula(wb,'parameters',concat.frml,startCol=n.col.xlsx,startRow=7)
+addStyle(wb,'parameters',styBold,cols=n.col.xlsx-2,rows=1:hdr.nr)
 
 # Formula for the estimates computed based on parameters
 rws=hdr.nr+new.rows
@@ -88,12 +126,12 @@ for (i in 0:2) {
 	# nb! This is old now, copied below
 	frml.sumif=paste0(colToExcel(n.col.xlsx),n.rws,
 		'*sumif($',prd.year.col,'$',rws[1],':$',prd.year.col,'$',rws[length(rws)],',',
-		'$',colToExcel(n.col.xlsx-1),n.rws,',', # condition: prd.year
+		'$',colToExcel(n.col.xlsx),n.rws,',', # condition: prd.year
 		'$',int2col(sum.col+i),'$',rws[1],':','$',int2col(sum.col+i),'$',rws[length(rws)],')')
 
 	frml.sumif=paste0(colToExcel(n.col.xlsx),n.rws,
 		'*sumif($',id.col,'$',rws[1],':$',id.col,'$',rws[length(rws)],',',
-		'',colToExcel(n.col.xlsx-1),'$',hdr.nr-1,'&','$',colToExcel(n.col.xlsx-1),n.rws,',', # condition: /-separated string of prd.year, country, blood group, mode
+		'',colToExcel(n.col.xlsx),'$',hdr.nr-2,'&','$',colToExcel(n.col.xlsx-1),n.rws,',', # condition: /-separated string of prd.year, country, blood group, mode
 		'$',int2col(sum.col+i),'$',rws[1],':','$',int2col(sum.col+i),'$',rws[length(rws)],')')
 
 	writeFormula(wb,'parameters',frml.sumif,startCol=n.col.xlsx+1+i,startRow=hdr.nr+1)
