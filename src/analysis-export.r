@@ -1,8 +1,14 @@
-# How to do it?
+if (FALSE) {
+	df=estimates0 %>% # this is an example; actually need to bind different models together and add labels
+		filter(rw==rw0) %>% dplyr::select('prd.year','rw','n2','fit','lwr','upr','year0') %>%
+		inner_join(grps,join_by(rw)) %>%
+		dplyr::select(-rw) %>%
+		mutate(blood.gr='all',id=paste0('estimate0/',year0,'/',blood.gr))
+}
 
-rw0=3
-df=estimates0 %>% filter(rw==rw0)
-n2.data=df %>%
+df = export.estimates
+
+n2.data=estimates0 %>%
 	filter(rw==rw0,x==1) %>%
 	dplyr::select(year0,n2) %>%
 	rename(year=year0,n=n2) %>%
@@ -15,11 +21,11 @@ year0.col=which(colnames(df)=='year0')
 
 hdr.nr=6
 
-n.col.xlsx=ncol(df)+2+1+6
+n.col.xlsx=ncol(df)+2+1
 
 x=1:55
 yrs=2000:(2000+55)
-if (FALES) {
+if (FALSE) {
 	a=2.2
 	b=0.52
 	y=a*x^b
@@ -31,30 +37,12 @@ if (FALES) {
 	df2$prd.year=df2$year0+df2$x-1
 }
 
-
 new.rows=nrow(df)+(1:nrow(df2))
 df[new.rows,]=NA
 df$phase[new.rows]='parameters'
 for (col in colnames(df2)) {
 	df[new.rows,col]=df2[,col]
 }
-
-colToExcel=function(n) {
-	res=''
-	for (a in rev(1:3)) {
-		val=(((n-1) %% 26))+1
-		res=paste0(LETTERS[val],res)
-		n=(n-val)/26
-		if (n==0)
-			return(res)
-	}
-	return(res)
-}
-
-
-
-# df$est.formula='fit*n2.value'
-# class(df$est.formula) <- c('numeric', "formula")
 
 wb <- createWorkbook() 
 addWorksheet(wb,"parameters") 
@@ -67,11 +55,12 @@ writeFormula(wb,"parameters",n.references,startCol=n2.col,startRow=hdr.nr+1)
 
 rws=hdr.nr+(1:nrow(df))
 # computing the individual forecast as the product: fit*n
+# this has been deprecated
 for (i in 1:3) {
 	frml.mult=paste0(colToExcel(which(colnames(df)=='fit')+i-1),rws,'*',colToExcel(n2.col),rws)
-	writeFormula(wb,"parameters",frml.mult,startCol=ncol(df)+i,startRow=hdr.nr+1)
+	# writeFormula(wb,"parameters",frml.mult,startCol=ncol(df)+i,startRow=hdr.nr+1)
 }
-writeData(wb,'parameters',matrix(c('estimate','ci.low','ci.hi'),nc=3),startCol=ncol(df)+1,startRow=hdr.nr,colNames=FALSE)
+# writeData(wb,'parameters',matrix(c('estimate','ci.low','ci.hi'),nc=3),startCol=ncol(df)+1,startRow=hdr.nr,colNames=FALSE)
 
 writeData(wb,'parameters',c('multiplier','exponent'),startCol=n.col.xlsx+3,startRow=2,colNames=FALSE)
 writeData(wb,'parameters',c(a,b),startCol=n.col.xlsx+4,startRow=2,colNames=FALSE)
@@ -89,15 +78,26 @@ writeFormula(wb,'parameters',frml.fit,startCol=colToExcel(which(colnames(df)=='f
 rws=hdr.nr+(1:nrow(df))
 n.rws=hdr.nr+(1:nrow(n2.data))
 prd.year.col=colToExcel(which(colnames(df)=='prd.year'))
-sum.col=(ncol(df)+1)
+sum.col=which(colnames(df)=='fit') # (ncol(df)+1)
 
-st0=createStyle(numFmt='# ##0')
+st0=createStyle(numFmt='0')
 # write also the condidence intervals
+id.col=int2col(which(colnames(df)=='id'))
 for (i in 0:2) {
-	frml.sumif=paste0('sumif($',prd.year.col,'$',rws[1],':$',prd.year.col,'$',rws[length(rws)],',',
-		'$',colToExcel(n.col.xlsx-1),n.rws,',',
-		'',int2col(sum.col+i),'$',rws[1],':',int2col(sum.col+i),'$',rws[length(rws)],')')
+	# =AB7*SUMIF($A$7:$A$898;$AA7;$E$7:E$898)
+	# nb! This is old now, copied below
+	frml.sumif=paste0(colToExcel(n.col.xlsx),n.rws,
+		'*sumif($',prd.year.col,'$',rws[1],':$',prd.year.col,'$',rws[length(rws)],',',
+		'$',colToExcel(n.col.xlsx-1),n.rws,',', # condition: prd.year
+		'$',int2col(sum.col+i),'$',rws[1],':','$',int2col(sum.col+i),'$',rws[length(rws)],')')
+
+	frml.sumif=paste0(colToExcel(n.col.xlsx),n.rws,
+		'*sumif($',id.col,'$',rws[1],':$',id.col,'$',rws[length(rws)],',',
+		'',colToExcel(n.col.xlsx-1),'$',hdr.nr-1,'&','$',colToExcel(n.col.xlsx-1),n.rws,',', # condition: /-separated string of prd.year, country, blood group, mode
+		'$',int2col(sum.col+i),'$',rws[1],':','$',int2col(sum.col+i),'$',rws[length(rws)],')')
+
 	writeFormula(wb,'parameters',frml.sumif,startCol=n.col.xlsx+1+i,startRow=hdr.nr+1)
+
 	addStyle(wb,'parameters',st0,cols=n.col.xlsx+1+i,rows=(hdr.nr)+(1:length(frml.sumif)))
 }
 
@@ -109,3 +109,18 @@ saveWorkbook(wb,"../tool.xlsx",overwrite=TRUE)
 
 getwd()
 system(paste('"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"','../tool.xlsx'),intern=FALSE,ignore.stdout=FALSE,ignore.stderr=FALSE)
+
+colToExcel=function(n) {
+	res=''
+	for (a in rev(1:3)) {
+		val=(((n-1) %% 26))+1
+		res=paste0(LETTERS[val],res)
+		n=(n-val)/26
+		if (n==0)
+			return(res)
+	}
+	return(res)
+}
+
+
+

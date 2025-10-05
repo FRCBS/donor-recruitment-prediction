@@ -8,88 +8,104 @@ library(xtable)
 # Different groups might actually be correlated, so summing may be a necessity;
 agedist=NULL
 
-#######
-# Each year separately
-#######
-model.pwr='don~x.pwr+x1' # 'log(don)~log(x)+x1' # tässä year0 aiheutti virheen: yksi vuosi tuli mukaan sekä häntään että muute
-model='log(don)~log(x)+x1'
-cumulative=FALSE
+computeModels = function(et) {
+	#######
+	# Each year separately
+	#######
+	model.pwr='don~x.pwr+x1' # 'log(don)~log(x)+x1' # tässä year0 aiheutti virheen: yksi vuosi tuli mukaan sekä häntään että muute
+	model='log(don)~log(x)+x1'
+	cumulative=FALSE
 
-rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
-grps=rlist[[1]]$grps
-tst=rlist[lengths(rlist)!=0]
-estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
-estimates0.pwr=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=cumulative)))
+	rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
+	grps=rlist[[1]]$grps
+	tst=rlist[lengths(rlist)!=0]
+	estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
+	estimates0.pwr=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=cumulative)))
 
-rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5,
-	filter.threshold=NULL))
-tst=rlist[lengths(rlist)!=0]
-estimates0.nofilter=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
+	rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5,
+		filter.threshold=NULL))
+	tst=rlist[lengths(rlist)!=0]
+	estimates0.nofilter=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
 
-tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
-tst2.nooverlap=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=0)
-tst2.nofilter=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=0,
-	filter.threshold=NULL)
+	tst2=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=5)
+	tst2.nooverlap=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=0)
+	tst2.nofilter=getGroupEstimates2(et,spec,year0.ord=1:100,agedist=agedist,save.years.from.end=-5,save.years.overlap=0,
+		filter.threshold=NULL)
 
-estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
-estimates.tail.pwr=predictDonations2(tst2,model=model.pwr,cumulative=cumulative,multiplier=1)
-estimates.tail.nooverlap=predictDonations2(tst2.nooverlap,model=model,cumulative=cumulative,multiplier=1)
+	estimates.tail=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=1)
+	estimates.tail.pwr=predictDonations2(tst2,model=model.pwr,cumulative=cumulative,multiplier=1)
+	estimates.tail.nooverlap=predictDonations2(tst2.nooverlap,model=model,cumulative=cumulative,multiplier=1)
 
-estimates.tail.nofuture=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=0)
+	estimates.tail.nofuture=predictDonations2(tst2,model=model,cumulative=cumulative,multiplier=0)
 
-# +filtering, +overlap
-year.test=2015 # debug
-estimates0 %>% filter(rw==4,prd.year==year.test) # debug
-estimates.tail %>% filter(rw==4,prd.year==year.test) # debug
+	estimates.year0.models=rbind(estimates0,estimates.tail)
+	estimates.year0.models.pwr=rbind(estimates0.pwr,estimates.tail.pwr)
+	estimates.year0.models.nofilter=rbind(estimates0.nofilter,estimates.tail.nooverlap)
+	estimates.year0.models.nooverlap=rbind(estimates0,estimates.tail.nooverlap)
+	estimates.year0.models.ultimate=rbind(estimates0.pwr,estimates.tail)
 
-estimates.year0.models=rbind(estimates0,estimates.tail)
-estimates.year0.models.pwr=rbind(estimates0.pwr,estimates.tail.pwr)
-estimates.year0.models.nofilter=rbind(estimates0.nofilter,estimates.tail.nooverlap)
-estimates.year0.models.nooverlap=rbind(estimates0,estimates.tail.nooverlap)
-estimates.year0.models.ultimate=rbind(estimates0.pwr,estimates.tail)
+	estimates.year0.models.nofuture=rbind(estimates0,estimates.tail.nofuture)
 
-estimates.year0.models.nofuture=rbind(estimates0,estimates.tail.nofuture)
+	getCoeff = function(x) {
+		df.year0=x$prdct %>% group_by(rw) %>% summarise(year0=min(year0.lo))
+		inner_join(x$coeff,df.year0,join_by(rw)) 
+		}
 
-getCoeff = function(x) {
-	df.year0=x$prdct %>% group_by(rw) %>% summarise(year0=min(year0.lo))
-	inner_join(x$coeff,df.year0,join_by(rw)) 
-	}
+	# These are used to plot the trajectories
+	coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
+	plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps,mode='mfrow')
 
-# These are used to plot the trajectories
-coeff.year0.models=rbind(do.call(rbind,lapply(tst,FUN=getCoeff)),getCoeff(tst2))
+	#######
+	# All years (after 2nd) as a lump
+	#######
+	model='log(don)~log(x)+0+year0+x1'
+	model.pwr='don~x.pwr+0+year0+x1'
+	rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
+	rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
+	rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 
-# estimates = estimates.year0.models
-plotEstimatesVsActual(et,estimates.year0.models,spec,ylim=c(100,2500),grps=grps,mode='mfrow')
-# coeff.data=plotCoeffData(coeff.year0.models,spec.list$country,grps,phase,dparam,vfun,FALSE)
+	source('analysis-functions.r')
+	plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,mode='mfrow')
 
-# Mitä malleja haluttaisiin mukaan?
-# yhtenä kokonaisuutena
-# yksittäin, ei lisämausteita
-# yksittäin, overlap, ei filtteröintiä
-# lopullinen, eli yksittäin, overlap ja filtteröinti mukana
+	rvs=list(rv.1,rv.2,rv.3p)
+	estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE)))
+	estimates.nofuture=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE,multiplier=0)))
+	estimates.pwr=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=FALSE)))
+	plotEstimatesVsActual(et,estimates,spec,grps=grps) 
 
-#######
-# All years (after 2nd) as a lump
-#######
-model='log(don)~log(x)+0+year0+x1'
-model.pwr='don~x.pwr+0+year0+x1'
-# model.pwr='don~x.pwr+x1'
-rv.1=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=1,agedist=agedist)
-rv.2=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=2,agedist=agedist)
-rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
+	# This is some hack: just assign the local variables to the global context
+	sapply(setdiff(ls(),'et'),function(x) bsAssign(x))
+} # computeModels
 
-source('analysis-functions.r')
-plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,mode='mfrow')
+prepareEstimatesForExport = function(x) {
+	get(models.map[[x]]) %>% 
+		dplyr::select('prd.year','rw','n2','fit','lwr','upr','year0') %>%
+		inner_join(grps,join_by(rw)) %>%
+		dplyr::select(-rw) %>%
+		mutate(blood.gr=bgr,id=paste(country,blood.gr,x,prd.year,sep='/')) # blood.gr actually not needed as a separate column
+}
 
-rvs=list(rv.1,rv.2,rv.3p)
-estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE)))
-estimates.nofuture=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE,multiplier=0)))
-estimates.pwr=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=FALSE)))
-plotEstimatesVsActual(et,estimates,spec,grps=grps) 
-# plotEstimatesVsActual(et,estimates.nofuture,spec,grps=grps) 
-# plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps) 
+computeModels(et %>% filter(BloodGroup=='O-'))
+bgr='Oneg'
+models.map=list(log.separately='estimates.year0.models',log.lump='estimates',log.power='estimates.pwr')
+export.estimates.oneg=do.call(rbind,lapply(names(models.map),FUN=prepareEstimatesForExport))
+computeModels(et)
+bgr='all'
+export.estimates.all=do.call(rbind,lapply(names(models.map),FUN=prepareEstimatesForExport))
+export.estimates=rbind(export.estimates.all,export.estimates.oneg)
 
-rv.3p$prdct %>% filter(phase==model.pwr,rw==3)
+export.estimates.all[1,]
+export.estimates.oneg[1,]
+
+export.estimates[grepl('fi/.+/log.separately/2000',export.estimates$id),]
+
+plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
+
+# 2025-10-03 should run up to this point to produce models with varying donor (all/Oneg)
+# The export
+# - estimates.year0.models ~ eva-overlap-filtering
+# - estimates ~ lump (logarithmic)
+# - estimates.pwr ~ lump.pwr (power)
 
 ######
 # summaries of the methods
@@ -103,9 +119,7 @@ plotEstimatesVsActual(et,estimates.year0.models.ultimate,spec,grps=grps,filename
 
 #### Plotting the coefficients
 filename=paste0(param$shared.dir,'fig/parameters.png')
-# png.res=param$png.resolution
 pdfOrPng(filename,width=7,height=7)
-# pdf(filename,width=7,height=7)
 par(mar=c(4.1,4.1,0.5,0.6)) # no space at the top
 param.xlim=c(0.30,0.72)
 param.ylim=c(1.2,3)
@@ -152,7 +166,6 @@ dev.off()
 #####
 # trajectories of parameters (from models estimated individually for each year)
 filename=paste0(param$shared.dir,'fig/parameter-trajectories.png')
-# png.res=100
 pdfOrPng(filename,width=7,height=7)
 par(mar=c(4.1,4.1,0.5,0.6)) # no space at the top
 plot(x=NULL,xlim=param.xlim,ylim=param.ylim,xlab='exponent (b)',ylab='multiplier (exp(a))')
