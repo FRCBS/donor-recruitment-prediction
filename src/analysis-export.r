@@ -50,16 +50,27 @@ if (FALSE) {
 	df2$fit=a*df2$x^b
 } else {
 	# This is what is actually needed in the exported document
-	df2=expand.grid(year0=yrs,x=x)
+	n2.new=estimates0 %>%
+		filter(x==1) %>%
+		inner_join(grps,join_by(x$rw==y$rw)) %>%
+		dplyr::select(year0,country) %>%
+		group_by(country) %>%
+		summarise(year0=min(year0))
+
+	df2=expand.grid(year0=yrs,x=x,country=(grps$country))
+	df2$country=as.character(df2$country)
+	df2=inner_join(df2,n2.new,join_by(country,x$year0>=y$year0),suffix=c('','.extra'))
 	df2$prd.year=df2$year0+df2$x-1
+	df2$fit=df2$x
+	df2=df2[,-which(colnames(df2) %in% c('x','year0.extra')]
 }
 
 new.rows=nrow(df)+(1:nrow(df2))
 df[new.rows,]=NA
-# df$phase[new.rows]='parameters'
 for (col in colnames(df2)) {
 	df[new.rows,col]=df2[,col]
 }
+df$id[new.rows]=paste0(df$country[new.rows],'/parameters/',df$prd.year[new.rows])
 
 ###
 wb <- createWorkbook() 
@@ -75,22 +86,22 @@ n.frml=paste0('vlookup(',int2col(n.col.xlsx-1),hdr.nr+(1:nrow(n2.data)),',',
 writeFormula(wb,"parameters",n.frml,startCol=n.col.xlsx,startRow=hdr.nr+1)
 
 # references to the n-values in the estimate table
-n.references=paste0(colToExcel(n.col.xlsx),hdr.nr+1+df$year0-2000)
+n.references=paste0(int2col(n.col.xlsx),hdr.nr+1+df$year0-2000)
 writeFormula(wb,"parameters",n.references,startCol=n2.col,startRow=hdr.nr+1)
 
 rws=hdr.nr+(1:nrow(df))
 # computing the individual forecast as the product: fit*n
 # this has been deprecated
 for (i in 1:3) {
-	frml.mult=paste0(colToExcel(which(colnames(df)=='fit')+i-1),rws,'*',colToExcel(n2.col),rws)
+	frml.mult=paste0(int2col(which(colnames(df)=='fit')+i-1),rws,'*',int2col(n2.col),rws)
 	# writeFormula(wb,"parameters",frml.mult,startCol=ncol(df)+i,startRow=hdr.nr+1)
 }
 # writeData(wb,'parameters',matrix(c('estimate','ci.low','ci.hi'),nc=3),startCol=ncol(df)+1,startRow=hdr.nr,colNames=FALSE)
 
 writeData(wb,'parameters',c('multiplier','exponent'),startCol=n.col.xlsx+3,startRow=2,colNames=FALSE)
 writeData(wb,'parameters',c(a,b),startCol=n.col.xlsx+4,startRow=2,colNames=FALSE)
-a.ref=paste0('$',colToExcel(n.col.xlsx+4),'$',2)
-b.ref=paste0('$',colToExcel(n.col.xlsx+4),'$',3)
+a.ref=paste0('$',int2col(n.col.xlsx+4),'$',2)
+b.ref=paste0('$',int2col(n.col.xlsx+4),'$',3)
 
 styBold=createStyle(textDecoration='bold')
 
@@ -98,7 +109,9 @@ styBold=createStyle(textDecoration='bold')
 writeData(wb,'parameters',c('nl','Oneg','log.separately','fi','all'),startCol=n.col.xlsx,startRow=1)
 writeData(wb,'parameters',c('Blood establishment','Blood gr','Model','Number of new donors, country','Number of new donors, blood group'),startCol=n.col.xlsx-2,startRow=1)
 prm.col=int2col(n.col.xlsx)
-concat.frml=paste0(paste(concat.frml=paste0(prm.col,1:3),collapse='&"/"&'),'&"/"')
+concat.frml=paste0('if(',prm.col,'3="parameters",',
+	paste0(paste(concat.frml=paste0(prm.col,c(1,3)),collapse='&"/"&'),'&"/",'),
+	paste0(paste(concat.frml=paste0(prm.col,1:3),collapse='&"/"&'),'&"/"'),")")
 writeFormula(wb,'parameters',concat.frml,startCol=n.col.xlsx,startRow=6)
 prm.col=int2col(n.col.xlsx)
 concat.frml=paste(concat.frml=paste0(prm.col,1:2),collapse='&"."&')
@@ -107,15 +120,16 @@ addStyle(wb,'parameters',styBold,cols=n.col.xlsx-2,rows=1:hdr.nr)
 
 # Formula for the estimates computed based on parameters
 rws=hdr.nr+new.rows
-x.col=which(colnames(df)=='x')
-frml.fit=paste0(a.ref,'*',colToExcel(x.col),rws,'^',b.ref)
-writeFormula(wb,'parameters',frml.fit,startCol=colToExcel(which(colnames(df)=='fit')),startRow=min(new.rows)+hdr.nr)
+fit.col=which(colnames(df)=='fit')
+# frml.fit=paste0(a.ref,'*',int2col(fit.col),rws,'^',b.ref)
+frml.fit=paste0(a.ref,'*',df2$fit,'^',b.ref)
+writeFormula(wb,'parameters',frml.fit,startCol=int2col(which(colnames(df)=='fit')),startRow=min(new.rows)+hdr.nr)
 
 # summing the estimates for the final forecasts using sumif
 # =SUMIF($C$7:$C$3679;U7;$T$7:$T$3678)
 rws=hdr.nr+(1:nrow(df))
 n.rws=hdr.nr+(1:nrow(n2.data))
-prd.year.col=colToExcel(which(colnames(df)=='prd.year'))
+prd.year.col=int2col(which(colnames(df)=='prd.year'))
 sum.col=which(colnames(df)=='fit') # (ncol(df)+1)
 
 st0=createStyle(numFmt='0')
@@ -124,14 +138,14 @@ id.col=int2col(which(colnames(df)=='id'))
 for (i in 0:2) {
 	# =AB7*SUMIF($A$7:$A$898;$AA7;$E$7:E$898)
 	# nb! This is old now, copied below
-	frml.sumif=paste0(colToExcel(n.col.xlsx),n.rws,
+	frml.sumif=paste0(int2col(n.col.xlsx),n.rws,
 		'*sumif($',prd.year.col,'$',rws[1],':$',prd.year.col,'$',rws[length(rws)],',',
-		'$',colToExcel(n.col.xlsx),n.rws,',', # condition: prd.year
+		'$',int2col(n.col.xlsx),n.rws,',', # condition: prd.year
 		'$',int2col(sum.col+i),'$',rws[1],':','$',int2col(sum.col+i),'$',rws[length(rws)],')')
 
-	frml.sumif=paste0(colToExcel(n.col.xlsx),n.rws,
+	frml.sumif=paste0(int2col(n.col.xlsx),n.rws,
 		'*sumif($',id.col,'$',rws[1],':$',id.col,'$',rws[length(rws)],',',
-		'',colToExcel(n.col.xlsx),'$',hdr.nr-2,'&','$',colToExcel(n.col.xlsx-1),n.rws,',', # condition: /-separated string of prd.year, country, blood group, mode
+		'',int2col(n.col.xlsx),'$',hdr.nr-2,'&','$',int2col(n.col.xlsx-1),n.rws,',', # condition: /-separated string of prd.year, country, blood group, mode
 		'$',int2col(sum.col+i),'$',rws[1],':','$',int2col(sum.col+i),'$',rws[length(rws)],')')
 
 	writeFormula(wb,'parameters',frml.sumif,startCol=n.col.xlsx+1+i,startRow=hdr.nr+1)
@@ -145,8 +159,8 @@ saveWorkbook(wb,"../tool.xlsx",overwrite=TRUE)
 # groupColumns(wb, sheet, cols, hidden = FALSE, level = -1)
 # write.xlsx(df,'../tool.xlsx')
 
-getwd()
-system(paste('"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"','../tool.xlsx'),intern=FALSE,ignore.stdout=FALSE,ignore.stderr=FALSE)
+# getwd()
+# system(paste('"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"','../tool.xlsx'),intern=FALSE,ignore.stdout=FALSE,ignore.stderr=FALSE)
 
 colToExcel=function(n) {
 	res=''
