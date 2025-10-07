@@ -65,7 +65,7 @@ computeModels = function(et) {
 	rv.3p=getGroupEstimates2(et,spec,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
 
 	source('analysis-functions.r')
-	plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,mode='mfrow')
+	# plotEstimatesVsActual(et,estimates.pwr,spec,grps=grps,mode='mfrow')
 
 	rvs=list(rv.1,rv.2,rv.3p)
 	estimates=do.call(rbind,lapply(rvs,FUN=function(x) predictDonations2(x,model=model,cumulative=FALSE)))
@@ -128,20 +128,44 @@ plot(x=NULL,xlim=param.xlim,ylim=param.ylim,xlab='exponent (b)',ylab='multiplier
 phase='log(cdon)~log(x)'
 dparam=c('log.x.','.Intercept.')
 vfun=c(NA,exp)
+
+coeff.list=list()
 rv=getGroupEstimates2(et,spec.list$country,plot='curve',try.nls=FALSE,year0.ord=3:100,agedist=agedist)
-unique(rv$coeff$phase)
-plotCoeffData(rv$coeff,spec.list$country,rv$grps,phase,dparam,vfun)
+coeff.list$country=plotCoeffData(rv$coeff,spec.list$country,rv$grps,phase,dparam,vfun)
 
 rv=getGroupEstimates2(et,spec.list$country.sex,plot='curve',try.nls=FALSE)
-plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
+coeff.list$country.sex=plotCoeffData(rv$coeff,spec.list$country.sex,rv$grps,phase,dparam,vfun,TRUE)
 
 rv=getGroupEstimates2(et,spec.list$country.bloodgr,plot='curve',try.nls=FALSE)
-plotCoeffData(rv$coeff,spec.list$country.bloodgr,rv$grps,phase,dparam,vfun,TRUE)
+coeff.list$country.bloodgr=plotCoeffData(rv$coeff,spec.list$country.bloodgr,rv$grps,phase,dparam,vfun,TRUE)
 
 rv=getGroupEstimates2(et,spec.list$country.age,plot='curve',try.nls=FALSE)
-plotCoeffData(rv$coeff,spec.list$country.age,rv$grps,phase,dparam,vfun,TRUE)
+coeff.list$country.age=plotCoeffData(rv$coeff,spec.list$country.age,rv$grps,phase,dparam,vfun,TRUE)
 
-rv$coeff[rv$coeff$phase=='log-log',]
+coeff.df=do.call(rbind,lapply(names(coeff.list),FUN=function(x) {
+	df=coeff.list[[x]]
+	extra.col=setdiff(colnames(df),colnames(coeff.list$country))
+	if (length(extra.col) > 0) {
+		extra.ord=which(colnames(df)==extra.col)
+	} else {
+		df$extra.dim=NA
+		extra.ord=ncol(df)
+	}
+	country.ord=which(colnames(df)=='country')
+	df=df[,c(country.ord,extra.ord,setdiff(1:ncol(df),extra.ord))]
+	colnames(df)[2]='dimension2'
+	df=cbind(dimension=x,df)
+}))
+coeff.df = coeff.df %>% dplyr::select(-country.1,-rw,-year0)
+tr.list=list(x='exponent',y='multiplier',u='cdon50')
+for (x in names(tr.list)) {
+	colnames(coeff.df)=sub(paste0('\\.',x,'$'),paste0('.',tr.list[[x]]),colnames(coeff.df))
+}
+colnames(coeff.df)=sub('^est\\.','',colnames(coeff.df))
+colnames(coeff.df)=sub('(.+)\\.(.+)','\\2(ci.\\1)',colnames(coeff.df))
+colnames(coeff.df)
+
+# rv$coeff[rv$coeff$phase=='log-log',]
 
 # contours
 addContours=function(x) {

@@ -9,7 +9,7 @@ library(openxlsx)
 # library(reshape2) # melt (needed in heatmaps)
 
 ## ----parameters,echo=FALSE----------------------------------------------------
-source('functions-2.r')
+source('analysis-functions.r')
 param=list()
 param$data.dir = 'C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/data/'
 param$shared.dir='C:/Users/super/OneDrive - University of Helsinki/veripalvelu/paper-1 long-term-predictions/long-term-predictions-manuscript/'
@@ -309,11 +309,13 @@ spec.list$country$colours = colours
 spec.list$country$col.dim = 'country'
 spec.list$country$pch.dim = 'country'
 
-spec.list$Sex = list()
-spec.list$Sex$dim.keep = c('Sex')
-spec.list$Sex$pch = function(x) {2}
-spec.list$Sex$colours = list(Male='blue3',Female='red3')
-spec.list$Sex$col.dim = 'Sex'
+if (FALSE) {
+	spec.list$Sex = list()
+	spec.list$Sex$dim.keep = c('Sex')
+	spec.list$Sex$pch = function(x) {2}
+	spec.list$Sex$colours = list(Male='blue3',Female='red3')
+	spec.list$Sex$col.dim = 'Sex'
+}
 
 spec.list$country.sex = list()
 spec.list$country.sex$dim.keep = c('country','Sex')

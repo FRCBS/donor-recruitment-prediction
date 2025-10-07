@@ -872,9 +872,9 @@ plotCoeffData=function(data,spec,grps,phase,dparam,vfun,error.bars=TRUE) {
 	# x ~ exponent
 	# y ~ multiplier
 	u=50
+	df$est.u=df$est.y*u^df$est.x
 	df$lo.u=df$lo.y*u^df$lo.x
 	df$hi.u=df$hi.y*u^df$hi.x
-	df$est.u=df$est.y*u^df$est.x
 
 	return(df)
 }
