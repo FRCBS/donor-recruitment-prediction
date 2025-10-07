@@ -11,6 +11,13 @@ n2.data[nrow(n2.data)+rws,'year']=max(n2.data$year,na.rm=TRUE)+rws
 data.frame(n2.data)
 # n2.data=rbind(n2.data,data.frame(year=(max(n2.data$year)+1):2080,n=n2.data$n[nrow(n2.data)]))
 
+actual.don = et %>%
+	filter(!is.na(cdon),!is.na(don)) %>%
+	group_by(!!!syms(c('year',spec$dim.keep))) %>%
+	summarise(donations=sum(n*don),.groups='drop') %>%
+	pivot_wider(names_from='country',values_from='donations') %>%
+	arrange(year)
+
 n.wide = et %>%
 	filter(ord==1) %>%
 	mutate(bgr=sapply(BloodGroup,function(x) if(x=='O-') 'Oneg' else 'all')) %>%
@@ -63,7 +70,6 @@ for (col in colnames(df2)) {
 	df[new.rows,col]=df2[,col]
 }
 df$id[new.rows]=paste0(df$country[new.rows],'/parameters/',df$prd.year[new.rows])
-
 df[,c('est','est.lo','est.hi')]=NA
 
 ###
@@ -72,10 +78,14 @@ shMain='main'
 addWorksheet(wb,shMain) 
 addWorksheet(wb,"nr of new donors") 
 addWorksheet(wb,"coefficients") 
+addWorksheet(wb,"actual donations") 
+
+
 writeData(wb,'nr of new donors',n.wide)
 writeData(wb,shMain,x=df,startRow=hdr.nr)
 writeData(wb,shMain,n2.data,startCol=n.col.xlsx-1,startRow=hdr.nr)
 writeData(wb,'coefficients',x=coeff.df)
+writeData(wb,'actual donations',x=actual.don)
 
 n.frml=paste0('vlookup($',int2col(n.col.xlsx-1),hdr.nr+(1:nrow(n2.data)),',',
 	'\'nr of new donors\'!$A$1:$',int2col(ncol(n.wide)),'$',nrow(n.wide)+1,',',
@@ -181,6 +191,7 @@ groupColumns(wb,'coefficients',cols=which(grepl('lo|hi',colnames(coeff.df))),hid
 
 addStyle(wb,'coefficients',styBold,rows=1,cols=1:ncol(coeff.df))
 addStyle(wb,'nr of new donors',styBold,rows=1,cols=1:ncol(n.wide))
+addStyle(wb,'actual donations',styBold,rows=1,cols=1:ncol(actual.don))
 
 saveWorkbook(wb,"../tool.xlsx",overwrite=TRUE)
 
