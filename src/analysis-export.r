@@ -3,7 +3,7 @@ rw0=3
 n2.data=estimates0 %>%
 	filter(rw==rw0,x==1) %>%
 	dplyr::select(year0,n2) %>%
-	rename(year=year0,n=n2) %>%
+	rename(year=year0,'number of new donors'=n2) %>%
 	arrange(year) %>%
 	mutate('activity multiplier'=NA,estimate=NA,ci.low=NA,ci.upr=NA)
 rws=(1:(2055-max(n2.data$year)))
@@ -103,12 +103,15 @@ for (i in 1:3) {
 
 a=2.2
 b=0.52
-writeData(wb,shMain,c('Parameters to use when model=parameters','multiplier','exponent','cdon50'),startCol=n.col.xlsx+2,startRow=1,colNames=FALSE)
-writeData(wb,shMain,c(a,b),startCol=n.col.xlsx+3,startRow=2,colNames=FALSE)
-writeFormula(wb,shMain,paste0(int2col(n.col.xlsx+3),2,'*50^',int2col(n.col.xlsx+3),3),startCol=n.col.xlsx+3,startRow=4)
+error.perc=0.05
+writeData(wb,shMain,c('Parameters to use when model=parameters','multiplier','exponent','error-%','cdon50'),startCol=n.col.xlsx+2,startRow=1,colNames=FALSE)
+writeData(wb,shMain,c(a,b,error.perc),startCol=n.col.xlsx+3,startRow=2,colNames=FALSE)
+writeFormula(wb,shMain,paste0(int2col(n.col.xlsx+3),2,'*50^',int2col(n.col.xlsx+3),3),startCol=n.col.xlsx+3,startRow=5)
+
 # addStyle(wb,shMain,styDecimal,cols=n.col.xlsx+3,rows=4)
 a.ref=paste0('$',int2col(n.col.xlsx+3),'$',2)
 b.ref=paste0('$',int2col(n.col.xlsx+3),'$',3)
+e.ref=paste0('$',int2col(n.col.xlsx+3),'$',4)
 
 # parameter section
 writeData(wb,shMain,c('nl','Oneg','log.separately','fi','all'),startCol=n.col.xlsx,startRow=1)
@@ -129,11 +132,14 @@ addStyle(wb,shMain,styBold,cols=n.col.xlsx-2,rows=1:hdr.nr)
 # Formula for the estimates computed based on parameters
 rws=hdr.nr+new.rows
 fit.col=which(colnames(df)=='fit')
-# frml.fit=paste0(a.ref,'*',int2col(fit.col),rws,'^',b.ref)
 frml.fit=paste0(a.ref,'*',df2$fit,'^',b.ref)
+frml.ci.low=paste0('(1-',e.ref,')*',a.ref,'*',df2$fit,'^','(1-',e.ref,')')
+frml.ci.hi=gsub('1\\-','1+',frml.ci.low)
 writeFormula(wb,shMain,frml.fit,startCol=int2col(which(colnames(df)=='fit')),startRow=min(new.rows)+hdr.nr)
-addStyle(wb,shMain,styColour,cols=n.col.xlsx+3,rows=2:3)
-addStyle(wb,shMain,styBold,cols=n.col.xlsx+2,rows=2:3)
+writeFormula(wb,shMain,frml.ci.low,startCol=int2col(which(colnames(df)=='fit')+1),startRow=min(new.rows)+hdr.nr)
+writeFormula(wb,shMain,frml.ci.hi,startCol=int2col(which(colnames(df)=='fit')+2),startRow=min(new.rows)+hdr.nr)
+addStyle(wb,shMain,styColour,cols=n.col.xlsx+3,rows=2:4)
+addStyle(wb,shMain,styBold,cols=n.col.xlsx+2,rows=2:5)
 
 # formulas for the estimates in the long table
 # removed this
@@ -170,13 +176,11 @@ for (i in 0:2) {
 }
 
 setColWidths(wb,shMain,cols=1:(ncol(df)+1),hidden=TRUE)
-setColWidths(wb,shMain,cols=n.col.xlsx-2,width=45)
-# setRowHeights(wb,shMain,rows=hdr.nr-(1:2),heights=NA) # the concatenated parameters
-
+setColWidths(wb,shMain,cols=n.col.xlsx-3,width=45)
 groupColumns(wb,'coefficients',cols=which(grepl('lo|hi',colnames(coeff.df))),hidden=TRUE,level=-1)
 
-# groupRows(wb,shMain,rows=hdr.nr-(1:2),hidden=TRUE)
-# groupColumns(wb,shMain,cols=1:(ncol(df)+1),hidden=TRUE,level=-1)
+addStyle(wb,'coefficients',styBold,rows=1,cols=1:ncol(coeff.df))
+addStyle(wb,'nr of new donors',styBold,rows=1,cols=1:ncol(n.wide))
 
 saveWorkbook(wb,"../tool.xlsx",overwrite=TRUE)
 
@@ -198,6 +202,3 @@ colToExcel=function(n) {
 	}
 	return(res)
 }
-
-
-
