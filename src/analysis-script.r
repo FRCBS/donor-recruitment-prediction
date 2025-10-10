@@ -87,7 +87,7 @@ prepareEstimatesForExport = function(x) {
 
 computeModels(et %>% filter(BloodGroup=='O-'))
 bgr='Oneg'
-models.map=list(log.separately='estimates.year0.models',log.lump='estimates',log.power='estimates.pwr')
+models.map=list(log.separately='estimates.year0.models',log.lump='estimates',power.lump='estimates.pwr')
 export.estimates.oneg=do.call(rbind,lapply(names(models.map),FUN=prepareEstimatesForExport))
 computeModels(et)
 bgr='all'

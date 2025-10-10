@@ -189,6 +189,13 @@ setColWidths(wb,shMain,cols=1:(ncol(df)+1),hidden=TRUE)
 setColWidths(wb,shMain,cols=n.col.xlsx-3,width=45)
 groupColumns(wb,'coefficients',cols=which(grepl('lo|hi',colnames(coeff.df))),hidden=TRUE,level=-1)
 
+setRowHeights(wb,shMain,rows=hdr.nr-1:2,heights=1)
+protectWorksheet(wb,'nr of new donors',protect=TRUE)
+protectWorksheet(wb,'coefficients',protect=TRUE)
+protectWorksheet(wb,'actual donations',protect=TRUE)
+
+# ?setRowHeights
+
 addStyle(wb,'coefficients',styBold,rows=1,cols=1:ncol(coeff.df))
 addStyle(wb,'nr of new donors',styBold,rows=1,cols=1:ncol(n.wide))
 addStyle(wb,'actual donations',styBold,rows=1,cols=1:ncol(actual.don))
@@ -213,3 +220,5 @@ colToExcel=function(n) {
 	}
 	return(res)
 }
+
+# TODO actual donations needed for the blood groups separately
