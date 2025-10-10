@@ -8,7 +8,7 @@ The followin codes are used for the blood establishment:
 - ct: Blood and Tissue Bank (BST, Catalonia, Spain)
 - fi: Finnish Red Cross Blood establishment (FRCBS, Finland)
 - fr: Établissement français du sang (France)
-- nc: Banco de Sangre (Navarre, Spain)
+- nc: Banco de Sangre y Tejidos de Navarra (Navarre, Spain)
 - nl: Sanquin Blood Supply Foundation (Netherlands)
   
 ## Source data 
@@ -29,3 +29,14 @@ This sheet contains the number of actual donations per year for each blood estab
 Please note that sum of actual donations on a year is *not equal to* the number of donations recorded in the raw data for that year. Instead, for each donor, the number of donations during one year since the donor's date of first donation is recorded for the year of first donation, and similarly for other years.
 
 ## Functionality
+The figure below contains the parameter section of the **main** sheet and initial years of a scenario created based on the parameters.
+In short, a prediction of donation activity is combined with a time series of the number of new donors (per year) to come up with forecasts of blood donations in future years.
+### Parameters
+The parameters are the following:
+- Blood establishment: the blood establishment the predictions for which are used
+- Blood group: the blood group the predictions of which are used
+- Model: the model that has been used to compute the predictions
+- New of new donors, blood establishment: From which blood establishment historical nubmer of new donors be used (from **nr of new donors** sheet)?. By default, this is set to the same value as above for predictions (cell P1).
+- Number of new donors, blood group: For which blood group should the historical data be fetched?
+  
+![parameters and part of a scenario on the main sheet](spreadsheet-tool.png)
