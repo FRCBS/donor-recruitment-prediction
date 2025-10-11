@@ -48,8 +48,7 @@ if (grepl('[/\\]src[/\\]?',param$wd)) {
    param$wd = sub('[/\\]src(data)?([/\\]?)$','\\2',param$wd)
 }
 
-param$data.file = NULL
-# param$data.file = file.path(param$wd,'donationdata.Rdata')
+param$data.file = file.path(param$wd,'donationdata.Rdata')
 # param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata" # fi
 
 # These parameters are used to estimate the cumulative donation amounts in the script
@@ -825,11 +824,10 @@ if (FALSE) {
 
 ```{r compute-distributions-groups}
 # 2024-08-07 trying the data for existing donors now
-#res.ed.old=res.ed
-# res.ed=processGroupTable(spair,ed)
-res.nd=processGroupTable(simple,nd)
-# res.oneg=processGroupTable(simple,gt.oneg)
-# res.sex=processGroupTable(simple,gt.sex)
+if (nrow(simple) == 85) {
+  print("WARNING! The donation table `simple` only has 85 rows, apparently created based on the sample data in srcdata instead of actual data; please check that actual data is used")
+}
+  res.nd=processGroupTable(simple,nd)
 ```
 
 ```{r activity-stats}
