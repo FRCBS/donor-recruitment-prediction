@@ -48,7 +48,8 @@ if (grepl('[/\\]src[/\\]?',param$wd)) {
    param$wd = sub('[/\\]src(data)?([/\\]?)$','\\2',param$wd)
 }
 
-param$data.file = file.path(param$wd,'donationdata.Rdata')
+param$data.file = NULL
+# param$data.file = file.path(param$wd,'donationdata.Rdata')
 # param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata" # fi
 
 # These parameters are used to estimate the cumulative donation amounts in the script
@@ -407,7 +408,11 @@ if (!exists('load.ready'))
 
 if (!is.null(load.ready) && load.ready != 1) {
   file <- param$data.file
-  load(file = file)
+  if (!is.null(file)) {
+    load(file = file)
+  } else if (!exists('donationdata') || is.null(donationdata)) {
+    stop('Neither path to data file provided in param$data.file nor data available in donationdata (in memory)')
+  }
   
   # Convert the cumbersome releaseID's to numeric values
   # Each data kind (donation, referral, donor) has its own series so that the values do not overlap for small datasets
@@ -424,8 +429,8 @@ if (!is.null(load.ready) && load.ready != 1) {
   # donationdata$deferral$numid=id.map[donationdata$deferral$releaseID,'numid']
   # donationdata$contact$numid=id.map[donationdata$contact$releaseID,'numid']
   
-  donationdata$donation$rowid=1e7+as.integer(rownames(donationdata$donation))
-  donationdata$donor$rowid=2e5+as.integer(rownames(donationdata$donor))
+  donationdata$donation$rowid=1e7+1:nrow(donationdata$donation) #as.integer(rownames(donationdata$donation))
+  donationdata$donor$rowid=2e5+1:nrow(donationdata$donor) # as.integer(rownames(donationdata$donor))
   # donationdata$deferral$rowid=3e7+as.integer(rownames(donationdata$deferral))
   # donationdata$contact$rowid=4e8+as.integer(rownames(donationdata$contact))
   
