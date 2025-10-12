@@ -407,7 +407,11 @@ if (!exists('load.ready'))
 
 if (!is.null(load.ready) && load.ready != 1) {
   file <- param$data.file
-  load(file = file)
+  if (!is.null(file)) {
+    load(file = file)
+  } else if (!exists('donationdata') || is.null(donationdata)) {
+    stop('Neither path to data file provided in param$data.file nor data available in donationdata (in memory)')
+  }
   
   # Convert the cumbersome releaseID's to numeric values
   # Each data kind (donation, referral, donor) has its own series so that the values do not overlap for small datasets
@@ -424,8 +428,8 @@ if (!is.null(load.ready) && load.ready != 1) {
   # donationdata$deferral$numid=id.map[donationdata$deferral$releaseID,'numid']
   # donationdata$contact$numid=id.map[donationdata$contact$releaseID,'numid']
   
-  donationdata$donation$rowid=1e7+as.integer(rownames(donationdata$donation))
-  donationdata$donor$rowid=2e5+as.integer(rownames(donationdata$donor))
+  donationdata$donation$rowid=1e7+1:nrow(donationdata$donation) #as.integer(rownames(donationdata$donation))
+  donationdata$donor$rowid=2e5+1:nrow(donationdata$donor) # as.integer(rownames(donationdata$donor))
   # donationdata$deferral$rowid=3e7+as.integer(rownames(donationdata$deferral))
   # donationdata$contact$rowid=4e8+as.integer(rownames(donationdata$contact))
   
@@ -820,11 +824,10 @@ if (FALSE) {
 
 ```{r compute-distributions-groups}
 # 2024-08-07 trying the data for existing donors now
-#res.ed.old=res.ed
-# res.ed=processGroupTable(spair,ed)
-res.nd=processGroupTable(simple,nd)
-# res.oneg=processGroupTable(simple,gt.oneg)
-# res.sex=processGroupTable(simple,gt.sex)
+if (nrow(simple) == 85) {
+  print("WARNING! The donation table `simple` only has 85 rows, apparently created based on the sample data in srcdata instead of actual data; please check that actual data is used")
+}
+  res.nd=processGroupTable(simple,nd)
 ```
 
 ```{r activity-stats}

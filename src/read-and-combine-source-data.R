@@ -39,7 +39,7 @@ datafile = file.path(param$wd,'donationdata.Rdata')
 ####
 # Reading source data files
 # nb! adjust the header (here excluded) and sep (here tab, '\t') parameters as necessary
-t.donation=read.csv('donation-test.csv',header=FALSE,colClasses=c(NA,NA,'Date',NA,NA),sep=',')
+t.donation=read.csv('donation.csv',header=FALSE,colClasses=c(NA,NA,'Date',NA,NA),sep='\t')
 t.deferral=read.csv('deferral.csv',header=FALSE,colClasses=c(NA,'POSIXct','POSIXct',NA),sep='\t')
 t.donor=read.csv('donor.csv',header=FALSE,colClasses=c(NA,NA,NA,NA,'Date',NA),sep='\t')
 t.contact=read.csv('contact.csv',header=FALSE,colClasses=c(NA,NA,NA,'POSIXct',NA),sep='\t')
