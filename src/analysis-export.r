@@ -12,15 +12,25 @@ data.frame(n2.data)
 # n2.data=rbind(n2.data,data.frame(year=(max(n2.data$year)+1):2080,n=n2.data$n[nrow(n2.data)]))
 
 actual.don = et %>%
+# et[5820:5821,] %>%
 	filter(!is.na(cdon),!is.na(don)) %>%
-	group_by(!!!syms(c('year',spec$dim.keep))) %>%
+	mutate(bgr=sapply(BloodGroup,function(x) if(x=='O-') 'Oneg' else 'all')) %>%
+	# duplicate the oneg rows to get the right numbers
+	mutate(is.oneg=1+1*(BloodGroup=='O-')) %>%
+	uncount(is.oneg,.id='all') %>%
+	mutate(bgr=sapply(all,function(x) if(x=='1') 'Oneg' else 'all')) %>%
+	group_by(year,country,bgr) %>%
 	summarise(donations=sum(n*don),.groups='drop') %>%
-	pivot_wider(names_from='country',values_from='donations') %>%
+	arrange(country,desc(bgr)) %>%
+	pivot_wider(names_from=c('country','bgr'),values_from='donations',values_fn=sum,names_sep='.') %>%
 	arrange(year)
 
 n.wide = et %>%
 	filter(ord==1) %>%
-	mutate(bgr=sapply(BloodGroup,function(x) if(x=='O-') 'Oneg' else 'all')) %>%
+	# duplicate the oneg rows to get the right numbers
+	mutate(is.oneg=1+1*(BloodGroup=='O-')) %>%
+	uncount(is.oneg,.id='all') %>%
+	mutate(bgr=sapply(all,function(x) if(x=='1') 'Oneg' else 'all')) %>%
 	dplyr::select(country,bgr,n,year0) %>%
 	pivot_wider(names_from=c('country','bgr'),values_from='n',values_fn=sum,names_sep='.') %>%
 	arrange(year0)
@@ -125,7 +135,7 @@ e.ref=paste0('$',int2col(n.col.xlsx+3),'$',4)
 
 # parameter section
 writeData(wb,shMain,c('nl','Oneg','log.separately','fi','all'),startCol=n.col.xlsx,startRow=1)
-writeData(wb,shMain,c(paste0('Blood establishment, one of: ',paste(grps$country,collapse=', ')),'Blood group: all or Oneg',paste0('Model, one of: ',paste(c(names(models.map),'parameteres'),collapse=', ')),'Number of new donors, country','Number of new donors, blood group'),startCol=n.col.xlsx-2,startRow=1)
+writeData(wb,shMain,c(paste0('Blood establishment, one of: ',paste(grps$country,collapse=', ')),'Blood group: all or Oneg',paste0('Model, one of: ',paste(c(names(models.map),'parameteres'),collapse=', ')),'Number of new donors, blood establishment','Number of new donors, blood group'),startCol=n.col.xlsx-2,startRow=1)
 prm.col=int2col(n.col.xlsx)
 concat.frml=paste0('if(',prm.col,'3="parameters",',
 	paste0(paste(concat.frml=paste0(prm.col,c(1,3)),collapse='&"/"&'),'&"/",'),
