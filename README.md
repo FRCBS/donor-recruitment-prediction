@@ -4,20 +4,20 @@ Code for predicting future donation amounts with from historical donation data.
 # Spreadsheet tool
 ## Participating blood establishments
 The followin codes are used for the blood establishment:
-- au: Australian Red Cross Lifeblood (Australia)
-- ct: Blood and Tissue Bank (BST, Catalonia, Spain)
-- fi: Finnish Red Cross Blood establishment (FRCBS, Finland)
-- fr: Établissement français du sang (France)
-- nc: Banco de Sangre y Tejidos de Navarra (Navarre, Spain)
-- nl: Sanquin Blood Supply Foundation (Netherlands)
+- **au**: Australian Red Cross Lifeblood (Australia)
+- **ct**: Blood and Tissue Bank (BST, Catalonia, Spain)
+- **fi**: Finnish Red Cross Blood establishment (FRCBS, Finland)
+- **fr**: Établissement français du sang (France)
+- **nc**: Banco de Sangre y Tejidos de Navarra (Navarre, Spain)
+- **nl**: Sanquin Blood Supply Foundation (Netherlands)
   
 ## Source data 
 ### Predicted donation activity
 The spreadsheet tool contains the predicted donation activity as a function of time since the year of first donation estimated for: 
 - each participating blood establishment
 - The blood group, ie., O-negative donors (**Oneg**) and all donors (**all**)
-- three different models: **log.separately**, **log.lump**, and **power.lump**, which correspond to the models (d), (a) and (b) in Figure 2 of the manuscript, respectively
-This data is on sheet **main** but hidden by default and it is not recommended to manipulated directly.
+- three different models: **log.separately**, **log.lump**, and **power.lump**, which correspond to the models (d), (a) and (b) in Figure 2 of the manuscript, respectively.
+This data is on sheet **main** but hidden by default and it is not recommended to be manipulated directly.
 ### Number of new donors
 The sheet **nr of new donors** contains the number of new donors per blood establishment and year. This sheet is protected by default and it is not recommended to be edited. Formulas on sheet **main** (column *number of new donors*) link to this data based on the selections made in the paremeters section of that sheet.
 ### Coefficients
@@ -44,17 +44,18 @@ If the *model* parameter is given the value parameters, the parameters **multipl
 The parameters can be used to simulate scenarios where it is assumed that the activity of the donors is changed throughout the history, also including past years. Reasonable values for the parameters can be obtained by analysing the factual values for each blood establishment and blood group given on the **coefficients** worksheet. If different parameters are desired for different time spans, it is possible to create copies of the main sheet with different parameters for each copy, and combine parts of the predictions from each copy to create a single scenario.
 
 For the new donors, the parameters are:
-- **New of new donors, blood establishment**: From which blood establishment historical nubmer of new donors be used (from **nr of new donors** sheet)?. By default, this is set to the same value as above for predictions (cell P1).
+- **New of new donors, blood establishment**: From which blood establishment historical nubmer of new donors be used (from **nr of new donors** sheet)? By default, this is set to the same value as above for predictions (cell P1).
 - **Number of new donors, blood group**: For which blood group should the historical data be fetched?
+
 ![parameters and part of a scenario on the main sheet](spreadsheet-tool.png)
 
 ### Forecasts
 
-The forecasts are compute at the bottom part of the **main** sheet. Columns *year*, *estimate*, *ci.low* (the lower bound of a 95% confidence interval of *estimate*) and *ci.hi* (the upper bound of the confidence interval), are computed using the formulas and **should not be edited**. 
+The forecasts are computed at the bottom part of the **main** sheet. Columns *year*, *estimate*, *ci.low* (the lower bound of a 95% confidence interval of *estimate*) and *ci.hi* (the upper bound of the confidence interval), are computed using the formulas and **should not be edited**. 
 
 On the other hand, the the *number of new donors* column can be edited to contain custom estimates of the number of new donors per year. By default, the last known value is copied down in the table. 
 
-Similarly, the *activity multiplier* can be edited to account for changes in the overall donation activity during the specific year. In other words, this is a simple multiplier applied to all the forecasted donations for the year. The multiplier can be used to create scenarios where it is assumed that the overall activity of the donors is changed, irrespective of their year of first donation. As an example, it one could assume that through management, the overall activity of donors is increased by 10% or the activity of O-negative donors decreases to the level of all donors.
+Similarly, the *activity multiplier* can be edited to account for changes in the overall donation activity during the specific year (*year* column). In other words, this is a simple multiplier applied to all the forecasted donations for the year. The multiplier can be used to create scenarios where it is assumed that the overall activity of the donors is changed, irrespective of their year of first donation. As an example, it one could assume that through management, the overall activity of donors is increased by 10% or the activity of O-negative donors decreases to the level of all donors.
 
 ## Charts and illustrations
 No charts or custom analysis are included by default, but these can freely added using the standard Excel functionality.
