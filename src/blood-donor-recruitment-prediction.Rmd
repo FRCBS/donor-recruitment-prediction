@@ -527,17 +527,29 @@ if (!is.null(load.ready) && load.ready != 1) {
   spair$grDiff = fct_rev(spair$grDiff)
   
   spair = arrange(spair,numid,ord)
+
+  # Remove double (donor, date) from the data
+  use.old = FALSE
+  if (use.old) {
+    wh=which(spair$ord==1)
+    spair[wh,'firstTime']=1
+    replaced=unique(spair[wh,])
+    replaced[,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]=
+      simple[simple$numid %in% spair$numid[wh] & simple$ord==1,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]
+    
+    spair=spair[-wh,]
+    spair=rbind(spair,replaced)
+  } else {
+    spair[spair$ord==1,'firstTime']=1
+    spair$rowid=1:nrow(spair)
+    spair2=spair %>%
+      # filter(ord==1) %>%
+      group_by(numid,date) %>%
+      summarise(rowid=min(rowid,na.rm=TRUE),.groups='drop') %>%
+      dplyr::select(-numid)
+    spair=inner_join(spair,spair2,join_by(rowid))
+  }
   
-  # There are unfortunately some doubles in the data
-  # Here we try to get first time data in place, although it is best not to use it maybe
-  wh=which(spair$ord==1)
-  spair[wh,'firstTime']=1
-  replaced=unique(spair[wh,])
-  replaced[,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]=
-    simple[simple$numid %in% spair$numid[wh] & simple$ord==1,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]
-  
-  spair=spair[-wh,]
-  spair=rbind(spair,replaced)
   spair = arrange(spair,numid,ord)
   
   # Compute the number of annual donations from full years
