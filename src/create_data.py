@@ -57,6 +57,7 @@ def process_donations(donations):
 
         }
     )
+    donations['SuccesfulDonation'] = (donations['AfgenomenVolume'] > 200).astype(int)
     donations["Sex"] = donations["Sex"].map({"vrouw": "Female", "man": "Male", "M": "Male", "F": "Female"})
     # donations["DonationDate"] = pd.to_datetime(donations["DonationDate"])
     # # set everything that is not ML to office is that correct?
@@ -79,7 +80,8 @@ def process_donations(donations):
             "DonationPlaceType",
             "DonationPlaceCode",
             "Hb",
-            "DonationTimeStart"
+            "DonationTimeStart",
+            "SuccesfulDonation"
         ]
     ]
     if SHUFFLE:
@@ -220,6 +222,7 @@ for year in range(START_YEAR, END_YEAR + 1):
             "Hb",
             "Geboortedatum",
             "Donatie_Tijd_Start",
+            "AfgenomenVolume"
         ]
     ]
 
