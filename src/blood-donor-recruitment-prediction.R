@@ -1,26 +1,12 @@
----
-title: "Blood donor recruitment prediction"
-author: "Timo Asikainen"
-date: "`r Sys.time()`"
-output:
-  html_document:
-    toc: true
-    theme: united
----
-
-```{r setup, include=FALSE}
+## ----setup, include=FALSE--------------------------------------------------------------------------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(openxlsx)
 library(ggplot2) # # heatmaps etc
 library(reshape2)
-```
 
-GitHub: <https://github.com/FRCBS/donor-recruitment-prediction/blob/main/src/blood-donor-recruitment-prediction.Rmd>
 
-# Parameters: 
-
-```{r working-directory-and-file-paths}
+## ----working-directory-and-file-paths--------------------------------------------------------------------------------------------------------
 param=list()
 param$wd = getwd()
 
@@ -36,10 +22,9 @@ param$result.file = file.path(param$wd,"results","data.xlsx")
 
 # nb! check that the result and log files point to the right locations
 # No log is currently written in this script
-```
 
 
-```{r parameters} 
+## ----parameters------------------------------------------------------------------------------------------------------------------------------
 # nb! This should not be altered
 param$donation.types = c('Whole Blood (K)')
 
@@ -65,9 +50,9 @@ param$useOfficeMobile = TRUE
 # is below the limit, no size data will be exported and the rows will be omitted from the distribution matrix (distm).
 # The data will still be included in the age distribution (dista): this data is aggregated in groups of five years.
 param$min.group.year.size=30
-```
 
-```{r group-definitions}
+
+## ----group-definitions-----------------------------------------------------------------------------------------------------------------------
 table.text="
 age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
 0	25	Office	Male	-O-	1	70	Male Office 0-25
@@ -89,11 +74,9 @@ age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
 table.text=gsub(" ","¤",table.text)
 nd = read.table(header=TRUE,text = table.text)
 nd$Name=gsub("¤"," ",nd$Name)
-```
 
-# Functions
 
-```{r}
+## --------------------------------------------------------------------------------------------------------------------------------------------
 # Group table (gt) is the structure defined in Excel that contains the information on how the
 # donation base (currently first-time donors) is to be split into groups for predicting
 # the donations over years.
@@ -233,9 +216,9 @@ processGroupTable = function(data.param,gt) {
 cumulativeToDensity = function(dist) {
   return((c(dist,0)-c(0,dist))[1:length(dist)])
 }
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 # nb! Should the first predicted year actually be 2024? If there is full data for 2024
 computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2023,is.existing=FALSE,by.age=FALSE,total.donations=0,print.debug=FALSE) {
   if (is.existing) {
@@ -356,9 +339,9 @@ computeDonationAmounts = function(resl,gtl,years.ahead=55,first.predicted.year=2
   
   return(resl)
 }
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 getDensity = function(distm) {
   distm.m1=cbind(matrix(0,ncol=1,nrow=dim(distm)[1]),distm[,1:(dim(distm)[2]-1)])   
   return(distm-distm.m1)
@@ -393,13 +376,9 @@ plotDistibutionMatrix = function(distm,diff=FALSE,skip.years=1,main='') {
       scale_y_reverse()
   print(p)
 }
-```
 
-# Processing
 
-id.map[donationdata\$donation\$releaseID,'numid']
-
-```{r load-and-preprocess-data}
+## ----load-and-preprocess-data----------------------------------------------------------------------------------------------------------------
 # Load the data and process it for the purposes of both the 1st time donor analysis 
 # and the resilience of the donor base.
 start.time <- Sys.time()
@@ -529,29 +508,17 @@ if (!is.null(load.ready) && load.ready != 1) {
   spair$grDiff = fct_rev(spair$grDiff)
   
   spair = arrange(spair,numid,ord)
-
-  # Remove double (donor, date) from the data
-  use.old = FALSE
-  if (use.old) {
-    wh=which(spair$ord==1)
-    spair[wh,'firstTime']=1
-    replaced=unique(spair[wh,])
-    replaced[,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]=
-      simple[simple$numid %in% spair$numid[wh] & simple$ord==1,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]
-    
-    spair=spair[-wh,]
-    spair=rbind(spair,replaced)
-  } else {
-    spair[spair$ord==1,'firstTime']=1
-    spair$rowid=1:nrow(spair)
-    spair2=spair %>%
-      # filter(ord==1) %>%
-      group_by(numid,date) %>%
-      summarise(rowid=min(rowid,na.rm=TRUE),.groups='drop') %>%
-      dplyr::select(-numid)
-    spair=inner_join(spair,spair2,join_by(rowid))
-  }
   
+  # There are unfortunately some doubles in the data
+  # Here we try to get first time data in place, although it is best not to use it maybe
+  wh=which(spair$ord==1)
+  spair[wh,'firstTime']=1
+  replaced=unique(spair[wh,])
+  replaced[,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]=
+    simple[simple$numid %in% spair$numid[wh] & simple$ord==1,c("rowid","numid","date","ord","DateOfBirth","Sex","BloodGroup","age","DonationPlaceType")]
+  
+  spair=spair[-wh,]
+  spair=rbind(spair,replaced)
   spair = arrange(spair,numid,ord)
   
   # Compute the number of annual donations from full years
@@ -583,9 +550,9 @@ time.taken <- end.time - start.time
 time.taken
 
 # Time difference of 2.483805 mins
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 # This chunk is related to the distribution of age of first donation
 # Can be computed separately for different groups
 # Ages are grouped in groups of five years (eg. 15-19, 20-24 etc.)
@@ -626,9 +593,9 @@ plotAgeDistributionMatrix = function(data,years=17:65,main='') {
   }
   legend('bottomright',legend=colnames(data)[2:dim(data)[2]],fill=1+2:dim(data)[2])
 }
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 # nb: ref.year is the row that is used for prediction; if data begins 2000, this will be year 2003
 # distm should be the cumulative distribution matrix
 estimate.predict = function(dist,ref.year="2003",last.data.year=2023,years.ahead=55,main='',sub='',try.nls=FALSE) {
@@ -727,9 +694,9 @@ plot.estimated = function(nres,gt,bundle=FALSE,years.ahead=55) {
   
   return(mean.y)
 }
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 # New take on counting the cumulative amounts of donations: utilise pivoting
 distributionMatrix2 = function(data.group,data.full,density=FALSE,max.dt=as.Date('2024-04-16'),year.start=2000,year.end=2023) {
   # nb! should implement the remaining parameters
@@ -784,9 +751,9 @@ distributionMatrix2 = function(data.group,data.full,density=FALSE,max.dt=as.Date
 
   return(mat)
 }
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 sumDonationAmounts = function(nres,gt,existing=FALSE,years.ahead=55,total.donations=0,print.debug=FALSE) {
   dares = computeDonationAmounts(nres,gt,by.age=FALSE,is.existing=existing,total.donations=total.donations)
   dona = matrix(0,ncol=years.ahead,nrow=length(nres))
@@ -829,19 +796,17 @@ if (FALSE) {
     summarise(n=n()) %>%
     filter(year<2024)
 }
-```
 
-# Results
 
-```{r compute-distributions-groups}
+## ----compute-distributions-groups------------------------------------------------------------------------------------------------------------
 # 2024-08-07 trying the data for existing donors now
 if (nrow(simple) == 85) {
   print("WARNING! The donation table `simple` only has 85 rows, apparently created based on the sample data in srcdata instead of actual data; please check that actual data is used")
 }
   res.nd=processGroupTable(simple,nd)
-```
 
-```{r activity-stats}
+
+## ----activity-stats--------------------------------------------------------------------------------------------------------------------------
 ord.last = spair %>%
   group_by(numid) %>%
   summarise(ord.max=max(ord),hasNext=0)
@@ -866,11 +831,9 @@ activity.stats.sex = spair2 %>%
 
 activity.stats.sex$ord = activity.stats.sex$ord-1
 activity.stats.sex = activity.stats.sex[activity.stats.sex$ord>0,]
-```
 
-# Export
 
-```{r export-function}
+## ----export-function-------------------------------------------------------------------------------------------------------------------------
 # Function to export the data
 exportSummary = function(gt, res, filename) {
   sheets = list()
@@ -915,25 +878,22 @@ exportSummary = function(gt, res, filename) {
   
   write.xlsx(sheets,filename,rowNames=TRUE)
 }
-```
 
 
-```{r export-summary-data}
+## ----export-summary-data---------------------------------------------------------------------------------------------------------------------
 exportSummary(nd,res.nd,param$result.file)
-```
 
-Plotting the results
 
-```{r plot-groups}
+## ----plot-groups-----------------------------------------------------------------------------------------------------------------------------
 # 2024-08-08 This draws the plot for each group of both new and existing donors
 plot.estimated(res.nd,nd,bundle=FALSE)
 # plot.estimated(res.ed,ed,bundle=FALSE)
 
 # oneg.ratio=plot.estimated(res.oneg,gt.oneg,bundle=TRUE)
 # plot.estimated(res.sex,gt.sex,bundle=TRUE)
-```
 
-```{r dompute donation amounts}
+
+## ----dompute donation amounts----------------------------------------------------------------------------------------------------------------
 dona.nd = sumDonationAmounts(res.nd,nd,FALSE,print.debug=TRUE)
 
 # 22080 is the assumed number of new donors
@@ -943,11 +903,9 @@ nd.annual = 22080
 nd.cad.multiplier = max(colSums(dona.nd)) / nd.annual
 
 # dona.ed = sumDonationAmounts(res.ed,ed,TRUE)
-```
 
 
-
-```{r}
+## --------------------------------------------------------------------------------------------------------------------------------------------
 # 2024-08-08
 # These are the colourful area charts of the projected donation amounts
 # A bonus would be to draw the previous donation amounts at least as ungrouped data.
@@ -959,9 +917,9 @@ plotDonationAmounts(dona.nd,nd)
 
 # Compbined plot with new and existing donors
 # plotDonationAmounts(rbind(colSums(dona.nd),colSums(dona.ed)),data.frame(Name=c('new donors','existing donors')))
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 plotDelayBySex = function(activity.stats.sex,country) {
   # plot(activity.stats$ord,activity.stats$delay,
   #      xlab='number of previous donations',ylab='delay until next donation',type='l',lwd=3,main=country)
@@ -998,8 +956,8 @@ plotPropBySex = function(activity.stats.sex,country) {
   }
   legend('bottomright',legend=sexes,fill=1+1:length(sexes))
 }
-```
 
-```{r}
+
+## --------------------------------------------------------------------------------------------------------------------------------------------
 knitr::knit_exit()
-```
+
