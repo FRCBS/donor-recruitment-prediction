@@ -15,7 +15,11 @@ SHUFFLE = False
 NMAX = None  # 100000
 
 START_YEAR = 2009
-END_YEAR = 2024
+END_YEAR = 2023
+
+ONLY_VB = True  # only whole blood donations
+
+ONLY_SUCCESSFUL = True  # only donations with volume >200ml
 
 PARQUET = True  # assume .parquet files instead of .spss
 
@@ -57,7 +61,13 @@ def process_donations(donations):
 
         }
     )
-    donations['SuccesfulDonation'] = (donations['AfgenomenVolume'] > 200).astype(int)
+
+    if ONLY_VB:
+        donations = donations.query('BloodDonationTypeKey in ["Whole Blood (K)", "New"]').copy()
+
+    donations['SuccessfulDonation'] = (donations['AfgenomenVolume'] > 200).astype(int)
+    if ONLY_SUCCESSFUL:
+        donations = donations[donations["SuccessfulDonation"] == 1]
     donations["Sex"] = donations["Sex"].map({"vrouw": "Female", "man": "Male", "M": "Male", "F": "Female"})
     # donations["DonationDate"] = pd.to_datetime(donations["DonationDate"])
     # # set everything that is not ML to office is that correct?
@@ -81,9 +91,12 @@ def process_donations(donations):
             "DonationPlaceCode",
             "Hb",
             "DonationTimeStart",
-            "SuccesfulDonation"
         ]
     ]
+
+    donations['DateOfBirth'] = donations.groupby('releaseID')['DateOfBirth'].transform('first') 
+    donations['Sex'] = donations.groupby('releaseID')['Sex'].transform('first')
+
     if SHUFFLE:
         donations = shuffle(donations)
         donations["releaseID"] += 1284
@@ -114,6 +127,8 @@ def process_donor(donor):
             "AB negatief": "AB-",
         }
     )
+    #not select these rows with missing bloodgroup
+    donor = donor[donor['BloodGroup'].notna()]
 
     donor = donor[
         [
@@ -181,14 +196,18 @@ try:
         usecols=["KeyID", "VanafDatum", "TotDatum"],
     )
     deferral = process_deferral(deferral)
-    if SHUFFLE:
-        deferral.to_csv(os.path.join(data_dir, "deferral_fake.csv"), index=False)
-    else:
-        deferral.to_csv(os.path.join(data_dir, "deferral.csv"), index=False)
-    del deferral
+    print(deferral.shape)
+    print(deferral.head())
 except Exception as e:
     print(e)
     print("Could not get deferrals")
+    deferral = pd.DataFrame({'releaseID': [], 'DeferralStartDate': [], 'DeferralEndDate': [], 'DonorAdverseReactionType': []})
+
+if SHUFFLE:
+    deferral.to_csv(os.path.join(data_dir, "deferral_fake.csv"), index=False)
+else:
+    deferral.to_csv(os.path.join(data_dir, "deferral.csv"), index=False)
+del deferral
 
 contact = create_contact_df()
 
@@ -231,22 +250,34 @@ for year in range(START_YEAR, END_YEAR + 1):
 
 donations = pd.concat(donations, ignore_index=True)
 
+print(donations.shape)
+print(donations.head())
+
+donations_output_filename = 'donations'
+
+if ONLY_VB:
+    donations_output_filename += '_only_vb'
+if ONLY_SUCCESSFUL:
+    donations_output_filename += '_only_successful'
+
+donations_output_filename += '.csv'
+
 if SHUFFLE:
     donations.to_csv(os.path.join(data_dir, "donations_fake.csv"), index=False)
 else:
-    donations.to_csv(os.path.join(data_dir, "donations.csv"), index=False)
+    donations.to_csv(os.path.join(data_dir, donations_output_filename), index=False)
 
 print("reading and processing donors")
 if PARQUET:
     donor = pd.read_parquet(
         os.path.join(data_dir, f"DonorsTotaal.parquet"),
-        # columns=[
-        #     "KeyID",
-        #     "Geslacht",
-        #     "Geboortedatum",
-        #     "Bloedgroep",
-        #     "Donor_Oproepbaar_Ind",
-        # ],
+        columns=[
+            "KeyID",
+            "Geslacht",
+            "Geboortedatum",
+            "Bloedgroep",
+            "Donor_Oproepbaar_Ind",
+        ],
     )
 else:
     donor = pd.read_spss(
@@ -261,6 +292,8 @@ else:
     )
 
 donor = process_donor(donor)
+print(donor.shape)
+print(donor.head())
 if SHUFFLE:
     donor.to_csv(os.path.join(data_dir, "donor_fake.csv"), index=False)
 else:
