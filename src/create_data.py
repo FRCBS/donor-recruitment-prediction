@@ -19,7 +19,7 @@ END_YEAR = 2023
 
 ONLY_VB = True  # only whole blood donations
 
-ONLY_SUCCESSFUL = True  # only donations with volume >200ml
+ONLY_SUCCESSFUL = False  # only donations with volume >200ml
 
 PARQUET = True  # assume .parquet files instead of .spss
 
@@ -69,15 +69,17 @@ def process_donations(donations):
     if ONLY_SUCCESSFUL:
         donations = donations[donations["SuccessfulDonation"] == 1]
     donations["Sex"] = donations["Sex"].map({"vrouw": "Female", "man": "Male", "M": "Male", "F": "Female"})
-    # donations["DonationDate"] = pd.to_datetime(donations["DonationDate"])
-    # # set everything that is not ML to office is that correct?
-    donations["DonationPlaceType"] = (
-        donations["DonationPlaceCode"].str[:2].map({"ML": "Mobile"})
-    )
-    donations["DonationPlaceType"] = (
-        donations["DonationPlaceCode"].str[1].map({"M": "Mobile"})
-    )
-    donations["DonationPlaceType"] = donations["DonationPlaceType"].fillna("Office")
+    # donations["DonationDate"] = pd.to_datetime(donations["DonationDate"]) # no need
+    # set everything that is not ML to office is that correct?
+    # donations["DonationPlaceType"] = (
+    #     donations["DonationPlaceCode"].str[:2].map({"ML": "Mobile"})
+    # )
+    # donations["DonationPlaceType"] = (
+    #     donations["DonationPlaceCode"].str[1].map({"M": "Mobile"})
+    # )
+    # donations['DonationPlaceType'] = donations["DonationPlaceType"].fillna("Office")
+    #TODO: not sure how to get MAL locations, so set everything to office for now
+    donations["DonationPlaceType"] = "Office" 
     #Convert to datetime and then strftime to coerce and find na's
     donations['DonationTimeStart'] = pd.to_datetime(donations['DonationTimeStart'], format='%H:%M', errors='coerce').dt.strftime('%H:%M')
     donations = donations[

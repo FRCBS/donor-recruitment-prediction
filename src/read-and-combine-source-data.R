@@ -38,7 +38,8 @@ datafile = file.path(param$wd,'donationdata.Rdata')
 
 file_dir <- '/mnt/c/Users/potha01m/data/Donaties/'#navarra/' #stored in same dir
 
-t.donation <- read.csv(file.path(file_dir, "donations.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+t.donation <- read.csv(file.path(file_dir, "donations_only_vb.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+# t.donation <- read.csv(file.path(file_dir, "donations_only_vb.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
 t.donor <- read.csv(file.path(file_dir, "donor.csv"), header = TRUE, colClasses = c(NA, NA, NA, NA, "Date", NA))
 #change if comes from R or python. From R has another column (index)
 # deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, "POSIXct", "POSIXct", NA))
@@ -47,25 +48,25 @@ t.contact <- read.csv(file.path(file_dir, "contact.csv"), header = TRUE, colClas
 ####
 
 # print the structure for convenience at an early point
-t.donationdata = list(donation=t.donation,deferral=t.deferral,donor=t.donor,contact=t.contact)
-for (n in names(donationdata)) {
-  print(paste('structure of',n))
-  data = t.donationdata[[n]]
-  str(data[0,])
-  if (dim(data)[2] == 1) {
-    print(paste('Warning: table has one column only. Please check that the separtor in read.csv matches the one used in the data file'))
-  }
-}
-rm(t.donationdata)
+# t.donationdata = list(donation=t.donation,deferral=t.deferral,donor=t.donor,contact=t.contact)
+# for (n in names(donationdata)) {
+#   print(paste('structure of',n))
+#   data = t.donationdata[[n]]
+#   str(data[0,])
+#   if (dim(data)[2] == 1) {
+#     print(paste('Warning: table has one column only. Please check that the separtor in read.csv matches the one used in the data file'))
+#   }
+# }
+# rm(t.donationdata)
 
 # nb! These lines should be run only if the source data files does  not include column names
 # nb! Make sure the column names match the content of the columns in case they are in different order
 # nb! Adjust here your data to match the column names used in data-description.xlsx
 
-colnames(t.donation)=c("releaseID","BloodDonationTypeKey","DonationDate","DonationPlaceType","DonationPlaceCode")
-colnames(t.deferral)=c("releaseID","DeferralStartDate","DeferralEndDate","DonorAdverseReactionType")
-colnames(t.donor)=c("releaseID","Sex","PostalCode","PermissionToInvite","DateOfBirth","BloodGroup")
-colnames(t.contact)=c("releaseID","ContactChannel","ContactType","DateSent","DonationSiteCode")
+# colnames(t.donation)=c("releaseID","BloodDonationTypeKey","DonationDate","DonationPlaceType","DonationPlaceCode")
+# colnames(t.deferral)=c("releaseID","DeferralStartDate","DeferralEndDate","DonorAdverseReactionType")
+# colnames(t.donor)=c("releaseID","Sex","PostalCode","PermissionToInvite","DateOfBirth","BloodGroup")
+# colnames(t.contact)=c("releaseID","ContactChannel","ContactType","DateSent","DonationSiteCode")
 ####
 
 # combine the (up to) four data frames read above into a single list called donationdata
@@ -147,7 +148,7 @@ enumerations[['donor,BloodGroup']] = 'A+,A-,AB+,AB-,B+,B-,O+,O-'
 enumerations[['donor,Sex']] = 'Male,Female'
 enumerations[['donation,BloodDonationTypeKey']] = 'Whole Blood (K)'
 # Only donations/rows with this values (Whole Blood (K)) are included in the analysis
-enumerations[['donation,DonationPlaceType']] = 'Office'
+enumerations[['donation,DonationPlaceType']] = 'Office,Mobile'
 # Values other than Office are classified as Mobile
 
 for (e in names(enumerations)) {
@@ -161,6 +162,9 @@ for (e in names(enumerations)) {
   if (n > 0) {
     print(paste(n,'values in table',tab,'column',col,'that are not in the expected values:',paste(evals,collapse=',')))
     print(table(data[xval],useNA='ifany'))
+    # remove the offending rows from the table
+    donationdata[[tab]] = donationdata[[tab]][-xval, , drop = FALSE]
+    print(paste('Removed', n, 'rows from table', tab, 'that did not match expected values in column', col))
   }
 }
 
@@ -174,4 +178,5 @@ if (!is.null(param$sink.file)) {
   fileName <- param$sink.file
   cat(readChar(fileName, file.info(fileName)$size))
 }
+
 

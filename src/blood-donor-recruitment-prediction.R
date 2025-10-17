@@ -33,14 +33,16 @@ if (grepl('[/\\]src[/\\]?',param$wd)) {
    param$wd = sub('[/\\]src(data)?([/\\]?)$','\\2',param$wd)
 }
 
-param$data.file = file.path(param$wd,'donationdata.Rdata')
+# param$data.file = file.path(param$wd,'donationdata.Rdata')
+param$data.file = "~/win/data/donor_prediction_timo_data/donationdata_only_successful_VB.Rdata"
+# param$data.file = "~/win/data/donor_prediction_timo_data/donationdata_only_VB.Rdata"
 # param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata" # fi
 
 # These parameters are used to estimate the cumulative donation amounts in the script
 # and in the Knitr graphs. All the parameters are exported to the xlsx file.
 # These parameters do not affect the exported distribution matrix (distm) but
 # are exported as part of the xlsx file for information
-param$reference.year=2003
+param$reference.year=2009
 param$last.data.year=2023
 
 # This should not be modified: the intent is to use the classification Office/Mobile for donation place types
@@ -53,27 +55,58 @@ param$min.group.year.size=30
 
 
 ## ----group-definitions-----------------------------------------------------------------------------------------------------------------------
-table.text="
-age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
-0	25	Office	Male	-O-	1	70	Male Office 0-25
-25	40	Office	Male	-O-	1	70	Male Office 25-40
-40	100	Office	Male	-O-	1	70	Male Office 40-100
-0	25	Office	Female	-O-	1	70	Female Office 0-25
-25	40	Office	Female	-O-	1	70	Female Office 25-40
-40	100	Office	Female	-O-	1	70	Female Office 40-100
-0	25	Mobile	Male	-O-	1	70	Male Mobile 0-25
-25	40	Mobile	Male	-O-	1	70	Male Mobile 25-40
-40	100	Mobile	Male	-O-	1	70	Male Mobile 40-100
-0	25	Mobile	Female	-O-	1	70	Female Mobile 0-25
-25	40	Mobile	Female	-O-	1	70	Female Mobile 25-40
-40	100	Mobile	Female	-O-	1	70	Female Mobile 40-100
-0	100	Office	Male	O-	1	70	Male O- Office 0-100
-0	100	Office	Female	O-	1	70	Female O- Office 0-100
-0	100	Mobile	Male	O-	1	70	Male O- Mobile 0-100
-0	100	Mobile	Female	O-	1	70	Female O- Mobile 0-100"
-table.text=gsub(" ","¤",table.text)
-nd = read.table(header=TRUE,text = table.text)
-nd$Name=gsub("¤"," ",nd$Name)
+# table.text <- "age.lower\tage.upper\tDonationPlaceType\tSex\tBloodGroup\tMultiplier\tMaximumAge\tName
+# 0\t25\tOffice\tMale\t-O-\t1\t70\tMale Office 0-25
+# 25\t40\tOffice\tMale\t-O-\t1\t70\tMale Office 25-40
+# 40\t100\tOffice\tMale\t-O-\t1\t70\tMale Office 40-100
+# 0\t25\tOffice\tFemale\t-O-\t1\t70\tFemale Office 0-25
+# 25\t40\tOffice\tFemale\t-O-\t1\t70\tFemale Office 25-40
+# 40\t100\tOffice\tFemale\t-O-\t1\t70\tFemale Office 40-100
+# 0\t25\tMobile\tMale\t-O-\t1\t70\tMale Mobile 0-25
+# 25\t40\tMobile\tMale\t-O-\t1\t70\tMale Mobile 25-40
+# 40\t100\tMobile\tMale\t-O-\t1\t70\tMale Mobile 40-100
+# 0\t25\tMobile\tFemale\t-O-\t1\t70\tFemale Mobile 0-25
+# 25\t40\tMobile\tFemale\t-O-\t1\t70\tFemale Mobile 25-40
+# 40\t100\tMobile\tFemale\t-O-\t1\t70\tFemale Mobile 40-100
+# 0\t100\tOffice\tMale\tO-\t1\t70\tMale O- Office 0-100
+# 0\t100\tOffice\tFemale\tO-\t1\t70\tFemale O- Office 0-100
+# 0\t100\tMobile\tMale\tO-\t1\t70\tMale O- Mobile 0-100
+# 0\t100\tMobile\tFemale\tO-\t1\t70\tFemale O- Mobile 0-100"
+
+#Only do Office
+table.text <- "age.lower\tage.upper\tDonationPlaceType\tSex\tBloodGroup\tMultiplier\tMaximumAge\tName
+0\t25\tOffice\tMale\t-O-\t1\t70\tMale Office 0-25
+25\t40\tOffice\tMale\t-O-\t1\t70\tMale Office 25-40
+40\t100\tOffice\tMale\t-O-\t1\t70\tMale Office 40-100
+0\t25\tOffice\tFemale\t-O-\t1\t70\tFemale Office 0-25
+25\t40\tOffice\tFemale\t-O-\t1\t70\tFemale Office 25-40
+40\t100\tOffice\tFemale\t-O-\t1\t70\tFemale Office 40-100
+0\t100\tOffice\tMale\tO-\t1\t70\tMale O- Office 0-100
+0\t100\tOffice\tFemale\tO-\t1\t70\tFemale O- Office 0-100"
+nd <- read.table(header = TRUE, text = table.text, sep = "\t", stringsAsFactors = FALSE)
+
+
+# table.text="
+# age.lower	age.upper	DonationPlaceType	Sex	BloodGroup	Multiplier	MaximumAge	Name
+# 0	25	Office	Male	-O-	1	70	Male Office 0-25
+# 25	40	Office	Male	-O-	1	70	Male Office 25-40
+# 40	100	Office	Male	-O-	1	70	Male Office 40-100
+# 0	25	Office	Female	-O-	1	70	Female Office 0-25
+# 25	40	Office	Female	-O-	1	70	Female Office 25-40
+# 40	100	Office	Female	-O-	1	70	Female Office 40-100
+# 0	25	Mobile	Male	-O-	1	70	Male Mobile 0-25
+# 25	40	Mobile	Male	-O-	1	70	Male Mobile 25-40
+# 40	100	Mobile	Male	-O-	1	70	Male Mobile 40-100
+# 0	25	Mobile	Female	-O-	1	70	Female Mobile 0-25
+# 25	40	Mobile	Female	-O-	1	70	Female Mobile 25-40
+# 40	100	Mobile	Female	-O-	1	70	Female Mobile 40-100
+# 0	100	Office	Male	O-	1	70	Male O- Office 0-100
+# 0	100	Office	Female	O-	1	70	Female O- Office 0-100
+# 0	100	Mobile	Male	O-	1	70	Male O- Mobile 0-100
+# 0	100	Mobile	Female	O-	1	70	Female O- Mobile 0-100"
+# table.text=gsub(" ","¤",table.text)
+# nd = read.table(header=TRUE,text = table.text)
+# nd$Name=gsub("¤"," ",nd$Name)
 
 
 ## --------------------------------------------------------------------------------------------------------------------------------------------
@@ -194,20 +227,26 @@ processGroupTable = function(data.param,gt) {
       n1 = dim(ldata[[i]])[1]
       # print(paste(i,':',n0,'->',n1))
     }
-    
-    distm = distributionMatrix2(ldata[[i]],data.param)
-    m = estimate.predict(distm,ref.year=param$reference.year,last.data.year=param$last.data.year)
-    dista = getAgeDistributionMatrix(ldata[[i]])
-    
-    sizes = ldata[[i]] %>%
-      mutate(year=year(date)) %>%
-      group_by(year) %>%
-      summarise(n=n())
-    rownames(sizes) = sizes$year
-    
-    # nb! Should check that this doesn't interfere with the export.
-    # Also could use this data when exporting
-    res[[i]] = list(data=ldata[[i]],distm=distm,m=m,dista=dista,sizes=sizes)
+
+    if (dim(ldata[[i]])[1] == 0) {
+      cat("Empty data for group", i,gt[i,'Name'],"\n")
+      res[[i]] = list(data=data.frame(),distm=data.frame(),m=NULL,dista=data.frame(),sizes=data.frame())
+    } else {
+      cat("Running for group", i,gt[i,'Name'], dim(ldata[[i]]),"\n")
+      distm = distributionMatrix2(ldata[[i]],data.param)
+      m = estimate.predict(distm,ref.year=param$reference.year,last.data.year=param$last.data.year)
+      dista = getAgeDistributionMatrix(ldata[[i]])
+      
+      sizes = ldata[[i]] %>%
+        mutate(year=year(date)) %>%
+        group_by(year) %>%
+        summarise(n=n())
+      rownames(sizes) = sizes$year
+      
+      # nb! Should check that this doesn't interfere with the export.
+      # Also could use this data when exporting
+      res[[i]] = list(data=ldata[[i]],distm=distm,m=m,dista=dista,sizes=sizes)
+    }
   }
 
   return(res)
@@ -396,12 +435,18 @@ if (!is.null(load.ready) && load.ready != 1) {
   
   # Convert the cumbersome releaseID's to numeric values
   # Each data kind (donation, referral, donor) has its own series so that the values do not overlap for small datasets
-  charid=unique(donationdata$donor$releaseID)
-  id.map = data.frame(charid=charid,numid=1:length(charid))
-  rownames(id.map)=id.map$charid
+  # charid=unique(donationdata$donor$releaseID)
+  # id.map = data.frame(charid=charid,numid=1:length(charid))
+  # rownames(id.map)=id.map$charid
   
-  donationdata$donation$numid=id.map[donationdata$donation$releaseID,'numid']
-  donationdata$donor$numid=id.map[donationdata$donor$releaseID,'numid']
+  # donationdata$donation$numid=id.map[donationdata$donation$releaseID,'numid']
+  # donationdata$donor$numid=id.map[donationdata$donor$releaseID,'numid']
+    # MP safer mapping using match(), can get NA's if there is a releaseID in donation or donor that is not in donor
+  charid <- unique(donationdata$donor$releaseID)
+  id.map <- data.frame(charid = charid, numid = seq_along(charid), stringsAsFactors = FALSE)
+  
+  donationdata$donation$numid <- id.map$numid[match(donationdata$donation$releaseID, id.map$charid)]
+  donationdata$donor$numid    <- id.map$numid[match(donationdata$donor$releaseID,    id.map$charid)]
 
   # Remove references to referral and contact data to enable analysis without the
   # related donationdata list memebers.
@@ -421,7 +466,7 @@ if (!is.null(load.ready) && load.ready != 1) {
   # [7] "Sample (N)"                      "Trombapheresis (T)"             
   # [9] "Whole blood - not testing (H)"   "Whole Blood (K)"
   
-  # levels(donationdata$donation$BloodDonationTypeKey)
+  # levels(donationdata$donation$BloodDonationTypeKey
   # [1] "F (Lifetime deferral)"      "H (Donor Adverse Reaction)" "M (Other)"                 
   # [4] "P (Permanent deferral)"     "R (Restricts production)"   "S (Temporary deferrals)"   
   
@@ -472,6 +517,17 @@ if (!is.null(load.ready) && load.ready != 1) {
     simple$DonationPlaceType = as.character(simple$DonationPlaceType)
     simple$DonationPlaceType[simple$DonationPlaceType!='Office'] = 'Mobile'
   }
+
+ #MP Remove rows that contain NA's, as these will cause problems later on
+  removed_rows <- simple[!complete.cases(simple), , drop = FALSE]
+  if (nrow(removed_rows) > 0) {
+    cat("Removed rows from 'simple' containing NA:", nrow(removed_rows), "\n")
+    # print(removed_rows)
+    # optional: write a log of removed rows
+    # if (!dir.exists(file.path(param$wd, "log"))) dir.create(file.path(param$wd, "log"), showWarnings = FALSE)
+    # write.csv(removed_rows, file = file.path(param$wd, "log", "removed_simple_na_rows.csv"), row.names = FALSE)
+  }
+  simple <- simple[complete.cases(simple), ]
   
   # Combine the simple data set with itself to get the links between events; next event in this case
   spair = left_join(simple[simple$type=='donation',c('numid','date','ord')],simple[,c('rowid','numid','date','DateOfBirth','Sex','BloodGroup','DonationPlaceType','age')],join_by(numid,closest(x$date<y$date))) %>%
@@ -550,6 +606,12 @@ time.taken <- end.time - start.time
 time.taken
 
 # Time difference of 2.483805 mins
+
+
+
+  # Remove rows in `simple` that contain any NA and print the removed rows
+
+
 
 
 ## --------------------------------------------------------------------------------------------------------------------------------------------
@@ -707,6 +769,7 @@ distributionMatrix2 = function(data.group,data.full,density=FALSE,max.dt=as.Date
   
   # stats will contain the time in years from each donor's first donation to each subsequent donation
   # in years. Example tibble [220,092 × 3]
+
   stats = data.group %>%
     left_join(data.full[,c('date','ord','numid')],join_by(numid,x$ord<=y$ord)) %>%
     mutate(ydiff = as.integer(as.numeric(date.y-date.x) / 365.25) + 1,
@@ -803,7 +866,8 @@ if (FALSE) {
 if (nrow(simple) == 85) {
   print("WARNING! The donation table `simple` only has 85 rows, apparently created based on the sample data in srcdata instead of actual data; please check that actual data is used")
 }
-  res.nd=processGroupTable(simple,nd)
+
+res.nd = processGroupTable(simple,nd)
 
 
 ## ----activity-stats--------------------------------------------------------------------------------------------------------------------------
@@ -846,7 +910,6 @@ exportSummary = function(gt, res, filename) {
   
   sheet.name = paste('parameters')
   sheets[[sheet.name]] = data.frame(param)
-  
   for (i in 1:dim(gt)[1]) {
     grp = res[[i]]
     grp.info = gt[i,]
@@ -875,7 +938,7 @@ exportSummary = function(gt, res, filename) {
         sheets[[sheet.name]] = grp[[n]]
     }
   }
-  
+  print(filename) 
   write.xlsx(sheets,filename,rowNames=TRUE)
 }
 
