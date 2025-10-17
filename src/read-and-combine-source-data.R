@@ -36,13 +36,15 @@ dir.create(file.path(param$wd,"log"),showWarnings = FALSE)
 # This is where is donationdata will be written
 datafile = file.path(param$wd,'donationdata.Rdata')
 
+file_dir <- '/mnt/c/Users/potha01m/data/Donaties/'#navarra/' #stored in same dir
+
+t.donation <- read.csv(file.path(file_dir, "donations.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+t.donor <- read.csv(file.path(file_dir, "donor.csv"), header = TRUE, colClasses = c(NA, NA, NA, NA, "Date", NA))
+#change if comes from R or python. From R has another column (index)
+# deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, "POSIXct", "POSIXct", NA))
+t.deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, NA, "POSIXct", "POSIXct", NA))
+t.contact <- read.csv(file.path(file_dir, "contact.csv"), header = TRUE, colClasses = c(NA, NA, NA, "POSIXct", NA))
 ####
-# Reading source data files
-# nb! adjust the header (here excluded) and sep (here tab, '\t') parameters as necessary
-t.donation=read.csv('donation.csv',header=FALSE,colClasses=c(NA,NA,'Date',NA,NA),sep='\t')
-t.deferral=read.csv('deferral.csv',header=FALSE,colClasses=c(NA,'POSIXct','POSIXct',NA),sep='\t')
-t.donor=read.csv('donor.csv',header=FALSE,colClasses=c(NA,NA,NA,NA,'Date',NA),sep='\t')
-t.contact=read.csv('contact.csv',header=FALSE,colClasses=c(NA,NA,NA,'POSIXct',NA),sep='\t')
 
 # print the structure for convenience at an early point
 t.donationdata = list(donation=t.donation,deferral=t.deferral,donor=t.donor,contact=t.contact)
