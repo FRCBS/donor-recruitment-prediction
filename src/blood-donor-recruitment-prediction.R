@@ -34,8 +34,16 @@ if (grepl('[/\\]src[/\\]?',param$wd)) {
 }
 
 # param$data.file = file.path(param$wd,'donationdata.Rdata')
-param$data.file = "~/win/data/donor_prediction_timo_data/donationdata_only_successful_VB.Rdata"
-# param$data.file = "~/win/data/donor_prediction_timo_data/donationdata_only_VB.Rdata"
+
+only_successful <- T
+
+if (only_successful) {
+  param$data.file = "~/win/data/donor_prediction_timo_data/donationdata_only_vb_only_successful.Rdata"
+  param$result.file = '~/win/data/donor_prediction_timo_data/results/data_NL_only_vb_only_successful.xlsx'
+} else {
+  param$data.file = "~/win/data/donor_prediction_timo_data/donationdata_only_vb.Rdata"
+  param$result.file = '~/win/data/donor_prediction_timo_data/results/data_NL_only_vb.xlsx'
+}
 # param$data.file = "c:/git_repot/DATA/donationdata.fortimo.rdata" # fi
 
 # These parameters are used to estimate the cumulative donation amounts in the script

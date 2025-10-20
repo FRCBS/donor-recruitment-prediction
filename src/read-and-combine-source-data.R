@@ -34,12 +34,22 @@ dir.create(file.path(param$wd,"results"),showWarnings = FALSE)
 dir.create(file.path(param$wd,"log"),showWarnings = FALSE)
 
 # This is where is donationdata will be written
-datafile = file.path(param$wd,'donationdata.Rdata')
 
 file_dir <- '/mnt/c/Users/potha01m/data/Donaties/'#navarra/' #stored in same dir
 
-t.donation <- read.csv(file.path(file_dir, "donations_only_vb.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
-# t.donation <- read.csv(file.path(file_dir, "donations_only_vb.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+only_successful <- F
+
+if (only_successful) {
+  datafile = file.path(file_dir,'donationdata_only_vb_only_successful.Rdata')
+} else {
+  datafile = file.path(file_dir,'donationdata_only_vb.Rdata')
+}
+
+if (only_successful) { 
+  t.donation <- read.csv(file.path(file_dir, "donations_only_vb_only_successful.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+} else {
+  t.donation <- read.csv(file.path(file_dir, "donations_only_vb.csv"), header = TRUE, colClasses = c(NA, NA, "Date", NA, "Date", NA, NA, NA, NA))
+}
 t.donor <- read.csv(file.path(file_dir, "donor.csv"), header = TRUE, colClasses = c(NA, NA, NA, NA, "Date", NA))
 #change if comes from R or python. From R has another column (index)
 # deferral <- read.csv(file.path(file_dir, "deferral.csv"), header = TRUE, colClasses = c(NA, "POSIXct", "POSIXct", NA))

@@ -15,11 +15,11 @@ SHUFFLE = False
 NMAX = None  # 100000
 
 START_YEAR = 2009
-END_YEAR = 2023
+END_YEAR = 2024
 
 ONLY_VB = True  # only whole blood donations
 
-ONLY_SUCCESSFUL = False  # only donations with volume >200ml
+ONLY_SUCCESSFUL = True  # only donations with volume >200ml
 
 PARQUET = True  # assume .parquet files instead of .spss
 
@@ -63,9 +63,9 @@ def process_donations(donations):
     )
 
     if ONLY_VB:
-        donations = donations.query('BloodDonationTypeKey in ["Whole Blood (K)", "New"]').copy()
+        donations = donations.query('BloodDonationTypeKey in ["Whole Blood (K)"]').copy()
 
-    donations['SuccessfulDonation'] = (donations['AfgenomenVolume'] > 200).astype(int)
+    donations['SuccessfulDonation'] = (donations['AfgenomenVolume'] > 400).astype(int)
     if ONLY_SUCCESSFUL:
         donations = donations[donations["SuccessfulDonation"] == 1]
     donations["Sex"] = donations["Sex"].map({"vrouw": "Female", "man": "Male", "M": "Male", "F": "Female"})
@@ -308,5 +308,5 @@ donor['DateOfBirth'] = donor['releaseID'].map(
 donor['Sex'] = donor['releaseID'].map(
     donations.groupby('releaseID')['Sex'].first()
 )
-
+print(f"Saving at {data_dir}")
 print('...done')
