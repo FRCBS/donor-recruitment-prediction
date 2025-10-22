@@ -12,17 +12,18 @@ computeModels = function(et) {
 	#######
 	# Each year separately
 	#######
-	model.pwr='don~x.pwr+x1' # 'log(don)~log(x)+x1' # tässä year0 aiheutti virheen: yksi vuosi tuli mukaan sekä häntään että muute
+	model.pwr='don~x.pwr+x1' 
 	model='log(don)~log(x)+x1'
 	cumulative=FALSE
 
-	rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
+	# nb
+	rlist=lapply(1:35,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5))
 	grps=rlist[[1]]$grps
 	tst=rlist[lengths(rlist)!=0]
 	estimates0=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
 	estimates0.pwr=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model.pwr,cumulative=cumulative)))
 
-	rlist=lapply(1:25,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5,
+	rlist=lapply(1:35,FUN=function(x) getGroupEstimates2(et,spec,year0.ord=x,agedist=agedist,save.years.from.end=5,
 		filter.threshold=NULL))
 	tst=rlist[lengths(rlist)!=0]
 	estimates0.nofilter=do.call(rbind,lapply(tst,FUN=function(x) predictDonations2(x,model=model,cumulative=cumulative)))
@@ -99,6 +100,8 @@ export.estimates=rbind(export.estimates.all,export.estimates.oneg)
 # - estimates.year0.models ~ eva-overlap-filtering
 # - estimates ~ lump (logarithmic)
 # - estimates.pwr ~ lump.pwr (power)
+
+plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,mode='mfrow')
 
 ######
 # summaries of the methods

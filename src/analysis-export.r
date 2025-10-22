@@ -104,6 +104,7 @@ writeFormula(wb,shMain,n.frml,startCol=n.col.xlsx,startRow=hdr.nr+1)
 
 # references to the n-values in the estimate table
 n.references=paste0(int2col(n.col.xlsx),hdr.nr+1+df$year0-2000)
+n.references[df$year0<2000]=''
 writeFormula(wb,shMain,n.references,startCol=n2.col,startRow=hdr.nr+1)
 
 styRight=createStyle(halign='right')
@@ -195,7 +196,7 @@ for (i in 0:2) {
 	addStyle(wb,shMain,st0,cols=n.col.xlsx+1+i,rows=(hdr.nr)+(1:length(frml.sumif)))
 }
 
-setColWidths(wb,shMain,cols=1:(ncol(df)+1),hidden=TRUE)
+# setColWidths(wb,shMain,cols=1:(ncol(df)+1),hidden=TRUE)
 setColWidths(wb,shMain,cols=n.col.xlsx-3,width=45)
 groupColumns(wb,'coefficients',cols=which(grepl('lo|hi',colnames(coeff.df))),hidden=TRUE,level=-1)
 
