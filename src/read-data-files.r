@@ -276,6 +276,10 @@ colours$fr='red3'
 colours$au='#007F3B' # 'green3'
 colours$nc='black'
 colours$ct='purple'
+colours$za='slateblue2'
+
+colours$vb='violetred3'
+colours$os='sienna3'
 
 max.overlap=list()
 max.overlap$fi=5
@@ -284,6 +288,10 @@ max.overlap$fr=1
 max.overlap$au=5
 max.overlap$nc=1
 max.overlap$ct=5
+max.overlap$za=5
+
+max.overlap$vb=3
+max.overlap$os=3
 
 cn.names=list()
 cn.names$fi='Finland'
@@ -292,6 +300,10 @@ cn.names$fr='France'
 cn.names$au='Australia'
 cn.names$nc='Navarre'
 cn.names$ct='Catalonia'
+cn.names$za='South Africa'
+
+cn.names$vb='NL whole blood'
+cn.names$os='NL only successful'
 
 colfun = function(x) {
 	colours[[x]]

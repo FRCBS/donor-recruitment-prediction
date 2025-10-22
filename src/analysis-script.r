@@ -94,13 +94,6 @@ bgr='all'
 export.estimates.all=do.call(rbind,lapply(names(models.map),FUN=prepareEstimatesForExport))
 export.estimates=rbind(export.estimates.all,export.estimates.oneg)
 
-export.estimates.all[1,]
-export.estimates.oneg[1,]
-
-export.estimates[grepl('fi/.+/log.separately/2000',export.estimates$id),]
-
-plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
-
 # 2025-10-03 should run up to this point to produce models with varying donor (all/Oneg)
 # The export
 # - estimates.year0.models ~ eva-overlap-filtering
@@ -327,6 +320,9 @@ html.table.summaries='<table><tr>
 <td><img width=500 src="fig/summary-nc.png"></td>
 <td><img width=500 src="fig/summary-nl.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(e) Navarre</td><td style=\'text-align:center;\'>(f) Netherlands</td></tr>
+<tr><td><img width=500 src="fig/summary-za.png"></td>
+<td></tr>
+<tr><td style=\'text-align:center;\'>(g) South Africa</td><td style=\'text-align:center;\'></td></tr>
 </table>'
 
 captions$figure4='<b>Figure 4</b> Summary of estimated models and forecasted donations by country (panels a&ndash;f). In each panel, 
