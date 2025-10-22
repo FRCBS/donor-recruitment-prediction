@@ -10,6 +10,7 @@ The followin codes are used for the blood establishment:
 - **fr**: Établissement français du sang (France)
 - **nc**: Banco de Sangre y Tejidos de Navarra (Navarre, Spain)
 - **nl**: Sanquin Blood Supply Foundation (Netherlands)
+- **za**: South African National Blood Service (South Africa)
   
 ## Source data 
 ### Predicted donation activity
