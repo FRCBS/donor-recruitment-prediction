@@ -1,5 +1,5 @@
 df = export.estimates
-rw0=3
+rw0=7
 n2.data=estimates0 %>%
 	filter(rw==rw0,x==1) %>%
 	dplyr::select(year0,n2) %>%
@@ -9,16 +9,15 @@ n2.data=estimates0 %>%
 rws=(1:(2055-max(n2.data$year)))
 n2.data[nrow(n2.data)+rws,'year']=max(n2.data$year,na.rm=TRUE)+rws 
 data.frame(n2.data)
-# n2.data=rbind(n2.data,data.frame(year=(max(n2.data$year)+1):2080,n=n2.data$n[nrow(n2.data)]))
+year00=min(n2.data$year)
 
 actual.don = et %>%
-# et[5820:5821,] %>%
 	filter(!is.na(cdon),!is.na(don)) %>%
 	mutate(bgr=sapply(BloodGroup,function(x) if(x=='O-') 'Oneg' else 'all')) %>%
 	# duplicate the oneg rows to get the right numbers
 	mutate(is.oneg=1+1*(BloodGroup=='O-')) %>%
 	uncount(is.oneg,.id='all') %>%
-	mutate(bgr=sapply(all,function(x) if(x=='1') 'Oneg' else 'all')) %>%
+	mutate(bgr=sapply(all,function(x) if(x!=1) 'Oneg' else 'all')) %>%
 	group_by(year,country,bgr) %>%
 	summarise(donations=sum(n*don),.groups='drop') %>%
 	arrange(country,desc(bgr)) %>%
@@ -30,7 +29,7 @@ n.wide = et %>%
 	# duplicate the oneg rows to get the right numbers
 	mutate(is.oneg=1+1*(BloodGroup=='O-')) %>%
 	uncount(is.oneg,.id='all') %>%
-	mutate(bgr=sapply(all,function(x) if(x=='1') 'Oneg' else 'all')) %>%
+	mutate(bgr=sapply(all,function(x) if(x!=1) 'Oneg' else 'all')) %>%
 	dplyr::select(country,bgr,n,year0) %>%
 	pivot_wider(names_from=c('country','bgr'),values_from='n',values_fn=sum,names_sep='.') %>%
 	arrange(year0)
@@ -50,7 +49,7 @@ hdr.nr=8
 n.col.xlsx=ncol(df)+2+5
 
 x=1:55
-yrs=2000:(2000+55)
+yrs=year00:(2000+55)
 if (FALSE) {
 	a=2.2
 	b=0.52
@@ -103,8 +102,8 @@ n.frml=paste0('vlookup($',int2col(n.col.xlsx-1),hdr.nr+(1:nrow(n2.data)),',',
 writeFormula(wb,shMain,n.frml,startCol=n.col.xlsx,startRow=hdr.nr+1)
 
 # references to the n-values in the estimate table
-n.references=paste0(int2col(n.col.xlsx),hdr.nr+1+df$year0-2000)
-n.references[df$year0<2000]=''
+n.references=paste0(int2col(n.col.xlsx),hdr.nr+1+df$year0-year00)
+# n.references[df$year0<2000]=''
 writeFormula(wb,shMain,n.references,startCol=n2.col,startRow=hdr.nr+1)
 
 styRight=createStyle(halign='right')
@@ -136,7 +135,7 @@ e.ref=paste0('$',int2col(n.col.xlsx+3),'$',4)
 
 # parameter section
 writeData(wb,shMain,c('nl','Oneg','log.separately','fi','all'),startCol=n.col.xlsx,startRow=1)
-writeData(wb,shMain,c(paste0('Blood establishment, one of: ',paste(grps$country,collapse=', ')),'Blood group: all or Oneg',paste0('Model, one of: ',paste(c(names(models.map),'parameteres'),collapse=', ')),'Number of new donors, blood establishment','Number of new donors, blood group'),startCol=n.col.xlsx-2,startRow=1)
+writeData(wb,shMain,c(paste0('Blood establishment, one of: ',paste(grps$country,collapse=', ')),'Blood group: all or Oneg',paste0('Model, one of: ',paste(c(names(models.map),'parameters'),collapse=', ')),'Number of new donors, blood establishment','Number of new donors, blood group'),startCol=n.col.xlsx-2,startRow=1)
 prm.col=int2col(n.col.xlsx)
 concat.frml=paste0('if(',prm.col,'3="parameters",',
 	paste0(paste(concat.frml=paste0(prm.col,c(1,3)),collapse='&"/"&'),'&"/",'),
@@ -153,8 +152,8 @@ addStyle(wb,shMain,styBold,cols=n.col.xlsx-2,rows=1:hdr.nr)
 # Formula for the estimates computed based on parameters
 rws=hdr.nr+new.rows
 fit.col=which(colnames(df)=='fit')
-frml.fit=paste0(a.ref,'*',df2$fit,'^',b.ref)
-frml.ci.low=paste0('(1-',e.ref,')*',a.ref,'*',df2$fit,'^','(1-',e.ref,')')
+frml.fit=paste0(a.ref,'*',df2$fit,'^(',b.ref,'-1)')
+frml.ci.low=paste0('(1-',e.ref,')*',a.ref,'*',df2$fit,'^((1-',e.ref,')*(',b.ref,'-1))')
 frml.ci.hi=gsub('1\\-','1+',frml.ci.low)
 writeFormula(wb,shMain,frml.fit,startCol=int2col(which(colnames(df)=='fit')),startRow=min(new.rows)+hdr.nr)
 writeFormula(wb,shMain,frml.ci.low,startCol=int2col(which(colnames(df)=='fit')+1),startRow=min(new.rows)+hdr.nr)
@@ -196,7 +195,7 @@ for (i in 0:2) {
 	addStyle(wb,shMain,st0,cols=n.col.xlsx+1+i,rows=(hdr.nr)+(1:length(frml.sumif)))
 }
 
-# setColWidths(wb,shMain,cols=1:(ncol(df)+1),hidden=TRUE)
+setColWidths(wb,shMain,cols=1:(ncol(df)+1),hidden=TRUE)
 setColWidths(wb,shMain,cols=n.col.xlsx-3,width=45)
 groupColumns(wb,'coefficients',cols=which(grepl('lo|hi',colnames(coeff.df))),hidden=TRUE,level=-1)
 

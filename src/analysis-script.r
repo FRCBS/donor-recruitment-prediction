@@ -101,7 +101,7 @@ export.estimates=rbind(export.estimates.all,export.estimates.oneg)
 # - estimates ~ lump (logarithmic)
 # - estimates.pwr ~ lump.pwr (power)
 
-plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,mode='mfrow')
+# plotEstimatesVsActual(et,estimates.year0.models.pwr,spec,grps=grps,mode='mfrow')
 
 ######
 # summaries of the methods

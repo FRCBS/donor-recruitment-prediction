@@ -6,7 +6,7 @@ prd.cumulative2density = function(pah) {
         return(cbind(dpah,pah[,4:ncol(pah)]))
 }
 
-predictDonations2 = function(rv,prd.start=2000,prd.len=55,model='cdon.a-x',multiplier=NULL,trend.years=5,cumulative=TRUE) {
+predictDonations2 = function(rv,prd.start=1993,prd.len=55+7,model='cdon.a-x',multiplier=NULL,trend.years=5,cumulative=TRUE) {
 	if (cumulative) {
 		rv$prdct[is.na(rv$prdct$year0),'year0']=0
 		tmp=by(rv$prdct,rv$prdct[,c('year0','phase','rw')],FUN=prd.cumulative2density)
@@ -556,7 +556,7 @@ print(power.term.d)
 }
 
 # 2025-09-14
-plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,2035),ylim=c(0,2e3),include.errors=FALSE) {
+plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(1993,2035),ylim=c(0,2e3),include.errors=FALSE) {
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
 		group_by(!!!syms(c('year',spec$dim.keep))) %>%
@@ -732,7 +732,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	# TODO There is significant hard-coding here: nc multiplier and using countries instead of groups
 	# But groups in general would be hard to plot
 	if (is.null(xlim)) 
-		xlim=c(2000,2035)
+		xlim=c(1993,2035)
 	if (is.null(ylim)) 
 		ylim=c(0,2e3)
 
