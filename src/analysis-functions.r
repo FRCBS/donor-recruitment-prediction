@@ -556,7 +556,7 @@ print(power.term.d)
 }
 
 # 2025-09-14
-plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(1993,2035),ylim=c(0,2e3),include.errors=FALSE) {
+plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,2035),ylim=c(0,2e3),include.errors=FALSE) {
 	actual.don = et %>%
 		filter(!is.na(cdon),!is.na(don)) %>%
 		group_by(!!!syms(c('year',spec$dim.keep))) %>%
@@ -732,7 +732,7 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 	# TODO There is significant hard-coding here: nc multiplier and using countries instead of groups
 	# But groups in general would be hard to plot
 	if (is.null(xlim)) 
-		xlim=c(1993,2035)
+		xlim=c(2000,2035)
 	if (is.null(ylim)) 
 		ylim=c(0,2e3)
 
