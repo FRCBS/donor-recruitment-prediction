@@ -664,10 +664,10 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 		lines(ced$year,ced$cdon50.lo,lty='dashed',col=colfun(cn))
 		lines(ced$year,ced$cdon50.hi,lty='dashed',col=colfun(cn))
 
-		points(estimates0$avg.age$year,estimates0$avg.age[[cn]],col=colfun(cn))
-		wh=min(which(!is.na(estimates0$avg.age[[cn]])))
-		year0=estimates0$avg.age$year[wh]
-		lines(c(year0,year0+55),c(0,0.5*55),lty='dashed',col=colfun(cn))
+		# points(estimates0$avg.age$year,estimates0$avg.age[[cn]],col=colfun(cn))
+		# wh=min(which(!is.na(estimates0$avg.age[[cn]])))
+		# year0=estimates0$avg.age$year[wh]
+		# lines(c(year0,year0+55),c(0,0.5*55),lty='dashed',col=colfun(cn))
 
 		dev.off()
 	}

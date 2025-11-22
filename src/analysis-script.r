@@ -255,9 +255,9 @@ tr:nth-child(even) {
 </html>"
 
 html.table=paste(capture.output(print(xtable(r2.2,digits=5),type='html',include.rownames=FALSE)),collapse='\n')
-caption='<b>Table C</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
+caption='<b>Table 2</b> Estimated coefficients of determination (R<sup>2</sup>) from different model specifications, data from the 3rd year onwards'
 html.file=sub('¤table¤',paste0(caption,'\n',html.table),html.template)
-cat(html.file,file=paste0(param$shared.dir,'table-c r2-values.html'))
+cat(html.file,file=paste0(param$shared.dir,'table-2 r2-values.html'))
 
 ###
 # Parameter plots (these have been already written above to png files)
@@ -299,7 +299,7 @@ the tightest confidence intervals of all the alternatives discussed in this figu
 (b)&nbsp;Similarly, but with the power form. The confidence intervals for forecasts are significantly wider 
 for this specification, although the predictions for the past values are more accurate.
 (c)&nbsp;All years but the last 5 estimated separately, no filtering applied and no overlap for the tail. The lack of 
-filtering causes the effect of spikes, e.g., around year 2015 for Navarre, to be distribution both before and after the spike, 
+filtering causes the spikes, e.g., around year 2015 for Navarre, to distort the forecast both before and after the spike, 
 leading to overly large estimates outside the spike, and underestimation during the spike. (d)&nbsp;All years but the last 5 estimated separately, 
 both filtering and overlap at the tail applied. The additional effect of overlap affects the confidence intervals at the right tails,
 especially prominently for Australia and the Netherlands. (e)&nbsp;The power functional form yields better forecasts for 
@@ -328,13 +328,7 @@ html.table.summaries='<table><tr>
 <tr><td style=\'text-align:center;\'>(g) South Africa</td><td style=\'text-align:center;\'></td></tr>
 </table>'
 
-captions$figure4='<b>Figure 4</b> Summary of estimated models and forecasted donations by country (panels a&ndash;f). In each panel, 
-the top part contains the actual donation amounts (circles), estimated donations assuming constant number of annual new donors, 
-and their confidence intervals (solid and dotted lines) and bars (number of new donors); an alternative scenario with now new donors 
-is shown with dashed lines with confidence interval (dotted). 
-Further, the bottom part contains statistics about donor activity and maturity: the cdon<sub>50</sub>
-values and their confidence intervals are shown in solid and dashed lines, and the donor maturity (circles), computed as the weighted average of 
-years since first donation, with number of donations as the weights. Finally, the line with slope y=&frac12;x is drawn as a reference.'
+captions$figure4='<b>Figure 4</b> Summary of estimated models and forecasted donations by country (subfigures a&ndash;g). In each figure, the top panel contains the actual donation amounts (circles), estimated donations assuming a constant number of annual new donors, and their confidence intervals (solid and dotted lines) and number of new donors (bars); an alternative scenario of forecasted donations with no new donors entering the donor pool is shown with dashed lines with confidence intervals (dotted lines). Further, the bottom part contains statistics about donor activity: the cdon50 values and their confidence intervals are shown in solid and dashed lines, respectively.'
 
 html.file=sub('¤table¤',paste(html.table.summaries,if(include.captions) captions$figure4 else '',sep='\n'),html.template)
 convertOutput(html.file,file=paste0(param$shared.dir,'figure-4 summaries.html'))
@@ -371,7 +365,8 @@ nf <- layout(
 par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
 plot(NULL,xlim=c(0.5,25),ylim=rev(c(2000,2023)),xlab='years since first donation',ylab='year of first donation')
 etd0=tst2$et.data %>% filter(country=='fi')
-plot.et.data(etd0,length(col_vector))
+par(mar=c(4.2,4.1,0.5,0.6)) # no space at the top
+plot.et.data(etd0,length(col_vector),xlab='years since first donation')
 arrows(0,min(etd0$year0.int)-0.5,0,max(etd0$year0.int)+0.5,lwd=2,angle=90,code=3,length=0.025) # sidebar
 for (i in 1:length(tst)) {
 	etd=tst[[i]]$et.data %>% filter(country=='fi')
@@ -388,7 +383,7 @@ captions$figure1='<b>Figure 1</b> An example of a distribution matrix at the top
 rows of the distribution matrix (lines) and the original data (circles).
 The colours at the top and the bottom match each other. The predict future donations from the five final years (in yellow) 
 and future years, a single model is fitted. In addition to these years themselves, additional years are included to 
-achieve more accurate estimates for the paramters: these years are marked with the vertical bar between the matrix and axis.'
+achieve more accurate estimates for the parameters: these years are marked with the vertical bar between the matrix and axis.'
 
 html.fragment='<img width=800 src="fig/distm-and-curves.png">\n<p>'
 
@@ -400,7 +395,7 @@ html.file=sub('¤table¤',paste0('<h2>Figure legends</h2>','\n',paste(list.of.le
 # cat(html.file)
 cat(html.file,file=paste0(param$shared.dir,'list of legends.html'))
 
-# Numbers for the abstract etc.
+# Numbers for the abstract etc. - total number of donations
 et0 %>% filter(ord==1) %>% summarise(donors=sum(n))
 et0 %>% summarise(donations=sum(n*don,na.rm=TRUE))
 
