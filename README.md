@@ -1,9 +1,23 @@
 # donor-recruitment-prediction
 Code for predicting future donation amounts with from historical donation data.
 
-# Spreadsheet tool
+# Main files
+
+## Preparing and extracting the data
+
+- **src/read-and-combine-source-data.R**: combining raw data from text files (csv, examples provided under **srcdata**, descriptions of the files available in **data-description.xlsx**) to a list of R data frames (donationdata.Rdata)
+- **src/blood-donor-recruitment-prediction.R/Rmd**: converting the raw data (donationdata.Rdata) to anonymous data, written to **results/data.xlsx**
+
+## Analysis and plotting the results
+
+- **src/read-data-files.r**: Reading anononymous data files (**data.xlsx**) exported from **src/blood-donor-recruitment-prediction.R/Rmd**. The **data.xlsx** data files should be renamed as follows: **<cc> <yyyy>-<mm> data.xlsx**, where **<cc>** is a country code or other identifier for the blood establishment and **<yyyy>** and **<mm>** are the relevant year and month for the data. **Nb!** The countries mentioned below are hard-coded in the file, and this data should be changed to run the code for other countries
+- **src/analysis-script.r**: running the analysis models and producing the results (tables and figures in the manuscript)
+- **src/analysis-functions.r**: functions used in **src/analysis-script.r**
+
+# Spreadsheet tool (tool.xlsx)
+
 ## Participating blood establishments
-The followin codes are used for the blood establishment:
+The following codes are used for the blood establishment:
 - **au**: Australian Red Cross Lifeblood (Australia)
 - **ct**: Blood and Tissue Bank (BST, Catalonia, Spain)
 - **fi**: Finnish Red Cross Blood establishment (FRCBS, Finland)
