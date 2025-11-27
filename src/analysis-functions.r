@@ -615,8 +615,8 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 
 		filename=paste0(param$shared.dir,'fig/summary-',cn,'.png')
 		resolution=param$png.resolution
-		pdfOrPng(filename,width=9,height=7)
-		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top
+		pdfOrPng(filename,width=9,height=5.5)
+		par(mar=c(0,4.1,0.5,0.6)) # no space at the top; bottom,left,top,right bottom 2.2->0
 
 		nf <- layout(
 			matrix(c(1,2,if(include.errors) 3 else NULL),ncol=1,byrow=TRUE), 
@@ -624,8 +624,9 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 			heights=c(2,1,if(include.errors) 1 else NULL)
 		)
 
-		plot(x=NULL,xlim=xlim,ylim=c(0,y.max)/1000,
-			xlab='year',ylab='donations (in 1,000)'
+		par(cex=1.25,cex.axis=1.25,cex.lab=1.25)
+		plot(x=NULL,xlim=xlim,ylim=c(0,y.max)/1000,xaxt='n',
+			ylab='donations (in 1,000)' # xlab='year',
 		)
 
 		lapply(estimates.list,FUN=function(x) {
@@ -657,7 +658,9 @@ plotCountrySummaries = function(et,grps,estimates,spec,coeff.data,xlim=c(2000,20
 			abline(h=0,lty='dotted')
 		}
 
-		# 3rd panel: cdon50/average age (since first donation) of donor
+		# 2nd/*3rd* panel: cdon50/average age (since first donation) of donor
+		par(mar=c(2.2,4.1,0.5,0.6)) # no space at the top; bottom,left,top,right bottom 2.2->0
+
 		ced=coeff.data[coeff.data$rw==rw,]
 		plot(x=NULL,xlim=xlim,ylim=c(0,max(ced$cdon50.hi)),xlab='year',ylab='cdon50')
 		lines(ced$year,ced$cdon50,col=colfun(cn),lwd=2)

@@ -196,6 +196,7 @@ legend('topleft',fill=unlist(sapply(rv.3p$grps$country,FUN=colfun)),legend=sappl
 dev.off()
 
 ### 
+source('analysis-functions.r')
 plotCountrySummaries(et,grps,list(main=estimates.year0.models,nofuture=estimates.year0.models.nofuture),spec,coeff.data)
 
 ###############
