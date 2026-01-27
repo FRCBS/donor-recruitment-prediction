@@ -105,6 +105,9 @@ export.estimates=rbind(export.estimates.all,export.estimates.oneg)
 
 ######
 # summaries of the methods
+# source('analysis-functions.r')
+# plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename=NULL,mode='mfrow')
+
 plotEstimatesVsActual(et,estimates.year0.models.nofilter,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-no.overlap-no.filtering.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models.nooverlap,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-no.overlap-filtering.png'),mode='mfrow')
 plotEstimatesVsActual(et,estimates.year0.models,spec,grps=grps,filename=paste0(param$shared.dir,'fig/eva-overlap-filtering.png'),mode='mfrow')
@@ -267,8 +270,11 @@ html.table.parameters='<table><tr><td><img width=500 src="fig/parameters.png"></
 <tr><td style=\'text-align:center;\'>(a)</td><td style=\'text-align:center;\'>(b)</td></tr></table>'
 
 captions$figure3='<b>Figure 3 </b>Estimated parameters for different blood establishments from model <span>log(cdon)~a+b&middot;log(x)</span>, where 
-<span>exp(a)</span> and <span>b</span> are referred to as the multiplier and exponent, respectively. 
-(a) All the years taken together (3rd year onwards). 
+<span>b</span> and <span>exp(a)</span> are referred to as the exponent and multiplier and plotted on the horizontal and vertical axis, both respectively; 
+see legends in figure for the symbols used. 
+In addition, the figure includes contours (dotted curves) along which the expected number of cumulative donations in 50 years (<span>cdon50</span>) is constant. 
+Respective constant values for contours are given above the horizontal axis.
+(a) Estimates from model where all the years taken together (3rd year onwards). 
 Significant differences between blood establishments and between groups within blood establishments can be observed. The dotted curves 
 are contours of the estimated cumulative donations in 50 years. 
 (b) Parameters for blood establishments estimated separately for each year in data. Dark colours represent more recent years.'
@@ -281,7 +287,7 @@ convertOutput(html.file,file=paste0(param$shared.dir,'figure-3 parameters.html')
 html.table.specifications='<table><tr>
 <td><img width=500 src="fig/eva-lump.png"></td>
 <td><img width=500 src="fig/eva-lump-pwr.png"></td> </tr><tr>
-<tr><td style=\'text-align:center;\'>(a) Years together, logarithmic for, filtering applied</td><td style=\'text-align:center;\'>(b) As in (a), but power form</td></tr>
+<tr><td style=\'text-align:center;\'>(a) Years together, logarithmic form, filtering applied</td><td style=\'text-align:center;\'>(b) As in (a), but power form</td></tr>
 <td><img width=500 src="fig/eva-no.overlap-no.filtering.png"></td>
 <td><img width=500 src="fig/eva-overlap-filtering.png"></td> </tr><tr>
 <tr><td style=\'text-align:center;\'>(c) Logarithmic form, years separately, no overlap, no filtering</td><td style=\'text-align:center;\'>(d) Logarithmic form, years separately, overlap and filtering</td></tr>
@@ -329,7 +335,7 @@ html.table.summaries='<table><tr>
 <tr><td style=\'text-align:center;\'>(g) South Africa</td><td style=\'text-align:center;\'></td></tr>
 </table>'
 
-captions$figure4='<b>Figure 4</b> Summary of estimated models and forecasted donations by country (subfigures a&ndash;g). In each figure, the top panel contains the actual donation amounts (circles), estimated donations assuming a constant number of annual new donors, and their confidence intervals (solid and dotted lines) and number of new donors (bars); an alternative scenario of forecasted donations with no new donors entering the donor pool is shown with dashed lines with confidence intervals (dotted lines). Further, the bottom part contains statistics about donor activity: the cdon50 values and their confidence intervals are shown in solid and dashed lines, respectively.'
+captions$figure4='<b>Figure 4</b> Summary of estimated models and forecast donations by country (subfigures a&ndash;g). In each figure, the top panel contains the actual donation amounts (circles), estimated donations assuming a constant number of annual new donors, and their confidence intervals (solid and dotted lines) and number of new donors (bars); an alternative scenario of forecast donations with no new donors entering the donor pool is shown with dashed lines with confidence intervals (dotted lines). Further, the bottom part contains statistics about donor activity: the cdon50 values and their confidence intervals are shown in solid and dashed lines, respectively.'
 
 html.file=sub('¤table¤',paste(html.table.summaries,if(include.captions) captions$figure4 else '',sep='\n'),html.template)
 convertOutput(html.file,file=paste0(param$shared.dir,'figure-4 summaries.html'))
@@ -466,9 +472,18 @@ category=c('donors','donations')
 tmp=lapply(category,FUN=processNumbers)
 df=do.call(rbind,tmp)
 
+donors.years=et %>% 
+	group_by(country) %>% 
+	summarise(y0=min(year),y1=max(year),.groups='drop') %>% 
+	mutate(years=paste0(y0,'&ndash;',y1)) %>%
+	dplyr::select(country,years) %>%
+	mutate(col='years') %>%
+	pivot_wider(values_from='years',names_from='country')
+
 perc.rows=which(grepl('\\.',df$col))
 df[perc.rows,-1]=df[perc.rows,-1]*100
 df[-perc.rows,-1]=df[-perc.rows,-1]/1000
+
 
 df$col[-perc.rows]=firstUp(df$col[-perc.rows])
 df$col[-perc.rows]=paste(df$col[-perc.rows],' (1,000)')
@@ -478,6 +493,9 @@ repl=list(oneg='O-',female='Female',young='age < 25',middle='25 ≤ age < 40')
 for (rp in names(repl)) {
 	df$col[perc.rows]=sub(paste0(';[^;]+',rp),paste0(';',repl[rp]),df$col[perc.rows])
 }
+
+df=rbind(donors.years,df)
+
 colnames(df)[2:ncol(df)]=sapply(colnames(df)[2:ncol(df)],FUN=function(x) cn.names[[x]])
 colnames(df)[1]=' '
 ###

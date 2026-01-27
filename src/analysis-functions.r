@@ -765,8 +765,9 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		plot(NULL,xlim=xlim,ylim=ylim,ylab='number of donations (in 1,000)',xlab='year',main=main)
 	} else {
 		# par(mfrow=c(length(cns),1))
-		par(mar=c(2.2,1,0.5,0.6))
-		plot(NULL,xlim=xlim,ylim=c(0,length(cns)),ylab='',xlab='year',main=main,yaxt='n')
+		par(mar=c(2.2,1.2,0.5,0.6))
+		plot(NULL,xlim=xlim,ylim=c(0,length(cns)),ylab='ylab-test',xlab='year',main=main,yaxt='n')
+		mtext('number of donations (axis split by blood establishment)',side=2,line=0.2)
 	}
 	for (cn in cns) {
 		if (mode=='single') {
@@ -784,6 +785,9 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 		lines(df3.lo$year,i+multiplier*(df3.lo[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
 		lines(df3.hi$year,i+multiplier*(df3.hi[[cn]]-y0),type='l',lwd=1,lty='dotted',col=colfun(cn)) 
 		points(df.ad$year,i+multiplier*(df.ad[[cn]]-y0),type='p',col=colfun(cn))
+
+		# Maybe split the legend into parts so as not to cover part of the data
+		text(x=xlim[1]+3,y=i+1,labels=paste(cn.names[[cn]],''),adj=c(0.1,1.25))
 	}
 
 	# single-mode: all curves in a single plotting are/same scale
@@ -793,8 +797,8 @@ plotEstimatesVsActual = function(et,estimates,spec,filename=NULL,resolution=150,
 			paste0(cn.names[[cn]],if (cn %in% names(multipliers)) paste0(' (times ',multipliers[[cn]],')') else '') }))
 	} else {
 		sapply(1:length(cns),FUN=function(x) abline(h=x,lwd=1,lty='dotted',col='black'))
-		legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
-			paste0(cn.names[[cn]]) }),bty='s',bg='white')
+		# legend('topleft',fill=unlist(sapply(grps$country,FUN=colfun)),legend=sapply(sort(names(spec$colours)),FUN=function(cn) {
+		# 	paste0(cn.names[[cn]]) }),bty='s',bg='white')
 	}
 
 	if (!is.null(filename))
