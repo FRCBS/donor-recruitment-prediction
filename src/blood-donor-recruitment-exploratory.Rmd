@@ -3,8 +3,10 @@ title: "Blood donor recruitment prediction"
 author: "Timo Asikainen & Mikko Arvas"
 date: "`r Sys.time()`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
-    toc: true
+    toc: yes
     theme: united
 ---
 
@@ -348,11 +350,13 @@ wrap_plots(pmo + pfo ) + plot_layout(guides = "collect")
 
 ## Probability of next donation
 
+### Whole data
+
 ```{r}
 p <- ggplot(activity.stats.sex)
 p <- p + geom_ribbon(aes(x = ord, ymin = ciplower,ymax=cipupper,fill=country), alpha = 0.5)
 p <- p + facet_grid(.~Sex)
-p <- p + xlab("Number of consecutive donation event") + ylab("Probability of next donation")
+p <- p + xlab("Number of consecutive donation event after 1st donation") + ylab("Probability of next donation")
 p
 ```
 
@@ -361,7 +365,7 @@ p
 p <- ggplot(activity.stats.sex)
 p <- p + geom_ribbon(aes(x = ord, ymin = ciplower,ymax=cipupper,fill=country), alpha = 0.5)
 p <- p + facet_grid(.~Sex)
-p <- p + xlab("Number of consecutive donation event") + ylab("Probability of next donation")
+p <- p + xlab("Number of consecutive donation event after 1st donation") + ylab("Probability of next donation")
 p <- p + scale_x_log10(limits=c(1,40)) # # how to take into account variable length of data by country?
 p <- p + scale_y_continuous(limits=c(0.3,1))
 p <- p + guides(
@@ -370,8 +374,23 @@ p <- p + guides(
 p
 ```
 
+### Filtered comparable view
+
+```{r}
+p <- p + xlim(0,10) + ylim(0.7,1)
+p
+
+```
+
+
+```{r}
+ggsave(units = "cm",filename = file.path(param$wd,'/results/p_next_don_vs_don_no.png') ,width = 20,height = 10)
+```
+
 
 ## Delay to next donation
+
+### Whole data
 
 ```{r}
 p <- ggplot(activity.stats.sex)
@@ -379,9 +398,11 @@ p <- p + geom_ribbon(aes(x = ord, ymin = cidelower,ymax=cideupper,fill=country))
 p <- p + facet_grid(.~Sex)
 p <- p + scale_y_log10()
 p <- p + scale_x_continuous(limits = c(0,75))
-p <- p + xlab("Number of consecutive donation event") +  ylab("Delay in days to next donation")
+p <- p + xlab("Number of consecutive donation event after 1st donation") +  ylab("Delay in days to next donation")
 p
 ```
+
+### Filtered comparable view
 
 
 ```{r}
@@ -390,9 +411,15 @@ p <- p + geom_ribbon(aes(x = ord, ymin = cidelower,ymax=cideupper,fill=country))
 p <- p + facet_grid(.~Sex)
 p <- p + scale_y_log10()
 p <- p + xlim(0,40)  # how to take into account variable length of data by country?
-p <- p + xlab("Number of consecutive donation event") +  ylab("Delay in days to next donation")
+p <- p + ylim(100,500)
+p <- p + xlab("Number of consecutive donation event after 1st donation") +  ylab("Delay in days to next donation")
 p <- p + guides(
   color = guide_legend(title = "Country")
   )
 p
 ```
+
+```{r}
+ggsave(units = "cm",filename = file.path(param$wd,'/results/don_int_vs_don_no.png') ,width = 20,height = 10)
+```
+
